@@ -551,14 +551,19 @@ export async function clockIn(state) {
       throw new Error('Anda sudah clock in hari ini');
     }
 
-    // Get user's basic salary from profiles
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('basic_salary')
-      .eq('id', state.user.id)
-      .maybeSingle();
+    // Get user's basic salary from profiles (optional - may not exist yet)
+    let basicSalary = 0;
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('basic_salary')
+        .eq('id', state.user.id)
+        .maybeSingle();
+      basicSalary = profile?.basic_salary || 0;
+    } catch (e) {
+      console.log('basic_salary column may not exist yet, using 0');
+    }
 
-    const basicSalary = profile?.basic_salary || 0;
     const hourlyRate = basicSalary / 8;
 
     // Insert attendance baru
