@@ -32,6 +32,21 @@ export function AttendancePage(state) {
     todayLogs = todayLogs.filter(l => myProjectIds.includes(l.project_id));
   }
 
+  // Filter non-karyawan attendance based on role
+  // Admin: can see kepala_gudang, kepala_proyek, kepala_lapangan
+  // Owner: can see admin
+  // Superadmin: can see all
+  if (role === 'admin') {
+    const adminIds = employees.filter(e => e.role === 'admin').map(e => e.id);
+    todayLogs = todayLogs.filter(l => !adminIds.includes(l.employee_id)); // Hide admin from admin
+  } else if (role === 'owner') {
+    const otherNonKaryawanIds = employees.filter(e => ['kepala_gudang', 'kepala_proyek', 'kepala_lapangan'].includes(e.role)).map(e => e.id);
+    // Owner can see admin, but hide kepala_gudang/kepala_proyek/kepala_lapangan from owner's view
+    // Actually, owner should see admin only, not the others
+    const adminIds = employees.filter(e => e.role === 'admin').map(e => e.id);
+    todayLogs = todayLogs.filter(l => adminIds.includes(l.employee_id) || !['admin', 'kepala_gudang', 'kepala_proyek', 'kepala_lapangan'].includes(employees.find(e => e.id === l.employee_id)?.role));
+  }
+
   // ── Info banner ─────────────────────────────────────────────────────────
   function infoBanner() {
     let msg = '';
@@ -62,6 +77,10 @@ export function AttendancePage(state) {
 
     // Deteksi "Pindah Tugas" dari notes
     const isPindah = l.notes?.startsWith('Pindah Tugas');
+    // Deteksi non-karyawan (Office attendance)
+    const isOfficeStaff = l.notes?.includes('Office attendance');
+    const empRole = emp?.role || 'karyawan';
+    const isNonKaryawan = ['admin', 'kepala_gudang', 'kepala_proyek', 'kepala_lapangan'].includes(empRole);
 
     // Status badge
     let statusBadge = '';
@@ -76,13 +95,28 @@ export function AttendancePage(state) {
     }
 
     // Aksi verifikasi
+    // Admin dapat verifikasi kepala_gudang, kepala_proyek, kepala_lapangan
+    // Owner dapat verifikasi admin
+    // Superadmin dapat verifikasi semua
     const canVerifyThis = (isVerifyAll) || (isVerifyOwn && myProjectIds.includes(l.project_id));
+    let canVerifyNonKaryawan = false;
+
+    if (role === 'admin' && ['kepala_gudang', 'kepala_proyek', 'kepala_lapangan'].includes(empRole)) {
+      canVerifyNonKaryawan = true;
+    } else if (role === 'owner' && empRole === 'admin') {
+      canVerifyNonKaryawan = true;
+    } else if (role === 'superadmin') {
+      canVerifyNonKaryawan = true;
+    }
+
+    const finalCanVerify = canVerifyThis || (isNonKaryawan && canVerifyNonKaryawan);
     let actions = '';
 
-    if (canVerifyThis && isDraft) {
+    if (finalCanVerify && isDraft) {
       actions = `
         <div style="display:flex;flex-direction:column;gap:6px;min-width:200px;">
           ${isPindah ? `<div class="text-xs text-warning mb-4"><i class="fas fa-info-circle"></i> ${esc(l.notes)}</div>` : ''}
+          ${isOfficeStaff ? `<div class="text-xs text-primary mb-4"><i class="fas fa-building"></i> Office staff</div>` : ''}
           <input type="text" class="form-input" id="wi-${l.id}"
             placeholder="Pekerjaan hari ini..."
             value="${esc(l.work_items || '')}"
@@ -98,7 +132,7 @@ export function AttendancePage(state) {
             </button>
           </div>
         </div>`;
-    } else if (canVerifyThis && isVerified) {
+    } else if (finalCanVerify && isVerified) {
       actions = `
         <div style="display:flex;flex-direction:column;gap:4px;min-width:180px;">
           <div class="text-xs text-success mb-4">
@@ -115,6 +149,15 @@ export function AttendancePage(state) {
             </button>
           </div>
         </div>`;
+    } else if (isNonKaryawan && !canVerifyNonKaryawan) {
+      // Non-karyawan tapi tidak punya izin verifikasi
+      if (empRole === 'admin' && role === 'admin') {
+        actions = '<span class="text-xs text-warning">Owner only</span>';
+      } else if (['kepala_gudang', 'kepala_proyek', 'kepala_lapangan'].includes(empRole) && role === 'owner') {
+        actions = '<span class="text-xs text-warning">Admin only</span>';
+      } else {
+        actions = '<span class="text-xs text-muted">—</span>';
+      }
     } else if (!canVerifyThis && !isAdmin) {
       actions = '<span class="text-xs text-muted">—</span>';
     }
@@ -177,8 +220,37 @@ export function AttendancePage(state) {
     : isReadOnly                 ? 'Daftar Kehadiran Hari Ini'
     : 'Absensi';
 
+  // Self-attendance for non-karyawan roles
+  const isNonKaryawan = ['admin', 'kepala_gudang', 'kepala_proyek', 'kepala_lapangan'].includes(role);
+  const canSelfAttend = isNonKaryawan || role === 'karyawan';
+
+  function selfAttendanceSection() {
+    if (!canSelfAttend) return '';
+
+    return `
+      <div class="card mb-16" style="background:rgba(25,210,193,0.08);border-left:4px solid var(--primary);padding:16px;">
+        <div class="flex gap-16 align-center" style="flex-wrap:wrap;gap:12px;">
+          <div>
+            <div class="fw-bold mb-4"><i class="fas fa-user-clock text-primary"></i> Absensi Diri Sendiri</div>
+            <div class="text-xs text-secondary">Clock in/out untuk ${esc(user.full_name)}</div>
+          </div>
+          <div class="flex gap-8">
+            <button class="btn btn-success" id="btn-clockin" onclick="window.__app.clockIn()">
+              <i class="fas fa-sign-in-alt"></i> Clock In
+            </button>
+            <button class="btn btn-danger" id="btn-clockout" onclick="window.__app.clockOut()">
+              <i class="fas fa-sign-out-alt"></i> Clock Out
+            </button>
+          </div>
+        </div>
+        <div id="self-att-status" class="mt-12 text-xs"></div>
+      </div>
+    `;
+  }
+
   return `
     <div class="fade-in">
+      ${selfAttendanceSection()}
       ${!isAdmin ? infoBanner() : ''}
 
       ${isAdmin ? `
@@ -455,6 +527,112 @@ export async function openEditAttendance(id, state) {
   // Init kalkulasi
   window.__att_editCalc();
   window.__att_editOTCalc();
+}
+
+/** Clock in untuk self-attendance */
+export async function clockIn(state) {
+  const btn = document.getElementById('btn-clockin');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Clock In...'; }
+
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date().toTimeString().slice(0, 8);
+
+    // Cek apakah sudah ada attendance hari ini
+    const { data: existing } = await supabase
+      .from('attendance_logs')
+      .select('*')
+      .eq('employee_id', state.user.id)
+      .gte('check_in', today + ' 00:00:00')
+      .lt('check_in', (new Date(Date.now() + 86400000)).toISOString().slice(0, 10) + ' 00:00:00')
+      .single();
+
+    if (existing) {
+      throw new Error('Anda sudah clock in hari ini');
+    }
+
+    // Get user's basic salary from profiles
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('basic_salary')
+      .eq('id', state.user.id)
+      .single();
+
+    const basicSalary = profile?.basic_salary || 0;
+    const hourlyRate = basicSalary / 8;
+
+    // Insert attendance baru
+    const { error } = await supabase.from('attendance_logs').insert({
+      employee_id: state.user.id,
+      project_id: null, // Non-karyawan tidak punya project spesifik
+      check_in: today + ' ' + now,
+      check_out: null,
+      status: 'verified',
+      hourly_rate: hourlyRate,
+      basic_salary: basicSalary,
+      notes: 'Self-attendance',
+    });
+
+    if (error) throw error;
+
+    const statusDiv = document.getElementById('self-att-status');
+    if (statusDiv) {
+      statusDiv.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> Clock in berhasil jam ${now.slice(0,5)}</span>`;
+    }
+
+    showToast('Clock in berhasil!', 'success');
+  } catch (err) {
+    showToast('Gagal: ' + err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Clock In'; }
+  }
+}
+
+/** Clock out untuk self-attendance */
+export async function clockOut(state) {
+  const btn = document.getElementById('btn-clockout');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Clock Out...'; }
+
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date().toTimeString().slice(0, 8);
+
+    // Cek attendance hari ini
+    const { data: existing, error: fetchErr } = await supabase
+      .from('attendance_logs')
+      .select('*')
+      .eq('employee_id', state.user.id)
+      .gte('check_in', today + ' 00:00:00')
+      .lt('check_in', (new Date(Date.now() + 86400000)).toISOString().slice(0, 10) + ' 00:00:00')
+      .single();
+
+    if (fetchErr || !existing) {
+      throw new Error('Anda belum clock in hari ini');
+    }
+
+    if (existing.check_out) {
+      throw new Error('Anda sudah clock out hari ini');
+    }
+
+    // Update check_out
+    const { error } = await supabase
+      .from('attendance_logs')
+      .update({ check_out: today + ' ' + now })
+      .eq('id', existing.id);
+
+    if (error) throw error;
+
+    const statusDiv = document.getElementById('self-att-status');
+    if (statusDiv) {
+      statusDiv.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> Clock out berhasil jam ${now.slice(0,5)}</span>`;
+    }
+
+    showToast('Clock out berhasil!', 'success');
+  } catch (err) {
+    showToast('Gagal: ' + err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Clock Out'; }
+  }
 }
 
 /** Simpan edit absensi */
