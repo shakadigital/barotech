@@ -345,7 +345,7 @@ export async function verifyAttendance(id, result, refreshFn) {
       .eq('id', id);
     if (error) throw error;
     showToast(result === 'verified' ? 'Hadir ✓' : 'Tidak Hadir ✓', 'success');
-    await refreshFn();
+    await refreshFn?.();
   } catch (err) {
     showToast('Gagal: ' + err.message, 'error');
   }

@@ -10,8 +10,10 @@ export function DashboardPage(state) {
   const { user, employees, projects, attendanceLogs, dbConnected, dashboardView } = state;
   const todayStr = new Date().toISOString().slice(0, 10);
   const todayLogs = attendanceLogs.filter(l => l.created_at?.startsWith(todayStr));
-  const hadirCount = todayLogs.filter(l => l.status === 'verified').length;
-  const absenCount = todayLogs.filter(l => l.status === 'absent').length;
+  const hadirLogs = todayLogs.filter(l => l.status === 'verified');
+  const absenLogs = todayLogs.filter(l => l.status === 'absent');
+  const hadirCount = hadirLogs.length;
+  const absenCount = absenLogs.length;
 
   const statsHtml = `
     <div class="stats-grid">
@@ -25,17 +27,46 @@ export function DashboardPage(state) {
         <div class="stat-value">${projects.length}</div>
         <div class="stat-label">Proyek Aktif</div>
       </div>
-      <div class="stat-card" id="stat-hadir">
+      <div class="stat-card" onclick="window.__app.switchDashboardView('hadir')" id="stat-hadir">
         <div class="stat-icon green"><i class="fas fa-user-check"></i></div>
         <div class="stat-value">${hadirCount}</div>
         <div class="stat-label">Hadir Hari Ini</div>
       </div>
-      <div class="stat-card" id="stat-absen">
+      <div class="stat-card" onclick="window.__app.switchDashboardView('absen')" id="stat-absen">
         <div class="stat-icon amber"><i class="fas fa-user-xmark"></i></div>
         <div class="stat-value">${absenCount}</div>
         <div class="stat-label">Tidak Hadir</div>
       </div>
     </div>`;
+
+  function attendanceTable(logs, title, emptyText) {
+    return `
+      <div class="card slide-up">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-clipboard-list"></i> ${title}</div>
+          <button class="btn btn-ghost btn-sm" onclick="window.__app.switchDashboardView(null)"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead><tr><th>Nama</th><th>Role</th><th>Proyek</th><th>Masuk</th><th>Keluar</th></tr></thead>
+            <tbody>
+              ${logs.length === 0 ? `<tr><td colspan="5" class="text-center text-muted">${emptyText}</td></tr>` :
+                logs.map(l => {
+                  const emp = employees.find(e => e.id === l.employee_id);
+                  const prj = projects.find(p => p.id === l.project_id);
+                  return `<tr>
+                    <td class="fw-bold">${esc(emp?.full_name || '-')}</td>
+                    <td><span class="badge badge-role">${esc(emp?.role || '-')}</span></td>
+                    <td>${esc(prj?.name || 'Absensi Mandiri')}</td>
+                    <td>${l.check_in ? l.check_in.slice(0,5) : '-'}</td>
+                    <td>${l.check_out ? l.check_out.slice(0,5) : '-'}</td>
+                  </tr>`;
+                }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }
 
   let detailHtml = '';
   if (dashboardView === 'employees') {
@@ -85,6 +116,10 @@ export function DashboardPage(state) {
           </table>
         </div>
       </div>`;
+  } else if (dashboardView === 'hadir') {
+    detailHtml = attendanceTable(hadirLogs, 'Daftar Hadir Hari Ini', 'Belum ada yang hadir hari ini');
+  } else if (dashboardView === 'absen') {
+    detailHtml = attendanceTable(absenLogs, 'Daftar Tidak Hadir Hari Ini', 'Belum ada yang tidak hadir hari ini');
   }
 
   // Aktivitas hari ini
