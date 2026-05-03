@@ -107,11 +107,7 @@ export async function handleUserSubmit(e, refreshFn) {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Membuat...';
   try {
-    if (!supabaseAdmin) {
-      throw new Error('Admin client tidak tersedia. Pastikan VITE_SUPABASE_SERVICE_KEY diatur di environment.');
-    }
-
-    const email           = document.getElementById('usr-username').value.trim() + '@barotech.com';
+    const username        = document.getElementById('usr-username').value.trim();
     const password        = document.getElementById('usr-password').value;
     const full_name       = document.getElementById('usr-name').value.trim();
     const role            = document.getElementById('usr-role').value;
@@ -120,22 +116,20 @@ export async function handleUserSubmit(e, refreshFn) {
       ? (document.getElementById('usr-jabatan').value || 'Karyawan')
       : null;
 
-    // Create auth user via Edge Function (server-side, secure)
-    const functionUrl = `${supabase.supabaseUrl}/functions/v1/create-user`;
-    const { data: { session } } = await supabase.auth.getSession();
-    const res = await fetch(functionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session?.access_token ?? ''}`,
-        'apikey': supabase.supabaseKey ?? '',
-      },
-      body: JSON.stringify({ email, password, full_name, role, whatsapp_number, jabatan }),
+    // Insert directly into profiles table (custom auth)
+    const { error } = await supabase.from('profiles').insert({
+      id: crypto.randomUUID(),
+      username,
+      password_hash: password,
+      email: username + '@barotech.com',
+      full_name,
+      role,
+      whatsapp_number,
+      jabatan,
+      created_at: new Date().toISOString(),
     });
-    const result = await res.json();
-    console.log('Edge function response:', result);
-    if (!res.ok) throw new Error(result?.error || `HTTP ${res.status}`);
-    if (!result?.success) throw new Error(result?.error || 'Gagal membuat user');
+
+    if (error) throw error;
 
     showToast(`User ${full_name} berhasil dibuat!`, 'success');
     document.getElementById('user-form').reset();
@@ -155,8 +149,6 @@ export async function handleUserSubmit(e, refreshFn) {
 export async function deleteUser(id, refreshFn) {
   if (!confirm('Yakin hapus user ini?')) return;
   try {
-    const { error: authErr } = await supabaseAdmin.auth.admin.deleteUser(id);
-    if (authErr) throw authErr;
     const { error } = await supabase.from('profiles').delete().eq('id', id);
     if (error) throw error;
     showToast('User dihapus', 'success');

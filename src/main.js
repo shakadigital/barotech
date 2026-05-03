@@ -91,23 +91,24 @@ async function handleLogin(e) {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Masuk...';
 
-  const email = document.getElementById('login-email').value.trim();
+  const username = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
 
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', data.user.id)
+      .eq('username', username)
+      .eq('password_hash', password)
       .single();
 
+    if (error) throw error;
+    if (!profile) throw new Error('Username atau password salah');
+
     state.user = {
-      id: data.user.id,
-      name: profile?.full_name || email,
-      role: profile?.role || 'karyawan',
+      id: profile.id,
+      name: profile.full_name || username,
+      role: profile.role || 'karyawan',
     };
     state.isLoggedIn = true;
     state.currentPage = 'home';
@@ -225,11 +226,11 @@ function render() {
         <div class="login-card">
           <img src="/splash.png" alt="Logo" class="login-logo" />
           <h1 class="login-title">Absensi Barotech</h1>
-          <p class="login-subtitle">Masuk dengan akun @barotech.com</p>
+          <p class="login-subtitle">Masuk dengan username</p>
           <form id="login-form">
             <div class="form-group">
-              <label class="form-label">Email</label>
-              <input type="email" class="form-input" id="login-email" placeholder="user@barotech.com" required />
+              <label class="form-label">Username</label>
+              <input type="text" class="form-input" id="login-email" placeholder="username" required />
             </div>
             <div class="form-group">
               <label class="form-label">Password</label>
