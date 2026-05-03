@@ -188,7 +188,6 @@ function render() {
   if (state.showSplash) {
     app.innerHTML = `
       <div class="splash-screen">
-        <img src="/splash.png" alt="Barotech" class="splash-logo" />
         <div class="splash-title">BAROTECH</div>
         <div class="splash-sub">Sistem Manajemen Absensi & Proyek</div>
         <div class="splash-dots"><span></span><span></span><span></span></div>

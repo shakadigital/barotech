@@ -103,10 +103,8 @@ img { max-width: 100%; display: block; }
   position: fixed; inset: 0; z-index: 9999;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   background:
-    radial-gradient(ellipse 70% 60% at 10% 15%,  rgba(42, 245, 152, 0.18) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 70% at 90% 80%,  rgba(8, 174, 234, 0.18)  0%, transparent 60%),
-    radial-gradient(ellipse 50% 50% at 50% 50%,  rgba(25, 210, 193, 0.08) 0%, transparent 70%),
-    linear-gradient(135deg, var(--bg-sidebar) 0%, var(--bg-card) 50%, var(--bg-sidebar) 100%);
+    linear-gradient(rgba(15,23,42,0.85), rgba(15,23,42,0.92)),
+    url('/splash.png') center/cover no-repeat;
 }
 .splash-logo {
   width: 140px; height: 140px;
