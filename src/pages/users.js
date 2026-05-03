@@ -120,29 +120,22 @@ export async function handleUserSubmit(e, refreshFn) {
       ? (document.getElementById('usr-jabatan').value || 'Karyawan')
       : null;
 
-    // Cek email sudah terdaftar
-    const { data: existing } = await supabaseAdmin.auth.admin.listUsers({
-      filter: `email.eq."${email}"`,
+    // Create auth user via Edge Function (server-side, secure)
+    const functionUrl = `${supabase.supabaseUrl}/functions/v1/create-user`;
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token ?? ''}`,
+        'apikey': supabase.supabaseKey ?? '',
+      },
+      body: JSON.stringify({ email, password, full_name, role, whatsapp_number, jabatan }),
     });
-    if (existing?.users?.length > 0) {
-      throw new Error(`Email ${email} sudah terdaftar.`);
-    }
-
-    // Create auth user via admin client
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email, password, email_confirm: true,
-      user_metadata: { full_name, role },
-    });
-    console.log('createUser response:', authData, authError);
-    if (authError) throw authError;
-    if (!authData?.user?.id) throw new Error('Gagal membuat user: tidak ada ID yang dikembalikan.');
-
-    // Update profile dengan jabatan & whatsapp (trigger sudah buat row dasar)
-    const { error: profileError } = await supabase.from('profiles').update({
-      full_name, role, whatsapp_number, jabatan,
-    }).eq('id', authData.user.id);
-    console.log('profile update response:', profileError);
-    if (profileError) throw profileError;
+    const result = await res.json();
+    console.log('Edge function response:', result);
+    if (!res.ok) throw new Error(result?.error || `HTTP ${res.status}`);
+    if (!result?.success) throw new Error(result?.error || 'Gagal membuat user');
 
     showToast(`User ${full_name} berhasil dibuat!`, 'success');
     document.getElementById('user-form').reset();
