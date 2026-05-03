@@ -167,7 +167,7 @@ export async function handleLaporanSubmit(e, state, refreshFn) {
       .from('project_updates')
       .insert({ project_id: projectId, reported_by: state.user.id, percentage, description: descWithGeo })
       .select()
-      .single();
+      .maybeSingle();
     if (updateErr) throw updateErr;
 
     // Upload semua foto dengan kompresi

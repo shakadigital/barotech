@@ -427,7 +427,7 @@ async function init() {
         .from('profiles')
         .select('*')
         .eq('id', session.user.id)
-        .single();
+        .maybeSingle();
 
       state.user = {
         id: session.user.id,

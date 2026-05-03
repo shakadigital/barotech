@@ -391,7 +391,7 @@ export async function openEditAttendance(id, state) {
     .from('attendance_logs')
     .select('*')
     .eq('id', id)
-    .single();
+    .maybeSingle();
   if (error) { showToast('Gagal memuat data', 'error'); return; }
 
   const emp = state.employees.find(e => e.id === l.employee_id);
@@ -545,7 +545,7 @@ export async function clockIn(state) {
       .eq('employee_id', state.user.id)
       .gte('check_in', today + ' 00:00:00')
       .lt('check_in', (new Date(Date.now() + 86400000)).toISOString().slice(0, 10) + ' 00:00:00')
-      .single();
+      .maybeSingle();
 
     if (existing) {
       throw new Error('Anda sudah clock in hari ini');
@@ -556,7 +556,7 @@ export async function clockIn(state) {
       .from('profiles')
       .select('basic_salary')
       .eq('id', state.user.id)
-      .single();
+      .maybeSingle();
 
     const basicSalary = profile?.basic_salary || 0;
     const hourlyRate = basicSalary / 8;
@@ -604,7 +604,7 @@ export async function clockOut(state) {
       .eq('employee_id', state.user.id)
       .gte('check_in', today + ' 00:00:00')
       .lt('check_in', (new Date(Date.now() + 86400000)).toISOString().slice(0, 10) + ' 00:00:00')
-      .single();
+      .maybeSingle();
 
     if (fetchErr || !existing) {
       throw new Error('Anda belum clock in hari ini');

@@ -269,7 +269,7 @@ if (typeof window !== 'undefined') {
       .select('*, projects(name)')
       .eq('employee_id', empId)
       .eq('status', 'active')
-      .single();
+      .maybeSingle();
 
     if (data) {
       detailEl.innerHTML = `Proyek: ${data.projects?.name || '-'} | Mulai: ${fmtDate(data.start_date)} | Gaji: ${fmtIdr(data.basic_salary)}`;
