@@ -18,9 +18,11 @@ export function OvertimePage(state) {
       ${isAdmin ? `
       <!-- Form Input Lembur -->
       <div class="card mb-24">
-        <div class="card-header">
+        <div class="card-header" style="justify-content:space-between;cursor:pointer;" onclick="const p=document.getElementById('overtime-form-body'),i=document.getElementById('overtime-form-chevron');p.style.display=p.style.display==='none'?'block':'none';i.style.transform=p.style.display==='none'?'rotate(0deg)':'rotate(180deg)';">
           <div class="card-title"><i class="fas fa-clock"></i> Input Lembur</div>
+          <i id="overtime-form-chevron" class="fas fa-chevron-down" style="transition:transform 0.2s ease;"></i>
         </div>
+        <div id="overtime-form-body" style="display:none;">
         <form id="overtime-form" onsubmit="window.__app.handleOvertimeSubmit(event)">
 
           <div class="form-row mb-16">
@@ -106,6 +108,7 @@ export function OvertimePage(state) {
             <i class="fas fa-save"></i> Simpan Data Lembur
           </button>
         </form>
+        </div>
       </div>` : `
       <div class="card mb-16" style="background:var(--surface-2,#f8f9fa);border-left:4px solid var(--primary,#19D2C1);padding:12px 16px;">
         <div class="flex gap-8 align-center">

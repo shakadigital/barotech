@@ -22,9 +22,11 @@ export function BonPage(state) {
 
       <!-- Form Input Transaksi Bon -->
       <div class="card mb-24">
-        <div class="card-header">
+        <div class="card-header" style="justify-content:space-between;cursor:pointer;" onclick="const p=document.getElementById('bon-form-body'),i=document.getElementById('bon-form-chevron');p.style.display=p.style.display==='none'?'block':'none';i.style.transform=p.style.display==='none'?'rotate(0deg)':'rotate(180deg)';">
           <div class="card-title"><i class="fas fa-hand-holding-usd"></i> Input Transaksi Bon</div>
+          <i id="bon-form-chevron" class="fas fa-chevron-down" style="transition:transform 0.2s ease;"></i>
         </div>
+        <div id="bon-form-body" style="display:none;">
         <form id="bon-form" onsubmit="window.__app.handleBonSubmit(event)">
           <div class="form-row mb-16">
             <div class="form-group">
@@ -68,6 +70,7 @@ export function BonPage(state) {
             <i class="fas fa-save"></i> Simpan Transaksi
           </button>
         </form>
+        </div>
       </div>
 
       <!-- Daftar Saldo Bon Karyawan -->

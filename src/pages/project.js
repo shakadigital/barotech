@@ -24,9 +24,11 @@ export function ProjectPage(state) {
       ${isManager ? `
       <!-- Form Buat Proyek -->
       <div class="card mb-24">
-        <div class="card-header">
+        <div class="card-header" style="justify-content:space-between;cursor:pointer;" onclick="const p=document.getElementById('project-form-body'),i=document.getElementById('project-form-chevron');p.style.display=p.style.display==='none'?'block':'none';i.style.transform=p.style.display==='none'?'rotate(0deg)':'rotate(180deg)';">
           <div class="card-title"><i class="fas fa-plus-circle"></i> Buat Proyek Baru</div>
+          <i id="project-form-chevron" class="fas fa-chevron-down" style="transition:transform 0.2s ease;"></i>
         </div>
+        <div id="project-form-body" style="display:none;">
         <form id="project-form" onsubmit="window.__app.handleProjectSubmit(event)">
           <div class="form-row mb-16">
             <div class="form-group">
@@ -58,6 +60,7 @@ export function ProjectPage(state) {
             <i class="fas fa-save"></i> Simpan Proyek
           </button>
         </form>
+        </div>
       </div>` : ''}
 
       <!-- Daftar Proyek -->

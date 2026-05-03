@@ -32,9 +32,11 @@ export function MaterialPage(state) {
       ${canInput ? `
       <!-- Form Order Material -->
       <div class="card mb-24">
-        <div class="card-header">
+        <div class="card-header" style="justify-content:space-between;cursor:pointer;" onclick="const p=document.getElementById('material-form-body'),i=document.getElementById('material-form-chevron');p.style.display=p.style.display==='none'?'block':'none';i.style.transform=p.style.display==='none'?'rotate(0deg)':'rotate(180deg)';">
           <div class="card-title"><i class="fas fa-box"></i> Input Order Material</div>
+          <i id="material-form-chevron" class="fas fa-chevron-down" style="transition:transform 0.2s ease;"></i>
         </div>
+        <div id="material-form-body" style="display:none;">
         <form id="material-form" onsubmit="window.__app.handleMaterialSubmit(event)">
           <div class="form-row mb-16">
             <div class="form-group">
@@ -85,6 +87,7 @@ export function MaterialPage(state) {
             <i class="fas fa-save"></i> Simpan Order
           </button>
         </form>
+        </div>
       </div>` : ''}
 
       <!-- Daftar Order Material -->

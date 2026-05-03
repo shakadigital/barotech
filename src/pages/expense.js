@@ -29,9 +29,11 @@ export function ExpensePage(state) {
     <div class="fade-in">
       <!-- Form Input Pengeluaran -->
       <div class="card mb-24">
-        <div class="card-header">
+        <div class="card-header" style="justify-content:space-between;cursor:pointer;" onclick="const p=document.getElementById('expense-form-body'),i=document.getElementById('expense-form-chevron');p.style.display=p.style.display==='none'?'block':'none';i.style.transform=p.style.display==='none'?'rotate(0deg)':'rotate(180deg)';">
           <div class="card-title"><i class="fas fa-receipt"></i> Input Pengeluaran Proyek</div>
+          <i id="expense-form-chevron" class="fas fa-chevron-down" style="transition:transform 0.2s ease;"></i>
         </div>
+        <div id="expense-form-body" style="display:none;">
         <form id="expense-form" onsubmit="window.__app.handleExpenseSubmit(event)">
           <div class="form-row mb-16">
             <div class="form-group">
@@ -71,6 +73,7 @@ export function ExpensePage(state) {
             <i class="fas fa-save"></i> Simpan Pengeluaran
           </button>
         </form>
+        </div>
       </div>
 
       <!-- Daftar Pengeluaran per Proyek -->

@@ -14,9 +14,11 @@ export function LaporanPage(state) {
   return `
     <div class="fade-in">
       <div class="card mb-24">
-        <div class="card-header">
+        <div class="card-header" style="justify-content:space-between;cursor:pointer;" onclick="const p=document.getElementById('laporan-form-body'),i=document.getElementById('laporan-form-chevron');p.style.display=p.style.display==='none'?'block':'none';i.style.transform=p.style.display==='none'?'rotate(0deg)':'rotate(180deg)';">
           <div class="card-title"><i class="fas fa-camera"></i> Laporan Progress</div>
+          <i id="laporan-form-chevron" class="fas fa-chevron-down" style="transition:transform 0.2s ease;"></i>
         </div>
+        <div id="laporan-form-body" style="display:none;">
         <form id="laporan-form" onsubmit="window.__app.handleLaporanSubmit(event)">
 
           <div class="form-group mb-16">
@@ -59,6 +61,7 @@ export function LaporanPage(state) {
             <i class="fas fa-paper-plane"></i> Kirim Laporan
           </button>
         </form>
+        </div>
       </div>
 
       <!-- Riwayat Laporan per Proyek -->
