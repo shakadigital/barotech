@@ -236,10 +236,10 @@ export function AttendancePage(state) {
           </div>
           <div class="flex gap-8">
             <button class="btn btn-success" id="btn-clockin" onclick="window.__app.clockIn()">
-              <i class="fas fa-sign-in-alt"></i> Absen Masuk
+              <i class="fas fa-sign-in-alt"></i> <span class="text-xs">Masuk</span>
             </button>
             <button class="btn btn-danger" id="btn-clockout" onclick="window.__app.clockOut()">
-              <i class="fas fa-sign-out-alt"></i> Absen Pulang
+              <i class="fas fa-sign-out-alt"></i> <span class="text-xs">Pulang</span>
             </button>
           </div>
         </div>
@@ -532,7 +532,7 @@ export async function openEditAttendance(id, state) {
 /** Absen masuk untuk absensi mandiri */
 export async function clockIn(state, refreshFn) {
   const btn = document.getElementById('btn-clockin');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Absen Masuk...'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> <span class="text-xs">Masuk...</span>'; }
 
   try {
     const today = new Date().toISOString().slice(0, 10);
@@ -590,14 +590,14 @@ export async function clockIn(state, refreshFn) {
   } catch (err) {
     showToast('Gagal: ' + err.message, 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Absen Masuk'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> <span class="text-xs">Masuk</span>'; }
   }
 }
 
 /** Absen pulang untuk absensi mandiri */
 export async function clockOut(state, refreshFn) {
   const btn = document.getElementById('btn-clockout');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Absen Pulang...'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> <span class="text-xs">Pulang...</span>'; }
 
   try {
     const today = new Date().toISOString().slice(0, 10);
@@ -638,7 +638,7 @@ export async function clockOut(state, refreshFn) {
   } catch (err) {
     showToast('Gagal: ' + err.message, 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Absen Pulang'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-out-alt"></i> <span class="text-xs">Pulang</span>'; }
   }
 }
 
