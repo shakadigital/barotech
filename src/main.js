@@ -224,7 +224,7 @@ function render() {
     app.innerHTML = `
       <div class="login-container">
         <div class="login-card">
-          <img src="/splash.png" alt="Logo" class="login-logo" />
+          <img src="/favicon.svg" alt="Logo" class="login-logo" />
           <h1 class="login-title">Absensi Barotech</h1>
           <p class="login-subtitle">Masuk dengan username</p>
           <form id="login-form">
