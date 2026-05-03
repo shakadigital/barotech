@@ -107,6 +107,10 @@ export async function handleUserSubmit(e, refreshFn) {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Membuat...';
   try {
+    if (!supabaseAdmin) {
+      throw new Error('Admin client tidak tersedia. Pastikan VITE_SUPABASE_SERVICE_KEY diatur di environment.');
+    }
+
     const email           = document.getElementById('usr-username').value.trim() + '@barotech.com';
     const password        = document.getElementById('usr-password').value;
     const full_name       = document.getElementById('usr-name').value.trim();
@@ -116,17 +120,28 @@ export async function handleUserSubmit(e, refreshFn) {
       ? (document.getElementById('usr-jabatan').value || 'Karyawan')
       : null;
 
+    // Cek email sudah terdaftar
+    const { data: existing } = await supabaseAdmin.auth.admin.listUsers({
+      filter: `email.eq."${email}"`,
+    });
+    if (existing?.users?.length > 0) {
+      throw new Error(`Email ${email} sudah terdaftar.`);
+    }
+
     // Create auth user via admin client
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email, password, email_confirm: true,
       user_metadata: { full_name, role },
     });
+    console.log('createUser response:', authData, authError);
     if (authError) throw authError;
+    if (!authData?.user?.id) throw new Error('Gagal membuat user: tidak ada ID yang dikembalikan.');
 
-    // Upsert profile dengan jabatan
-    const { error: profileError } = await supabase.from('profiles').upsert({
-      id: authData.user.id, email, full_name, role, whatsapp_number, jabatan,
-    });
+    // Update profile dengan jabatan & whatsapp (trigger sudah buat row dasar)
+    const { error: profileError } = await supabase.from('profiles').update({
+      full_name, role, whatsapp_number, jabatan,
+    }).eq('id', authData.user.id);
+    console.log('profile update response:', profileError);
     if (profileError) throw profileError;
 
     showToast(`User ${full_name} berhasil dibuat!`, 'success');
@@ -135,7 +150,9 @@ export async function handleUserSubmit(e, refreshFn) {
     document.getElementById('usr-jabatan-group').style.display = 'block';
     await refreshFn();
   } catch (err) {
-    showToast('Gagal: ' + err.message, 'error');
+    console.error('handleUserSubmit error:', err);
+    const msg = err?.message || err?.error_description || JSON.stringify(err);
+    showToast('Gagal: ' + msg, 'error');
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-user-plus"></i> Buat User';
