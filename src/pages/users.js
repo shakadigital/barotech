@@ -71,6 +71,7 @@ export function UsersPage(state) {
           <thead>
             <tr>
               <th>Nama</th>
+              <th>Username</th>
               <th>Email</th>
               <th>Role</th>
               <th>Jabatan</th>
@@ -81,6 +82,7 @@ export function UsersPage(state) {
           <tbody>
             ${employees.map(e => `<tr>
               <td class="fw-bold">${esc(e.full_name)}</td>
+              <td class="text-xs text-primary">@${esc(e.username||'-')}</td>
               <td class="text-xs">${esc(e.email||'-')}</td>
               <td><span class="badge badge-role">${esc(ROLE_LABELS[e.role]||e.role)}</span></td>
               <td class="text-xs text-secondary">${esc(e.jabatan||'-')}</td>

@@ -108,6 +108,7 @@ async function handleLogin(e) {
     state.user = {
       id: profile.id,
       name: profile.full_name || username,
+      username: profile.username || username,
       role: profile.role || 'karyawan',
     };
     state.isLoggedIn = true;
@@ -270,7 +271,8 @@ function render() {
             <button class="menu-toggle" id="menu-toggle"><i class="fas fa-bars"></i></button>
             <div class="header-greeting">
               <h1>Halo, ${esc(state.user.name)}! 👋</h1>
-              <p>${new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+              <p class="text-xs text-primary">@${esc(state.user.username)}</p>
+              <p class="text-xs text-secondary">${new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
             </div>
           </div>
           <div class="header-right">
