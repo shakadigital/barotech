@@ -11,9 +11,11 @@ export function UsersPage(state) {
   return `
     <div class="fade-in">
       <div class="card mb-24">
-        <div class="card-header">
+        <div class="card-header" style="justify-content:space-between;cursor:pointer;" onclick="const p=document.getElementById('user-form-body'),i=document.getElementById('user-form-chevron');p.style.display=p.style.display==='none'?'block':'none';i.style.transform=p.style.display==='none'?'rotate(0deg)':'rotate(180deg)';">
           <div class="card-title"><i class="fas fa-user-plus"></i> Tambah User Baru</div>
+          <i id="user-form-chevron" class="fas fa-chevron-down" style="transition:transform 0.2s ease;"></i>
         </div>
+        <div id="user-form-body" style="display:none;">
         <form id="user-form" onsubmit="window.__app.handleUserSubmit(event)">
           <div class="form-row mb-16">
             <div class="form-group">
@@ -56,6 +58,7 @@ export function UsersPage(state) {
             <i class="fas fa-user-plus"></i> Buat User
           </button>
         </form>
+        </div>
       </div>
 
       <div class="card">
