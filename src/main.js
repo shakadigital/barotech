@@ -100,7 +100,7 @@ async function handleLogin(e) {
       .select('*')
       .eq('username', username)
       .eq('password_hash', password)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     if (!profile) throw new Error('Username atau password salah');
