@@ -1,0 +1,323 @@
+import { supabase } from '../lib/supabase.js';
+import { fmtIdr, fmtDate, showToast, esc, getGeoLocation, fmtGeoNote } from '../lib/helpers.js';
+
+/**
+ * Halaman Input Lembur — Admin / Owner / Superadmin
+ * Kepala Teknik & Kepala Proyek bisa lihat (read-only)
+ */
+export function OvertimePage(state) {
+  const { projects, employees, user } = state;
+  const isAdmin = ['superadmin','owner','admin'].includes(user.role);
+
+  const activeProjects = projects.filter(p => p.status !== 'selesai');
+  const karyawanList   = employees.filter(e => e.role === 'karyawan');
+
+  return `
+    <div class="fade-in">
+
+      ${isAdmin ? `
+      <!-- Form Input Lembur -->
+      <div class="card mb-24">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-clock"></i> Input Lembur</div>
+        </div>
+        <form id="overtime-form" onsubmit="window.__app.handleOvertimeSubmit(event)">
+
+          <div class="form-row mb-16">
+            <div class="form-group">
+              <label class="form-label">Proyek</label>
+              <select class="form-select" id="ot-project" required>
+                <option value="">Pilih Proyek</option>
+                ${activeProjects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Karyawan</label>
+              <select class="form-select" id="ot-employee" required>
+                <option value="">Pilih Karyawan</option>
+                ${karyawanList.map(e => `<option value="${e.id}">${esc(e.full_name)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row mb-16">
+            <div class="form-group">
+              <label class="form-label">Tanggal Lembur</label>
+              <input type="date" class="form-input" id="ot-date"
+                value="${new Date().toISOString().slice(0,10)}" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Lokasi</label>
+              <input type="text" class="form-input" id="ot-location" placeholder="Lokasi lembur" />
+            </div>
+          </div>
+
+          <div class="form-row mb-16">
+            <div class="form-group">
+              <label class="form-label">Jam Mulai</label>
+              <input type="time" class="form-input" id="ot-start" value="17:00"
+                oninput="window.__ot_calcDuration()" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Jam Selesai</label>
+              <input type="time" class="form-input" id="ot-end" value="20:00"
+                oninput="window.__ot_calcDuration()" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Durasi</label>
+              <input type="text" class="form-input" id="ot-duration-display" value="3 jam" readonly
+                style="background:var(--surface-2,#f3f4f6);cursor:default;" />
+              <input type="hidden" id="ot-duration" value="3" />
+            </div>
+          </div>
+
+          <div class="form-row mb-16">
+            <div class="form-group">
+              <label class="form-label">Upah Lembur / Jam (Rp)</label>
+              <input type="number" class="form-input" id="ot-rate" value="0" min="0"
+                oninput="window.__ot_calcPay()" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Total Upah Lembur</label>
+              <input type="text" class="form-input" id="ot-pay-display" value="Rp 0" readonly
+                style="background:var(--surface-2,#f3f4f6);cursor:default;" />
+              <input type="hidden" id="ot-pay" value="0" />
+            </div>
+          </div>
+
+          <div class="form-group mb-16">
+            <label class="form-label">Deskripsi Pekerjaan</label>
+            <textarea class="form-textarea" id="ot-desc" rows="2"
+              placeholder="Pekerjaan yang dilakukan saat lembur..."></textarea>
+          </div>
+
+          <div class="form-group mb-24">
+            <label class="form-label">Foto Bukti Lembur</label>
+            <div class="file-upload" onclick="document.getElementById('ot-photo').click()">
+              <i class="fas fa-camera"></i>
+              <p>Klik untuk upload foto bukti</p>
+              <input type="file" id="ot-photo" accept="image/*" capture="environment"
+                onchange="window.__ot_previewPhoto(this)" />
+            </div>
+            <img id="ot-photo-preview" class="preview-img hidden" alt="Preview" />
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block" id="ot-submit-btn">
+            <i class="fas fa-save"></i> Simpan Data Lembur
+          </button>
+        </form>
+      </div>` : `
+      <div class="card mb-16" style="background:var(--surface-2,#f8f9fa);border-left:4px solid var(--primary,#19D2C1);padding:12px 16px;">
+        <div class="flex gap-8 align-center">
+          <i class="fas fa-info-circle text-primary"></i>
+          <span class="text-sm">Data lembur diinput oleh Admin. Anda dapat melihat riwayat lembur di bawah.</span>
+        </div>
+      </div>`}
+
+      <!-- Riwayat Lembur -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-history"></i> Riwayat Lembur</div>
+        </div>
+        <div id="overtime-list-content">
+          <div class="empty-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Memuat data...</p>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+/** Load dan render daftar lembur */
+export async function loadOvertimeList(state) {
+  const content = document.getElementById('overtime-list-content');
+  if (!content) return;
+
+  try {
+    let query = supabase
+      .from('overtime_logs')
+      .select('*')
+      .order('overtime_date', { ascending: false })
+      .limit(50);
+
+    // kepala_lapangan hanya lihat proyeknya
+    if (state.user.role === 'kepala_lapangan') {
+      const myIds = state.projects
+        .filter(p => p.lead_id === state.user.id)
+        .map(p => p.id);
+      if (myIds.length > 0) query = query.in('project_id', myIds);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      content.innerHTML = '<div class="empty-state"><i class="fas fa-clock"></i><p>Belum ada data lembur.</p></div>';
+      return;
+    }
+
+    const isFinance = ['superadmin','owner','admin'].includes(state.user.role);
+
+    content.innerHTML = `
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Karyawan</th>
+              <th>Proyek</th>
+              <th>Durasi</th>
+              ${isFinance ? '<th class="text-right">Upah</th>' : ''}
+              <th>Keterangan</th>
+              <th class="text-center">Foto</th>
+              ${isFinance ? '<th class="text-center">Aksi</th>' : ''}
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(ot => {
+              const emp = state.employees.find(e => e.id === ot.employee_id);
+              const prj = state.projects.find(p => p.id === ot.project_id);
+              return `<tr>
+                <td class="text-xs">${fmtDate(ot.overtime_date)}</td>
+                <td class="fw-bold">${esc(emp?.full_name || '-')}</td>
+                <td class="text-xs text-secondary">${esc(prj?.name || '-')}</td>
+                <td class="text-xs">
+                  <div>${ot.start_time?.slice(0,5)||'-'} – ${ot.end_time?.slice(0,5)||'-'}</div>
+                  <div class="text-secondary">${ot.duration_hours} jam</div>
+                </td>
+                ${isFinance ? `<td class="text-right text-xs fw-bold text-success">${fmtIdr(ot.overtime_pay)}</td>` : ''}
+                <td class="text-xs text-secondary">${esc(ot.work_description || '-')}</td>
+                <td class="text-center">
+                  ${ot.photo_url
+                    ? `<a href="${ot.photo_url}" target="_blank" class="btn btn-ghost btn-sm"><i class="fas fa-image"></i></a>`
+                    : '<span class="text-muted text-xs">—</span>'}
+                </td>
+                ${isFinance ? `
+                <td class="text-center">
+                  ${['superadmin','owner'].includes(state.user.role) ? `
+                    <button class="btn btn-danger btn-sm" onclick="window.__app.deleteOvertime('${ot.id}')">
+                      <i class="fas fa-trash"></i>
+                    </button>` : '—'}
+                </td>` : ''}
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (err) {
+    content.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Gagal memuat: ${esc(err.message)}</p></div>`;
+  }
+}
+
+/** Submit lembur */
+export async function handleOvertimeSubmit(e, state, refreshFn) {
+  e.preventDefault();
+  const btn = document.getElementById('ot-submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Menyimpan...';
+
+  try {
+    const startTime = document.getElementById('ot-start').value;
+    const endTime   = document.getElementById('ot-end').value;
+    const duration  = parseFloat(document.getElementById('ot-duration').value) || 0;
+    const rate      = parseFloat(document.getElementById('ot-rate').value) || 0;
+
+    // Upload foto jika ada
+    let photoUrl = null;
+    const photoInput = document.getElementById('ot-photo');
+    if (photoInput.files?.[0]) {
+      const file     = photoInput.files[0];
+      const fileName = `overtime/${Date.now()}_${file.name}`;
+      const { error: ue } = await supabase.storage.from('project-photos').upload(fileName, file);
+      if (ue) throw ue;
+      const { data: ud } = supabase.storage.from('project-photos').getPublicUrl(fileName);
+      photoUrl = ud.publicUrl;
+    }
+
+    // Ambil lokasi otomatis
+    const geo = await getGeoLocation();
+    const locInput = document.getElementById('ot-location').value.trim();
+    const descInput = document.getElementById('ot-desc').value.trim();
+
+    const { error } = await supabase.from('overtime_logs').insert({
+      project_id:       document.getElementById('ot-project').value,
+      employee_id:      document.getElementById('ot-employee').value,
+      overtime_date:    document.getElementById('ot-date').value,
+      start_time:       startTime + ':00',
+      end_time:         endTime + ':00',
+      duration_hours:   duration,
+      overtime_rate:    rate,
+      overtime_pay:     duration * rate,
+      location_name:    locInput || (geo ? `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}` : null),
+      work_description: descInput + fmtGeoNote(geo, descInput ? ' \n' : ''),
+      photo_url:        photoUrl,
+      created_by:       state.user.id,
+    });
+    if (error) throw error;
+
+    showToast('Data lembur berhasil disimpan!', 'success');
+    document.getElementById('overtime-form').reset();
+    document.getElementById('ot-date').value = new Date().toISOString().slice(0,10);
+    document.getElementById('ot-start').value = '17:00';
+    document.getElementById('ot-end').value = '20:00';
+    document.getElementById('ot-duration-display').value = '3 jam';
+    document.getElementById('ot-duration').value = '3';
+    document.getElementById('ot-pay-display').value = 'Rp 0';
+    document.getElementById('ot-pay').value = '0';
+    document.getElementById('ot-photo-preview').classList.add('hidden');
+    await refreshFn();
+    await loadOvertimeList(state);
+  } catch (err) {
+    showToast('Gagal: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save"></i> Simpan Data Lembur';
+  }
+}
+
+/** Hapus lembur — superadmin & owner */
+export async function deleteOvertime(id, state, refreshFn) {
+  if (!confirm('Hapus data lembur ini?')) return;
+  const { error } = await supabase.from('overtime_logs').delete().eq('id', id);
+  if (error) showToast(error.message, 'error');
+  else { showToast('Data lembur dihapus', 'success'); await loadOvertimeList(state); }
+}
+
+/** Kalkulasi durasi & upah otomatis */
+if (typeof window !== 'undefined') {
+  window.__ot_calcDuration = function () {
+    const start = document.getElementById('ot-start')?.value;
+    const end   = document.getElementById('ot-end')?.value;
+    if (!start || !end) return;
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    let diff = (eh * 60 + em) - (sh * 60 + sm);
+    if (diff < 0) diff += 24 * 60; // lewat tengah malam
+    const hours = Math.round(diff / 60 * 10) / 10;
+    const display = document.getElementById('ot-duration-display');
+    const hidden  = document.getElementById('ot-duration');
+    if (display) display.value = hours + ' jam';
+    if (hidden)  hidden.value  = hours;
+    window.__ot_calcPay();
+  };
+
+  window.__ot_calcPay = function () {
+    const hours = parseFloat(document.getElementById('ot-duration')?.value) || 0;
+    const rate  = parseFloat(document.getElementById('ot-rate')?.value) || 0;
+    const total = hours * rate;
+    const display = document.getElementById('ot-pay-display');
+    const hidden  = document.getElementById('ot-pay');
+    if (display) display.value = 'Rp ' + total.toLocaleString('id-ID');
+    if (hidden)  hidden.value  = total;
+  };
+
+  window.__ot_previewPhoto = function (input) {
+    const preview = document.getElementById('ot-photo-preview');
+    if (input.files?.[0] && preview) {
+      const r = new FileReader();
+      r.onload = (e) => { preview.src = e.target.result; preview.classList.remove('hidden'); };
+      r.readAsDataURL(input.files[0]);
+    }
+  };
+}

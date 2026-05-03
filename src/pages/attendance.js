@@ -1,0 +1,534 @@
+import { supabase } from '../lib/supabase.js';
+import { fmtIdr, fmtTime, showToast, esc } from '../lib/helpers.js';
+import { canFinance, canDelete, canVerifyAll, canVerifyOwn } from '../lib/roles.js';
+
+const WORK_HOURS_STANDARD = 8; // jam kerja standar per hari
+
+/**
+ * Attendance Page
+ *
+ * Admin/Owner/Superadmin : lihat daftar + detail keuangan + delete
+ * Kepala Proyek          : auto-generate dari assignment, verifikasi semua proyek
+ * Kepala Gudang          : lihat semua proyek, read-only
+ * Kepala Lapangan        : auto-generate proyeknya, verifikasi proyeknya sendiri
+ */
+export function AttendancePage(state) {
+  const { projects, employees, attendanceLogs, user } = state;
+  const role = user.role;
+
+  const isFinance    = canFinance(role);
+  const isDeleter    = canDelete(role);
+  const isVerifyAll  = canVerifyAll(role);
+  const isVerifyOwn  = canVerifyOwn(role);
+  const isReadOnly   = role === 'kepala_gudang';
+  const isAdmin      = ['superadmin','owner','admin'].includes(role);
+
+  const myProjectIds = projects.filter(p => p.lead_id === user.id).map(p => p.id);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  let todayLogs  = attendanceLogs.filter(l => l.created_at?.startsWith(todayStr));
+
+  if (isVerifyOwn) {
+    todayLogs = todayLogs.filter(l => myProjectIds.includes(l.project_id));
+  }
+
+  // ── Info banner ─────────────────────────────────────────────────────────
+  function infoBanner() {
+    let msg = '';
+    if (isVerifyAll) msg = 'Klik <strong>Generate Absensi</strong> untuk memuat daftar karyawan hari ini dari assignment aktif, lalu verifikasi kehadiran.';
+    if (isVerifyOwn) msg = 'Klik <strong>Generate Absensi</strong> untuk memuat daftar karyawan proyek Anda hari ini, lalu verifikasi kehadiran.';
+    if (isReadOnly)  msg = 'Daftar kehadiran semua proyek hari ini (read-only).';
+    if (!msg) return '';
+    return `
+      <div class="card mb-16" style="background:rgba(25,210,193,0.06);border-left:4px solid var(--primary);padding:12px 16px;">
+        <div class="flex gap-8 align-center" style="flex-wrap:wrap;gap:12px;">
+          <span class="text-sm"><i class="fas fa-info-circle text-primary"></i> ${msg}</span>
+          ${(isVerifyAll || isVerifyOwn) ? `
+          <button class="btn btn-primary btn-sm" id="btn-generate-att"
+            onclick="window.__app.generateDailyAttendance()">
+            <i class="fas fa-sync-alt"></i> Generate Absensi Hari Ini
+          </button>` : ''}
+        </div>
+      </div>`;
+  }
+
+  // ── Render baris tabel ──────────────────────────────────────────────────
+  function renderRow(l) {
+    const emp = employees.find(e => e.id === l.employee_id);
+    const prj = projects.find(p => p.id === l.project_id);
+    const isDraft    = l.status === 'draft';
+    const isVerified = l.status === 'verified';
+    const isAbsent   = l.status === 'absent';
+
+    // Deteksi "Pindah Tugas" dari notes
+    const isPindah = l.notes?.startsWith('Pindah Tugas');
+
+    // Status badge
+    let statusBadge = '';
+    if (isPindah && isDraft) {
+      statusBadge = '<span class="badge" style="background:rgba(245,158,11,0.2);color:var(--warning);">PINDAH TUGAS</span>';
+    } else if (isVerified) {
+      statusBadge = '<span class="badge badge-online">HADIR</span>';
+    } else if (isAbsent) {
+      statusBadge = '<span class="badge badge-offline">TIDAK HADIR</span>';
+    } else {
+      statusBadge = '<span class="badge badge-offline">BELUM VERIFIKASI</span>';
+    }
+
+    // Aksi verifikasi
+    const canVerifyThis = (isVerifyAll) || (isVerifyOwn && myProjectIds.includes(l.project_id));
+    let actions = '';
+
+    if (canVerifyThis && isDraft) {
+      actions = `
+        <div style="display:flex;flex-direction:column;gap:6px;min-width:200px;">
+          ${isPindah ? `<div class="text-xs text-warning mb-4"><i class="fas fa-info-circle"></i> ${esc(l.notes)}</div>` : ''}
+          <input type="text" class="form-input" id="wi-${l.id}"
+            placeholder="Pekerjaan hari ini..."
+            value="${esc(l.work_items || '')}"
+            style="font-size:0.78rem;padding:6px 10px;" />
+          <div class="flex gap-6">
+            <button class="btn btn-success btn-sm" style="flex:1;"
+              onclick="window.__app.verifyAttendance('${l.id}','verified')">
+              <i class="fas fa-check"></i> Hadir
+            </button>
+            <button class="btn btn-danger btn-sm" style="flex:1;"
+              onclick="window.__app.verifyAttendance('${l.id}','absent')">
+              <i class="fas fa-times"></i> Tidak Hadir
+            </button>
+          </div>
+        </div>`;
+    } else if (canVerifyThis && isVerified) {
+      actions = `
+        <div style="display:flex;flex-direction:column;gap:4px;min-width:180px;">
+          <div class="text-xs text-success mb-4">
+            <i class="fas fa-check-double"></i> Sudah Diverifikasi
+          </div>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <input type="text" class="form-input" id="wi-${l.id}"
+              placeholder="Tambah pekerjaan..."
+              value="${esc(l.work_items || '')}"
+              style="font-size:0.78rem;padding:5px 8px;flex:1;" />
+            <button class="btn btn-ghost btn-sm"
+              onclick="window.__app.saveWorkItems('${l.id}')" title="Simpan">
+              <i class="fas fa-save"></i>
+            </button>
+          </div>
+        </div>`;
+    } else if (!canVerifyThis && !isAdmin) {
+      actions = '<span class="text-xs text-muted">—</span>';
+    }
+
+    // Tombol delete untuk admin
+    if (isDeleter) {
+      actions += `
+        <button class="btn btn-ghost btn-sm" onclick="window.__app.deleteAttendance('${l.id}')" title="Hapus">
+          <i class="fas fa-trash"></i>
+        </button>`;
+    }
+
+    // Kolom keuangan
+    let financeCell = '';
+    if (isFinance) {
+      const totalTerima = (l.basic_salary||0) + (l.overtime_pay||0) + (l.misc_amount||0)
+                        - (l.cash_advance||0) + (l.cash_payout||0);
+      const durasi = calcDuration(l.check_in, l.check_out);
+      financeCell = `
+        <td>
+          <div class="text-xs">
+            <div class="text-secondary mb-4">
+              <i class="fas fa-clock"></i> ${fmtTime(l.check_in)}–${fmtTime(l.check_out)}
+              <span style="margin-left:4px;">(${durasi} jam)</span>
+              <button class="btn btn-ghost btn-sm" style="padding:2px 6px;margin-left:4px;"
+                onclick="window.__app.openEditAttendance('${l.id}')"
+                title="Edit jam & keuangan">
+                <i class="fas fa-edit" style="font-size:0.7rem;"></i>
+              </button>
+            </div>
+            <div>Gaji: <strong>${fmtIdr(l.basic_salary)}</strong>
+              <span class="text-secondary" style="font-size:0.7rem;"> (${fmtIdr(l.hourly_rate||0)}/jam)</span>
+            </div>
+            ${(l.overtime_hours||0) > 0 ? `<div>Lembur: ${l.overtime_hours}j × ${fmtIdr(l.overtime_rate)} = <strong>${fmtIdr(l.overtime_pay)}</strong></div>` : ''}
+            ${(l.misc_amount||0) > 0 ? `<div>Lain-lain: <strong>${fmtIdr(l.misc_amount)}</strong>${l.misc_description ? ` (${esc(l.misc_description)})` : ''}</div>` : ''}
+            ${(l.cash_advance||0) > 0 ? `<div class="text-danger">Kasbon: -${fmtIdr(l.cash_advance)}</div>` : ''}
+            ${(l.cash_payout||0) > 0 ? `<div class="text-warning">Pinjam: +${fmtIdr(l.cash_payout)}</div>` : ''}
+            <div style="border-top:1px solid var(--border,#e5e7eb);margin-top:4px;padding-top:4px;">
+              Total: <strong class="text-success">${fmtIdr(totalTerima)}</strong>
+            </div>
+          </div>
+        </td>`;
+    }
+
+    return `<tr>
+      <td>
+        <div class="fw-bold">${esc(emp?.full_name || '-')}</div>
+        ${l.jabatan_snapshot ? `<div class="text-xs text-secondary">${esc(l.jabatan_snapshot)}</div>` : ''}
+      </td>
+      <td><span class="text-xs text-secondary">${esc(prj?.name || '-')}</span></td>
+      <td>${statusBadge}</td>
+      ${financeCell}
+      <td>${actions}</td>
+    </tr>`;
+  }
+
+  const pageTitle = isAdmin      ? 'Daftar Absensi Hari Ini'
+    : isVerifyAll                ? 'Verifikasi Kehadiran — Semua Proyek'
+    : isVerifyOwn                ? 'Verifikasi Kehadiran — Proyek Saya'
+    : isReadOnly                 ? 'Daftar Kehadiran Hari Ini'
+    : 'Absensi';
+
+  return `
+    <div class="fade-in">
+      ${!isAdmin ? infoBanner() : ''}
+
+      ${isAdmin ? `
+      <!-- Admin: tombol generate + info -->
+      <div class="card mb-16" style="background:rgba(25,210,193,0.06);border-left:4px solid var(--primary);padding:12px 16px;">
+        <div class="flex gap-8 align-center" style="flex-wrap:wrap;gap:12px;">
+          <span class="text-sm"><i class="fas fa-info-circle text-primary"></i>
+            Absensi harian di-generate otomatis dari assignment aktif.
+            Gunakan menu <strong>Assignment</strong> untuk mengatur karyawan per proyek.
+          </span>
+          <button class="btn btn-primary btn-sm" onclick="window.__app.generateDailyAttendance()">
+            <i class="fas fa-sync-alt"></i> Generate Absensi Hari Ini
+          </button>
+        </div>
+      </div>` : ''}
+
+      <!-- Tabel Absensi -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-clipboard-list"></i> ${pageTitle}</div>
+          <span class="badge badge-role">${todayLogs.length} orang</span>
+        </div>
+
+        ${todayLogs.length === 0 ? `
+          <div class="empty-state">
+            <i class="fas fa-user-clock"></i>
+            <p>Belum ada data absensi hari ini.</p>
+            ${(isVerifyAll || isVerifyOwn || isAdmin) ? `
+            <button class="btn btn-primary btn-sm mt-16"
+              onclick="window.__app.generateDailyAttendance()">
+              <i class="fas fa-sync-alt"></i> Generate Sekarang
+            </button>` : ''}
+          </div>
+        ` : `
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Karyawan</th>
+                  <th>Proyek</th>
+                  <th>Status</th>
+                  ${isFinance ? '<th>Keuangan</th>' : ''}
+                  <th>Tindakan</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${todayLogs.map(l => renderRow(l)).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+    </div>`;
+}
+
+/** Generate absensi harian dari assignment aktif */
+export async function generateDailyAttendance(refreshFn) {
+  const btn = document.getElementById('btn-generate-att');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Generating...'; }
+
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data, error } = await supabase.rpc('generate_daily_attendance', { p_date: today });
+    if (error) throw error;
+
+    const newCount = data?.filter(r => r.is_new).length || 0;
+    const totalCount = data?.length || 0;
+
+    if (newCount > 0) {
+      showToast(`${newCount} absensi baru di-generate (total ${totalCount} karyawan)`, 'success');
+    } else {
+      showToast(`Absensi sudah up-to-date (${totalCount} karyawan)`, 'info');
+    }
+    await refreshFn();
+  } catch (err) {
+    showToast('Gagal generate: ' + err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sync-alt"></i> Generate Absensi Hari Ini'; }
+  }
+}
+
+/** Verifikasi + simpan work items */
+export async function verifyAttendance(id, result, refreshFn) {
+  try {
+    const status    = result === 'verified' ? 'verified' : 'absent';
+    const notes     = result === 'verified' ? 'Hadir' : 'Tidak Hadir';
+    const wiInput   = document.getElementById(`wi-${id}`);
+    const workItems = wiInput?.value.trim() || null;
+
+    const { error } = await supabase.from('attendance_logs')
+      .update({ status, notes, ...(workItems ? { work_items: workItems } : {}) })
+      .eq('id', id);
+    if (error) throw error;
+    showToast(result === 'verified' ? 'Hadir ✓' : 'Tidak Hadir ✓', 'success');
+    await refreshFn();
+  } catch (err) {
+    showToast('Gagal: ' + err.message, 'error');
+  }
+}
+
+/** Simpan work items saja (tanpa ubah status) */
+export async function saveWorkItems(id, refreshFn) {
+  const wiInput = document.getElementById(`wi-${id}`);
+  if (!wiInput) return;
+  try {
+    const { error } = await supabase.from('attendance_logs')
+      .update({ work_items: wiInput.value.trim() || null })
+      .eq('id', id);
+    if (error) throw error;
+    showToast('Pekerjaan disimpan ✓', 'success');
+    await refreshFn();
+  } catch (err) {
+    showToast('Gagal: ' + err.message, 'error');
+  }
+}
+
+/** Hapus absensi — superadmin & owner */
+export async function deleteAttendance(id, refreshFn) {
+  if (!confirm('Hapus data absensi ini?')) return;
+  const { error } = await supabase.from('attendance_logs').delete().eq('id', id);
+  if (error) showToast(error.message, 'error');
+  else { showToast('Dihapus ✓', 'success'); refreshFn(); }
+}
+
+/** Helper: hitung durasi jam dari TIME string */
+function calcDuration(checkIn, checkOut) {
+  if (!checkIn || !checkOut) return 8;
+  const [ih, im] = checkIn.split(':').map(Number);
+  const [oh, om] = checkOut.split(':').map(Number);
+  const diff = (oh * 60 + om) - (ih * 60 + im);
+  return diff > 0 ? Math.round(diff / 60 * 10) / 10 : 8;
+}
+
+/** Buka modal edit absensi */
+export async function openEditAttendance(id, state) {
+  // Fetch data terbaru
+  const { data: l, error } = await supabase
+    .from('attendance_logs')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error) { showToast('Gagal memuat data', 'error'); return; }
+
+  const emp = state.employees.find(e => e.id === l.employee_id);
+  const prj = state.projects.find(p => p.id === l.project_id);
+
+  // Hapus modal lama jika ada
+  document.getElementById('att-edit-modal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'att-edit-modal';
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-card" style="max-width:520px;">
+      <div class="modal-title">
+        <i class="fas fa-edit"></i> Edit Absensi
+        <button onclick="document.getElementById('att-edit-modal').remove()"
+          style="margin-left:auto;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:1.2rem;">✕</button>
+      </div>
+
+      <div class="mb-16" style="background:var(--bg-hover);border-radius:var(--radius);padding:10px 14px;">
+        <div class="text-sm fw-bold">${esc(emp?.full_name||'-')}</div>
+        <div class="text-xs text-secondary">${esc(prj?.name||'-')}</div>
+      </div>
+
+      <!-- Jam Kerja -->
+      <div class="form-section-label mb-8" style="font-size:0.75rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;">
+        <i class="fas fa-clock"></i> Jam Kerja
+      </div>
+      <div class="form-row mb-8">
+        <div class="form-group">
+          <label class="form-label">Jam Masuk</label>
+          <input type="time" class="form-input" id="edit-checkin"
+            value="${(l.check_in||'08:00:00').slice(0,5)}"
+            oninput="window.__att_editCalc()" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Jam Keluar</label>
+          <input type="time" class="form-input" id="edit-checkout"
+            value="${(l.check_out||'17:00:00').slice(0,5)}"
+            oninput="window.__att_editCalc()" />
+        </div>
+      </div>
+
+      <!-- Info durasi & gaji proporsional -->
+      <div id="edit-calc-info" class="mb-16"
+        style="background:rgba(25,210,193,0.08);border-radius:var(--radius);padding:10px 14px;font-size:0.8rem;">
+        <div class="flex gap-16" style="flex-wrap:wrap;">
+          <span>Durasi: <strong id="edit-durasi">-</strong></span>
+          <span>Upah/jam: <strong id="edit-rate-display">-</strong></span>
+          <span>Gaji proporsional: <strong id="edit-gaji-calc" class="text-success">-</strong></span>
+        </div>
+      </div>
+
+      <!-- Upah per jam (bisa diedit) -->
+      <div class="form-row mb-16">
+        <div class="form-group">
+          <label class="form-label">Upah / Jam (Rp) <span class="text-muted">(auto dari gaji dasar ÷ 8)</span></label>
+          <input type="number" class="form-input" id="edit-hourly-rate"
+            value="${l.hourly_rate || Math.round((l.basic_salary||0)/8)}" min="0"
+            oninput="window.__att_editCalc()" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Gaji (Rp) <span class="text-muted">(auto-hitung)</span></label>
+          <input type="number" class="form-input" id="edit-salary"
+            value="${l.basic_salary||0}" min="0" />
+        </div>
+      </div>
+
+      <!-- Lembur -->
+      <div class="form-section-label mb-8" style="font-size:0.75rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;">
+        <i class="fas fa-moon"></i> Lembur
+      </div>
+      <div class="form-row mb-16">
+        <div class="form-group">
+          <label class="form-label">Jam Lembur</label>
+          <input type="number" class="form-input" id="edit-ot-hours"
+            value="${l.overtime_hours||0}" min="0" step="0.5"
+            oninput="window.__att_editOTCalc()" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Upah Lembur / Jam (Rp)</label>
+          <input type="number" class="form-input" id="edit-ot-rate"
+            value="${l.overtime_rate||0}" min="0"
+            oninput="window.__att_editOTCalc()" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Total Lembur</label>
+          <input type="text" class="form-input" id="edit-ot-pay-display"
+            value="${fmtIdr(l.overtime_pay||0)}" readonly
+            style="background:var(--bg-input);cursor:default;" />
+          <input type="hidden" id="edit-ot-pay" value="${l.overtime_pay||0}" />
+        </div>
+      </div>
+
+      <!-- Lain-lain & Kasbon -->
+      <div class="form-row mb-16">
+        <div class="form-group">
+          <label class="form-label">Lain-lain (Rp)</label>
+          <input type="number" class="form-input" id="edit-misc-amount"
+            value="${l.misc_amount||0}" min="0" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Keterangan Lain-lain</label>
+          <input type="text" class="form-input" id="edit-misc-desc"
+            value="${esc(l.misc_description||'')}" />
+        </div>
+      </div>
+      <div class="form-row mb-24">
+        <div class="form-group">
+          <label class="form-label">Potongan Kasbon (Rp)</label>
+          <input type="number" class="form-input" id="edit-cash-advance"
+            value="${l.cash_advance||0}" min="0" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Pinjam Baru (Rp)</label>
+          <input type="number" class="form-input" id="edit-cash-payout"
+            value="${l.cash_payout||0}" min="0" />
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="document.getElementById('att-edit-modal').remove()">
+          Batal
+        </button>
+        <button class="btn btn-primary" onclick="window.__app.saveEditAttendance('${id}')">
+          <i class="fas fa-save"></i> Simpan Perubahan
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(modal);
+
+  // Init kalkulasi
+  window.__att_editCalc();
+  window.__att_editOTCalc();
+}
+
+/** Simpan edit absensi */
+export async function saveEditAttendance(id, refreshFn) {
+  try {
+    const checkIn  = document.getElementById('edit-checkin').value;
+    const checkOut = document.getElementById('edit-checkout').value;
+    const hourlyRate = parseFloat(document.getElementById('edit-hourly-rate').value) || 0;
+
+    // Hitung gaji proporsional
+    const [ih, im] = checkIn.split(':').map(Number);
+    const [oh, om] = checkOut.split(':').map(Number);
+    const diffMin  = (oh * 60 + om) - (ih * 60 + im);
+    const hours    = diffMin > 0 ? diffMin / 60 : WORK_HOURS_STANDARD;
+    const salary   = Math.round(hours * hourlyRate);
+
+    const otHours = parseFloat(document.getElementById('edit-ot-hours').value) || 0;
+    const otRate  = parseFloat(document.getElementById('edit-ot-rate').value) || 0;
+
+    const { error } = await supabase.from('attendance_logs').update({
+      check_in:         checkIn + ':00',
+      check_out:        checkOut + ':00',
+      hourly_rate:      hourlyRate,
+      basic_salary:     salary,
+      overtime_hours:   otHours,
+      overtime_rate:    otRate,
+      overtime_pay:     Math.round(otHours * otRate),
+      misc_amount:      parseFloat(document.getElementById('edit-misc-amount').value) || 0,
+      misc_description: document.getElementById('edit-misc-desc').value.trim() || null,
+      cash_advance:     parseFloat(document.getElementById('edit-cash-advance').value) || 0,
+      cash_payout:      parseFloat(document.getElementById('edit-cash-payout').value) || 0,
+    }).eq('id', id);
+
+    if (error) throw error;
+    showToast('Absensi berhasil diupdate ✓', 'success');
+    document.getElementById('att-edit-modal')?.remove();
+    await refreshFn();
+  } catch (err) {
+    showToast('Gagal: ' + err.message, 'error');
+  }
+}
+
+/** Kalkulasi realtime di modal edit */
+if (typeof window !== 'undefined') {
+  window.__att_editCalc = function () {
+    const inVal  = document.getElementById('edit-checkin')?.value;
+    const outVal = document.getElementById('edit-checkout')?.value;
+    const rate   = parseFloat(document.getElementById('edit-hourly-rate')?.value) || 0;
+    if (!inVal || !outVal) return;
+
+    const [ih, im] = inVal.split(':').map(Number);
+    const [oh, om] = outVal.split(':').map(Number);
+    const diffMin  = (oh * 60 + om) - (ih * 60 + im);
+    const hours    = diffMin > 0 ? Math.round(diffMin / 60 * 10) / 10 : WORK_HOURS_STANDARD;
+    const salary   = Math.round(hours * rate);
+
+    const durasiEl = document.getElementById('edit-durasi');
+    const rateEl   = document.getElementById('edit-rate-display');
+    const gajiEl   = document.getElementById('edit-gaji-calc');
+    const salaryEl = document.getElementById('edit-salary');
+
+    if (durasiEl) durasiEl.textContent = hours + ' jam';
+    if (rateEl)   rateEl.textContent   = 'Rp ' + rate.toLocaleString('id-ID') + '/jam';
+    if (gajiEl)   gajiEl.textContent   = 'Rp ' + salary.toLocaleString('id-ID');
+    if (salaryEl) salaryEl.value       = salary;
+  };
+
+  window.__att_editOTCalc = function () {
+    const hours = parseFloat(document.getElementById('edit-ot-hours')?.value) || 0;
+    const rate  = parseFloat(document.getElementById('edit-ot-rate')?.value) || 0;
+    const total = Math.round(hours * rate);
+    const disp  = document.getElementById('edit-ot-pay-display');
+    const hid   = document.getElementById('edit-ot-pay');
+    if (disp) disp.value = 'Rp ' + total.toLocaleString('id-ID');
+    if (hid)  hid.value  = total;
+  };
+}

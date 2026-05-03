@@ -1,0 +1,25 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Dependencies
+node_modules
+.DS_Store
+
+# Build
+dist
+dist-ssr
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Editor
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.vscode

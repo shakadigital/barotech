@@ -1,0 +1,30 @@
+-- =============================================
+-- DATABASE SETUP — Absensi Barotech V2
+-- INDEX FILE — Lihat folder sql/ untuk detail
+-- =============================================
+--
+-- Jangan jalankan file ini langsung.
+-- Jalankan file di folder sql/ secara berurutan,
+-- hanya file yang belum dijalankan (⚠️).
+--
+-- ┌───────────────────────────────────────────────────────┐
+-- │  File                             Status              │
+-- ├───────────────────────────────────────────────────────┤
+-- │  sql/v1-initial-setup.sql         ✅ SUDAH DIJALANKAN │
+-- │  sql/v2-kepala-teknik-patch.sql   ✅ SUDAH DIJALANKAN │
+-- │  sql/v3-fase1-jabatan-bon.sql     ✅ SUDAH DIJALANKAN │
+-- │  sql/v4-role-restructure.sql      ✅ SUDAH DIJALANKAN │
+-- │  sql/v4b-fix-trigger-role.sql     ✅ SUDAH DIJALANKAN │
+-- │  sql/v4c-seed-test-accounts.sql   ✅ SUDAH DIJALANKAN │
+-- │  sql/v5-fase2-overtime-photos.sql ✅ SUDAH DIJALANKAN │
+-- │  sql/v6-work-items.sql            ✅ SUDAH DIJALANKAN │
+-- │  sql/v7-project-assignments.sql   ✅ SUDAH DIJALANKAN │
+-- │  sql/v7b-fix-assignment-trigger.sql ✅ SUDAH DIJALANKAN│
+-- │  sql/v8-attendance-edit.sql         ✅ SUDAH DIJALANKAN │
+-- │  sql/v8b-fix-generate-function.sql  ✅ SUDAH DIJALANKAN │
+-- │  sql/v9-material-expenses.sql       ✅ SUDAH DIJALANKAN │
+-- │  sql/v10-role-rename.sql            ✅ SUDAH DIJALANKAN │
+-- └───────────────────────────────────────────────────────┘
+--
+-- File berikutnya akan ditambahkan di sini saat ada
+-- perubahan database baru (Fase 3, dst).
