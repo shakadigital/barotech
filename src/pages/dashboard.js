@@ -122,11 +122,9 @@ export function DashboardPage(state) {
     detailHtml = attendanceTable(absenLogs, 'Daftar Tidak Hadir Hari Ini', 'Belum ada yang tidak hadir hari ini');
   }
 
-  // Aktivitas hari ini
-  let activityHtml = '';
-  if (todayLogs.length > 0) {
-    activityHtml = `
-      <div class="card mt-16">
+  if (!dashboardView) {
+    detailHtml = `
+      <div class="card slide-up">
         <div class="card-header">
           <div class="card-title"><i class="fas fa-clipboard-list"></i> Aktivitas Hari Ini</div>
         </div>
@@ -134,7 +132,8 @@ export function DashboardPage(state) {
           <table class="data-table">
             <thead><tr><th>Karyawan</th><th>Proyek</th><th>Status</th><th>Masuk</th><th>Keluar</th></tr></thead>
             <tbody>
-              ${todayLogs.map(l => {
+              ${todayLogs.length === 0 ? '<tr><td colspan="5" class="text-center text-muted">Belum ada aktivitas hari ini</td></tr>' :
+                todayLogs.map(l => {
                 const emp = employees.find(e => e.id === l.employee_id);
                 const prj = projects.find(p => p.id === l.project_id);
                 const isHadir = l.status === 'verified';
@@ -170,7 +169,6 @@ export function DashboardPage(state) {
 
       ${statsHtml}
       ${detailHtml}
-      ${activityHtml}
     </div>`;
 }
 
