@@ -10,8 +10,8 @@ export function DashboardPage(state) {
   const { user, employees, projects, attendanceLogs, dbConnected, dashboardView } = state;
   const todayStr = new Date().toISOString().slice(0, 10);
   const todayLogs = attendanceLogs.filter(l => l.created_at?.startsWith(todayStr));
-  const hadirCount = todayLogs.filter(l => l.notes === 'Hadir').length;
-  const absenCount = todayLogs.filter(l => l.notes === 'Tidak Hadir').length;
+  const hadirCount = todayLogs.filter(l => l.status === 'verified').length;
+  const absenCount = todayLogs.filter(l => l.status === 'absent').length;
 
   const statsHtml = `
     <div class="stats-grid">
@@ -102,10 +102,12 @@ export function DashboardPage(state) {
               ${todayLogs.map(l => {
                 const emp = employees.find(e => e.id === l.employee_id);
                 const prj = projects.find(p => p.id === l.project_id);
+                const isHadir = l.status === 'verified';
+                const statusText = isHadir ? 'Hadir' : l.status === 'absent' ? 'Tidak Hadir' : 'Belum Verifikasi';
                 return `<tr>
                   <td class="fw-bold">${esc(emp?.full_name || '-')}</td>
-                  <td>${esc(prj?.name || '-')}</td>
-                  <td><span class="${l.notes === 'Hadir' ? 'text-success' : 'text-danger'}">${esc(l.notes)}</span></td>
+                  <td>${esc(prj?.name || 'Absensi Mandiri')}</td>
+                  <td><span class="${isHadir ? 'text-success' : 'text-danger'}">${esc(statusText)}</span></td>
                   <td>${l.check_in ? l.check_in.slice(0,5) : '-'}</td>
                   <td>${l.check_out ? l.check_out.slice(0,5) : '-'}</td>
                 </tr>`;

@@ -530,7 +530,7 @@ export async function openEditAttendance(id, state) {
 }
 
 /** Absen masuk untuk absensi mandiri */
-export async function clockIn(state) {
+export async function clockIn(state, refreshFn) {
   const btn = document.getElementById('btn-clockin');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Absen Masuk...'; }
 
@@ -586,6 +586,7 @@ export async function clockIn(state) {
     }
 
     showToast('Absen masuk berhasil!', 'success');
+    await refreshFn?.();
   } catch (err) {
     showToast('Gagal: ' + err.message, 'error');
   } finally {
@@ -594,7 +595,7 @@ export async function clockIn(state) {
 }
 
 /** Absen pulang untuk absensi mandiri */
-export async function clockOut(state) {
+export async function clockOut(state, refreshFn) {
   const btn = document.getElementById('btn-clockout');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Absen Pulang...'; }
 
@@ -633,6 +634,7 @@ export async function clockOut(state) {
     }
 
     showToast('Absen pulang berhasil!', 'success');
+    await refreshFn?.();
   } catch (err) {
     showToast('Gagal: ' + err.message, 'error');
   } finally {
