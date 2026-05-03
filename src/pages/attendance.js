@@ -232,14 +232,14 @@ export function AttendancePage(state) {
         <div class="flex gap-16 align-center" style="flex-wrap:wrap;gap:12px;">
           <div>
             <div class="fw-bold mb-4"><i class="fas fa-user-clock text-primary"></i> Absensi Diri Sendiri</div>
-            <div class="text-xs text-secondary">Clock in/out untuk ${esc(user.full_name)}</div>
+            <div class="text-xs text-secondary">Absen masuk/pulang untuk ${esc(user.full_name)}</div>
           </div>
           <div class="flex gap-8">
             <button class="btn btn-success" id="btn-clockin" onclick="window.__app.clockIn()">
-              <i class="fas fa-sign-in-alt"></i> Clock In
+              <i class="fas fa-sign-in-alt"></i> Absen Masuk
             </button>
             <button class="btn btn-danger" id="btn-clockout" onclick="window.__app.clockOut()">
-              <i class="fas fa-sign-out-alt"></i> Clock Out
+              <i class="fas fa-sign-out-alt"></i> Absen Pulang
             </button>
           </div>
         </div>
@@ -529,10 +529,10 @@ export async function openEditAttendance(id, state) {
   window.__att_editOTCalc();
 }
 
-/** Clock in untuk self-attendance */
+/** Absen masuk untuk absensi mandiri */
 export async function clockIn(state) {
   const btn = document.getElementById('btn-clockin');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Clock In...'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Absen Masuk...'; }
 
   try {
     const today = new Date().toISOString().slice(0, 10);
@@ -548,7 +548,7 @@ export async function clockIn(state) {
       .maybeSingle();
 
     if (existing) {
-      throw new Error('Anda sudah clock in hari ini');
+      throw new Error('Anda sudah absen masuk hari ini');
     }
 
     // Get user's basic salary from profiles (optional - may not exist yet)
@@ -575,28 +575,28 @@ export async function clockIn(state) {
       status: 'verified',
       hourly_rate: hourlyRate,
       basic_salary: basicSalary,
-      notes: 'Self-attendance',
+      notes: 'Absensi Mandiri',
     });
 
     if (error) throw error;
 
     const statusDiv = document.getElementById('self-att-status');
     if (statusDiv) {
-      statusDiv.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> Clock in berhasil jam ${now.slice(0,5)}</span>`;
+      statusDiv.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> Absen masuk berhasil jam ${now.slice(0,5)}</span>`;
     }
 
-    showToast('Clock in berhasil!', 'success');
+    showToast('Absen masuk berhasil!', 'success');
   } catch (err) {
     showToast('Gagal: ' + err.message, 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Clock In'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Absen Masuk'; }
   }
 }
 
-/** Clock out untuk self-attendance */
+/** Absen pulang untuk absensi mandiri */
 export async function clockOut(state) {
   const btn = document.getElementById('btn-clockout');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Clock Out...'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Absen Pulang...'; }
 
   try {
     const today = new Date().toISOString().slice(0, 10);
@@ -612,11 +612,11 @@ export async function clockOut(state) {
       .maybeSingle();
 
     if (fetchErr || !existing) {
-      throw new Error('Anda belum clock in hari ini');
+      throw new Error('Anda belum absen masuk hari ini');
     }
 
     if (existing.check_out) {
-      throw new Error('Anda sudah clock out hari ini');
+      throw new Error('Anda sudah absen pulang hari ini');
     }
 
     // Update check_out
@@ -629,14 +629,14 @@ export async function clockOut(state) {
 
     const statusDiv = document.getElementById('self-att-status');
     if (statusDiv) {
-      statusDiv.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> Clock out berhasil jam ${now.slice(0,5)}</span>`;
+      statusDiv.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> Absen pulang berhasil jam ${now.slice(0,5)}</span>`;
     }
 
-    showToast('Clock out berhasil!', 'success');
+    showToast('Absen pulang berhasil!', 'success');
   } catch (err) {
     showToast('Gagal: ' + err.message, 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Clock Out'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Absen Pulang'; }
   }
 }
 
