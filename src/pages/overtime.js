@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase.js';
-import { fmtIdr, fmtDate, showToast, esc, getGeoLocation, fmtGeoNote } from '../lib/helpers.js';
+import { fmtIdr, fmtDate, showToast, esc, getGeoLocation, fmtGeoNote, compressImage } from '../lib/helpers.js';
 
 /**
  * Halaman Input Lembur — Admin / Owner / Superadmin
@@ -223,13 +223,14 @@ export async function handleOvertimeSubmit(e, state, refreshFn) {
     const duration  = parseFloat(document.getElementById('ot-duration').value) || 0;
     const rate      = parseFloat(document.getElementById('ot-rate').value) || 0;
 
-    // Upload foto jika ada
+    // Upload foto jika ada dengan kompresi
     let photoUrl = null;
     const photoInput = document.getElementById('ot-photo');
     if (photoInput.files?.[0]) {
       const file     = photoInput.files[0];
-      const fileName = `overtime/${Date.now()}_${file.name}`;
-      const { error: ue } = await supabase.storage.from('project-photos').upload(fileName, file);
+      const compressedFile = await compressImage(file, 1024, 0.7);
+      const fileName = `overtime/${Date.now()}_${compressedFile.name}`;
+      const { error: ue } = await supabase.storage.from('project-photos').upload(fileName, compressedFile);
       if (ue) throw ue;
       const { data: ud } = supabase.storage.from('project-photos').getPublicUrl(fileName);
       photoUrl = ud.publicUrl;

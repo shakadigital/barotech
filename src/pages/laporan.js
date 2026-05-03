@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase.js';
-import { fmtDate, showToast, esc, getGeoLocation, fmtGeoNote } from '../lib/helpers.js';
+import { fmtDate, showToast, esc, getGeoLocation, fmtGeoNote, compressImage } from '../lib/helpers.js';
 
 const MAX_PHOTOS = 4;
 
@@ -170,12 +170,13 @@ export async function handleLaporanSubmit(e, state, refreshFn) {
       .single();
     if (updateErr) throw updateErr;
 
-    // Upload semua foto
+    // Upload semua foto dengan kompresi
     const uploadedPhotos = [];
     for (let i = 0; i < photoFiles.length; i++) {
       const { file, caption } = photoFiles[i];
-      const fileName = `progress/${projectId}/${Date.now()}_${i}_${file.name}`;
-      const { error: ue } = await supabase.storage.from('project-photos').upload(fileName, file);
+      const compressedFile = await compressImage(file, 1024, 0.7);
+      const fileName = `progress/${projectId}/${Date.now()}_${i}_${compressedFile.name}`;
+      const { error: ue } = await supabase.storage.from('project-photos').upload(fileName, compressedFile);
       if (ue) throw ue;
       const { data: ud } = supabase.storage.from('project-photos').getPublicUrl(fileName);
       uploadedPhotos.push({
