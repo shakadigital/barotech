@@ -229,17 +229,14 @@ export async function saveEditUser(e, userId, refreshFn) {
       : null;
     const newPassword     = document.getElementById('edit-usr-password').value;
 
-    // Update profile
-    const { error: profileErr } = await supabase.from('profiles').update({
-      full_name, whatsapp_number, role, jabatan,
-    }).eq('id', userId);
-    if (profileErr) throw profileErr;
-
-    // Update password if provided
+    // Update profile with password if provided
+    const updateData = { full_name, whatsapp_number, role, jabatan };
     if (newPassword) {
-      const { error: pwErr } = await supabaseAdmin.auth.admin.updateUserById(userId, { password: newPassword });
-      if (pwErr) throw pwErr;
+      updateData.password_hash = newPassword;
     }
+
+    const { error: profileErr } = await supabase.from('profiles').update(updateData).eq('id', userId);
+    if (profileErr) throw profileErr;
 
     showToast('User berhasil diperbarui!', 'success');
     document.getElementById('user-edit-modal').remove();
