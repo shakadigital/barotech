@@ -176,6 +176,7 @@ export function AttendancePage(state) {
       const totalTerima = (l.basic_salary||0) + (l.overtime_pay||0) + (l.misc_amount||0)
                         - (l.cash_advance||0) + (l.cash_payout||0);
       const durasi = calcDuration(l.check_in, l.check_out);
+      const hasBreakdown = (l.uang_makan||0) > 0 || (l.transport||0) > 0 || (l.tunjangan_lain||0) > 0;
       financeCell = `
         <td>
           <div class="text-xs">
@@ -188,7 +189,13 @@ export function AttendancePage(state) {
                 <i class="fas fa-edit" style="font-size:0.7rem;"></i>
               </button>
             </div>
-            <div>Gaji: <strong>${fmtIdr(l.basic_salary)}</strong>
+            ${hasBreakdown ? `
+            <div style="margin-bottom:2px;">
+              ${l.uang_makan ? `<div>Makan: ${fmtIdr(l.uang_makan)}</div>` : ''}
+              ${l.transport ? `<div>Transport: ${fmtIdr(l.transport)}</div>` : ''}
+              ${l.tunjangan_lain ? `<div>Tunjangan: ${fmtIdr(l.tunjangan_lain)}</div>` : ''}
+            </div>` : ''}
+            <div>Total/Hari: <strong>${fmtIdr(l.basic_salary)}</strong>
               <span class="text-secondary" style="font-size:0.7rem;"> (${fmtIdr(l.hourly_rate||0)}/jam)</span>
             </div>
             ${(l.overtime_hours||0) > 0 ? `<div>Lembur: ${l.overtime_hours}j × ${fmtIdr(l.overtime_rate)} = <strong>${fmtIdr(l.overtime_pay)}</strong></div>` : ''}
@@ -445,18 +452,44 @@ export async function openEditAttendance(id, state) {
         </div>
       </div>
 
-      <!-- Upah per jam (bisa diedit) -->
+      <!-- Breakdown Upah / Hari -->
+      <div class="form-section-label mb-8" style="font-size:0.75rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;">
+        <i class="fas fa-coins"></i> Komponen Upah / Hari
+      </div>
+      <div class="form-row mb-8">
+        <div class="form-group">
+          <label class="form-label">Uang Makan (Rp)</label>
+          <input type="number" class="form-input" id="edit-uang-makan"
+            value="${l.uang_makan||0}" min="0"
+            oninput="window.__att_editCalcBreakdown()" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Transport (Rp)</label>
+          <input type="number" class="form-input" id="edit-transport"
+            value="${l.transport||0}" min="0"
+            oninput="window.__att_editCalcBreakdown()" />
+        </div>
+      </div>
+      <div class="form-row mb-8">
+        <div class="form-group">
+          <label class="form-label">Tunjangan Lain (Rp)</label>
+          <input type="number" class="form-input" id="edit-tunjangan"
+            value="${l.tunjangan_lain||0}" min="0"
+            oninput="window.__att_editCalcBreakdown()" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Total / Hari (Rp) <span class="text-muted">(auto-hitung)</span></label>
+          <input type="number" class="form-input" id="edit-salary"
+            value="${l.basic_salary||0}" min="0" readonly
+            style="background:var(--bg-input);cursor:default;font-weight:700;" />
+        </div>
+      </div>
       <div class="form-row mb-16">
         <div class="form-group">
-          <label class="form-label">Upah / Jam (Rp) <span class="text-muted">(auto dari gaji dasar ÷ 8)</span></label>
+          <label class="form-label">Upah / Jam (Rp) <span class="text-muted">(auto dari total ÷ 8)</span></label>
           <input type="number" class="form-input" id="edit-hourly-rate"
             value="${l.hourly_rate || Math.round((l.basic_salary||0)/8)}" min="0"
             oninput="window.__att_editCalc()" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Gaji (Rp) <span class="text-muted">(auto-hitung)</span></label>
-          <input type="number" class="form-input" id="edit-salary"
-            value="${l.basic_salary||0}" min="0" />
         </div>
       </div>
 
@@ -647,23 +680,25 @@ export async function saveEditAttendance(id, refreshFn) {
   try {
     const checkIn  = document.getElementById('edit-checkin').value;
     const checkOut = document.getElementById('edit-checkout').value;
+    const attDate  = document.getElementById('edit-att-date')?.value || new Date().toISOString().slice(0,10);
     const hourlyRate = parseFloat(document.getElementById('edit-hourly-rate').value) || 0;
-
-    // Hitung gaji proporsional
-    const [ih, im] = checkIn.split(':').map(Number);
-    const [oh, om] = checkOut.split(':').map(Number);
-    const diffMin  = (oh * 60 + om) - (ih * 60 + im);
-    const hours    = diffMin > 0 ? diffMin / 60 : WORK_HOURS_STANDARD;
-    const salary   = Math.round(hours * hourlyRate);
 
     const otHours = parseFloat(document.getElementById('edit-ot-hours').value) || 0;
     const otRate  = parseFloat(document.getElementById('edit-ot-rate').value) || 0;
 
+    const uangMakan  = parseFloat(document.getElementById('edit-uang-makan')?.value) || 0;
+    const transportVal = parseFloat(document.getElementById('edit-transport')?.value) || 0;
+    const tunjanganVal = parseFloat(document.getElementById('edit-tunjangan')?.value) || 0;
+    const totalSalary  = uangMakan + transportVal + tunjanganVal;
+
     const { error } = await supabase.from('attendance_logs').update({
-      check_in:         checkIn + ':00',
-      check_out:        checkOut + ':00',
+      check_in:         attDate + ' ' + checkIn + ':00',
+      check_out:        attDate + ' ' + checkOut + ':00',
       hourly_rate:      hourlyRate,
-      basic_salary:     salary,
+      basic_salary:     totalSalary,
+      uang_makan:       uangMakan,
+      transport:        transportVal,
+      tunjangan_lain:   tunjanganVal,
       overtime_hours:   otHours,
       overtime_rate:    otRate,
       overtime_pay:     Math.round(otHours * otRate),
@@ -684,6 +719,18 @@ export async function saveEditAttendance(id, refreshFn) {
 
 /** Kalkulasi realtime di modal edit */
 if (typeof window !== 'undefined') {
+  window.__att_editCalcBreakdown = function () {
+    const um = parseFloat(document.getElementById('edit-uang-makan')?.value) || 0;
+    const tr = parseFloat(document.getElementById('edit-transport')?.value) || 0;
+    const tj = parseFloat(document.getElementById('edit-tunjangan')?.value) || 0;
+    const total = um + tr + tj;
+    const salaryEl = document.getElementById('edit-salary');
+    const rateEl   = document.getElementById('edit-hourly-rate');
+    if (salaryEl) salaryEl.value = total;
+    if (rateEl)   rateEl.value   = Math.round(total / 8);
+    window.__att_editCalc();
+  };
+
   window.__att_editCalc = function () {
     const inVal  = document.getElementById('edit-checkin')?.value;
     const outVal = document.getElementById('edit-checkout')?.value;
@@ -699,12 +746,10 @@ if (typeof window !== 'undefined') {
     const durasiEl = document.getElementById('edit-durasi');
     const rateEl   = document.getElementById('edit-rate-display');
     const gajiEl   = document.getElementById('edit-gaji-calc');
-    const salaryEl = document.getElementById('edit-salary');
 
     if (durasiEl) durasiEl.textContent = hours + ' jam';
     if (rateEl)   rateEl.textContent   = 'Rp ' + rate.toLocaleString('id-ID') + '/jam';
     if (gajiEl)   gajiEl.textContent   = 'Rp ' + salary.toLocaleString('id-ID');
-    if (salaryEl) salaryEl.value       = salary;
   };
 
   window.__att_editOTCalc = function () {

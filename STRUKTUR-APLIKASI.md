@@ -74,7 +74,9 @@ absensi-barotech/
 ### Tabel `profiles` — Data User
 ```
 id                UUID PK     ✅ Sama dengan auth.users.id
-email             TEXT UNIQUE ✅ Format: username@barotech.com
+email             TEXT UNIQUE ✅ Saat ini: username@barotech.com (🔧 Rencana: input email sungguhan, opsional)
+username          TEXT UNIQUE ✅ Untuk login (bukan email)
+password_hash     TEXT        ✅ Password plain (custom auth)
 full_name         TEXT        ✅ Nama lengkap
 role              TEXT        ✅ 7 role (lihat daftar role)
 whatsapp_number   TEXT        ✅ Nomor WhatsApp
@@ -301,10 +303,10 @@ profiles ───────────────────────�
 
 ### 🔐 Login
 ```
-✅ Form email & password
+✅ Form username & password (bukan email untuk login)
 ✅ Splash screen animasi dengan orbs warna teal-green
 ✅ Auto-login jika session masih aktif
-✅ Format email: username@barotech.com
+🔧 Rencana: email field terpisah (email sungguhan, opsional) — saat ini auto-generate username@barotech.com
 ```
 
 ---
@@ -486,7 +488,11 @@ profiles ───────────────────────�
 ```
 ✅ Form tambah user: nama, WA, role (7 pilihan), jabatan, username, password
 ✅ Field jabatan hanya muncul jika role = karyawan
-✅ Format email otomatis: username@barotech.com
+🔧 Rencana: tambah input Email sungguhan (opsional), hapus auto-generate username@barotech.com
+   - Login tetap pakai username + password (tidak berubah)
+   - Email untuk keperluan notifikasi / reset password di masa depan
+   - Kolom email di DB sudah UNIQUE & mendukung NULL, tidak perlu ubah skema
+   - User lama yang sudah punya email @barotech.com bisa di-update saat mereka mengisi email asli
 ✅ Auto-confirm (tidak perlu verifikasi email)
 ✅ Daftar user: nama, email, role (label), jabatan, saldo bon
 ✅ Delete user (superadmin & owner only)
@@ -565,7 +571,7 @@ src/
 | Frontend   | Vanilla JavaScript (ES Modules) |
 | Build Tool | Vite 6 |
 | Backend    | Supabase (PostgreSQL) |
-| Auth       | Supabase Auth (JWT) |
+| Auth       | Custom Auth (username + password di tabel profiles) |
 | Storage    | Supabase Storage (`project-photos` bucket) |
 | Styling    | Custom CSS — Dark/Light mode toggle, CSS variables, mobile-first (touch targets 44px+), tema teal-green glassmorphism |
 | Icons      | Font Awesome 6 |
