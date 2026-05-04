@@ -41,6 +41,17 @@ export function AssignmentPage(state) {
             </div>
           </div>
 
+          <!-- Info karyawan yang dipilih -->
+          <div id="asgn-emp-info" class="mb-16" style="display:none;
+            background:rgba(25,210,193,0.08);border-left:4px solid var(--primary);
+            border-radius:var(--radius);padding:10px 14px;">
+            <div class="text-xs">
+              <i class="fas fa-user-tag" style="color:var(--primary)"></i>
+              <strong>Data Karyawan:</strong>
+              <div id="asgn-emp-detail" class="mt-4"></div>
+            </div>
+          </div>
+
           <!-- Info penugasan aktif karyawan -->
           <div id="asgn-current-info" class="mb-16" style="display:none;
             background:rgba(245,158,11,0.1);border-left:4px solid var(--warning);
@@ -306,8 +317,34 @@ if (typeof window !== 'undefined') {
   window.__asgn_onEmployeeChange = async function (empId) {
     const infoEl   = document.getElementById('asgn-current-info');
     const detailEl = document.getElementById('asgn-current-detail');
-    if (!infoEl || !empId) { if (infoEl) infoEl.style.display = 'none'; return; }
+    const empInfoEl  = document.getElementById('asgn-emp-info');
+    const empDetailEl = document.getElementById('asgn-emp-detail');
 
+    if (!empId) {
+      if (infoEl) infoEl.style.display = 'none';
+      if (empInfoEl) empInfoEl.style.display = 'none';
+      return;
+    }
+
+    // Fetch profile data (basic_salary & overtime_rate)
+    const { data: emp } = await supabase
+      .from('profiles')
+      .select('full_name, basic_salary, overtime_rate, jabatan')
+      .eq('id', empId)
+      .maybeSingle();
+
+    if (empInfoEl && empDetailEl && emp) {
+      empDetailEl.innerHTML = `
+        <span class="text-secondary">${esc(emp.jabatan || 'Karyawan')}</span> |
+        Gaji Pokok: <strong>${fmtIdr(emp.basic_salary || 0)}</strong> |
+        Ongkos Lembur/jam: <strong>${fmtIdr(emp.overtime_rate || 0)}</strong>
+      `;
+      empInfoEl.style.display = 'block';
+    } else if (empInfoEl) {
+      empInfoEl.style.display = 'none';
+    }
+
+    if (!infoEl) return;
     const { data } = await supabase
       .from('project_assignments')
       .select('*, projects(name)')

@@ -44,6 +44,20 @@ export function UsersPage(state) {
           </div>
           <div class="form-row mb-16">
             <div class="form-group">
+              <label class="form-label">Gaji Pokok / Bulan (Rp)</label>
+              <input type="number" class="form-input" id="usr-basic-salary"
+                placeholder="Gaji pokok bulanan" value="0" min="0" />
+              <div class="form-hint">Untuk referensi penugasan & kehadiran</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Ongkos Lembur / Jam (Rp)</label>
+              <input type="number" class="form-input" id="usr-overtime-rate"
+                placeholder="Ongkos lembur per jam" value="0" min="0" />
+              <div class="form-hint">Default rate lembur karyawan ini</div>
+            </div>
+          </div>
+          <div class="form-row mb-16">
+            <div class="form-group">
               <label class="form-label">Username</label>
               <input type="text" class="form-input" id="usr-username" placeholder="username" required
                 oninput="document.getElementById('usr-email-preview').textContent=this.value+'@barotech.com'" />
@@ -75,6 +89,8 @@ export function UsersPage(state) {
               <th>Email</th>
               <th>Role</th>
               <th>Jabatan</th>
+              <th class="text-right">Gaji Pokok</th>
+              <th class="text-right">Lembur/jam</th>
               <th class="text-right">Saldo Bon</th>
               <th class="text-center">Aksi</th>
             </tr>
@@ -86,6 +102,8 @@ export function UsersPage(state) {
               <td class="text-xs">${esc(e.email||'-')}</td>
               <td><span class="badge badge-role">${esc(ROLE_LABELS[e.role]||e.role)}</span></td>
               <td class="text-xs text-secondary">${esc(e.jabatan||'-')}</td>
+              <td class="text-right text-xs text-secondary">${fmtIdr(e.basic_salary||0)}</td>
+              <td class="text-right text-xs text-secondary">${fmtIdr(e.overtime_rate||0)}</td>
               <td class="text-right text-xs ${(e.bon_balance||0)>0?'text-danger fw-bold':'text-secondary'}">
                 ${e.role==='karyawan' ? fmtIdr(e.bon_balance||0) : '-'}
               </td>
@@ -120,6 +138,8 @@ export async function handleUserSubmit(e, refreshFn) {
     const jabatan         = role === 'karyawan'
       ? (document.getElementById('usr-jabatan').value || 'Karyawan')
       : null;
+    const basic_salary    = parseFloat(document.getElementById('usr-basic-salary').value) || 0;
+    const overtime_rate   = parseFloat(document.getElementById('usr-overtime-rate').value) || 0;
 
     // Insert directly into profiles table (custom auth)
     const { error } = await supabase.from('profiles').insert({
@@ -131,6 +151,8 @@ export async function handleUserSubmit(e, refreshFn) {
       role,
       whatsapp_number,
       jabatan,
+      basic_salary,
+      overtime_rate,
       created_at: new Date().toISOString(),
     });
 
@@ -207,6 +229,18 @@ export function openEditUser(employee, refreshFn) {
             </select>
           </div>
         </div>
+        <div class="form-row mb-16">
+          <div class="form-group">
+            <label class="form-label">Gaji Pokok / Bulan (Rp)</label>
+            <input type="number" class="form-input" id="edit-usr-basic-salary"
+              value="${e.basic_salary || 0}" min="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ongkos Lembur / Jam (Rp)</label>
+            <input type="number" class="form-input" id="edit-usr-overtime-rate"
+              value="${e.overtime_rate || 0}" min="0" />
+          </div>
+        </div>
         <div class="form-group mb-16">
           <label class="form-label">Password Baru (kosongkan jika tidak diubah)</label>
           <input type="password" class="form-input" id="edit-usr-password" placeholder="Min. 6 karakter" minlength="6" />
@@ -232,10 +266,12 @@ export async function saveEditUser(e, userId, refreshFn) {
     const jabatan         = role === 'karyawan'
       ? (document.getElementById('edit-usr-jabatan').value || 'Karyawan')
       : null;
+    const basic_salary    = parseFloat(document.getElementById('edit-usr-basic-salary').value) || 0;
+    const overtime_rate   = parseFloat(document.getElementById('edit-usr-overtime-rate').value) || 0;
     const newPassword     = document.getElementById('edit-usr-password').value;
 
     // Update profile with password if provided
-    const updateData = { full_name, whatsapp_number, role, jabatan };
+    const updateData = { full_name, whatsapp_number, role, jabatan, basic_salary, overtime_rate };
     if (newPassword) {
       updateData.password_hash = newPassword;
     }
