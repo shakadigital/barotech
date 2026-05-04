@@ -50,19 +50,14 @@ export function AttendancePage(state) {
   // ── Info banner ─────────────────────────────────────────────────────────
   function infoBanner() {
     let msg = '';
-    if (isVerifyAll) msg = 'Klik <strong>Generate Absensi</strong> untuk memuat daftar karyawan hari ini dari assignment aktif, lalu verifikasi kehadiran.';
-    if (isVerifyOwn) msg = 'Klik <strong>Generate Absensi</strong> untuk memuat daftar karyawan proyek Anda hari ini, lalu verifikasi kehadiran.';
+    if (isVerifyAll) msg = 'Daftar kehadiran otomatis tersinkron saat admin menempatkan karyawan ke proyek. Silakan verifikasi kehadiran di bawah.';
+    if (isVerifyOwn) msg = 'Daftar kehadiran otomatis tersinkron dari penugasan proyek Anda. Silakan verifikasi kehadiran di bawah.';
     if (isReadOnly)  msg = 'Daftar kehadiran semua proyek hari ini (read-only).';
     if (!msg) return '';
     return `
       <div class="card mb-16" style="background:rgba(25,210,193,0.06);border-left:4px solid var(--primary);padding:12px 16px;">
         <div class="flex gap-8 align-center" style="flex-wrap:wrap;gap:12px;">
           <span class="text-sm"><i class="fas fa-info-circle text-primary"></i> ${msg}</span>
-          ${(isVerifyAll || isVerifyOwn) ? `
-          <button class="btn btn-primary btn-sm" id="btn-generate-att"
-            onclick="window.__app.generateDailyAttendance()">
-            <i class="fas fa-sync-alt"></i> Generate Absensi Hari Ini
-          </button>` : ''}
         </div>
       </div>`;
   }
@@ -261,16 +256,12 @@ export function AttendancePage(state) {
       ${!isAdmin ? infoBanner() : ''}
 
       ${isAdmin ? `
-      <!-- Admin: tombol generate + info -->
+      <!-- Admin: info auto-sync -->
       <div class="card mb-16" style="background:rgba(25,210,193,0.06);border-left:4px solid var(--primary);padding:12px 16px;">
         <div class="flex gap-8 align-center" style="flex-wrap:wrap;gap:12px;">
           <span class="text-sm"><i class="fas fa-info-circle text-primary"></i>
-            Absensi harian di-generate otomatis dari assignment aktif.
-            Gunakan menu <strong>Assignment</strong> untuk mengatur karyawan per proyek.
+            Admin: penugasan karyawan otomatis tersinkron ke absensi. Gunakan menu <strong>Assignment</strong> untuk mengatur penugasan.
           </span>
-          <button class="btn btn-primary btn-sm" onclick="window.__app.generateDailyAttendance()">
-            <i class="fas fa-sync-alt"></i> Generate Absensi Hari Ini
-          </button>
         </div>
       </div>` : ''}
 
