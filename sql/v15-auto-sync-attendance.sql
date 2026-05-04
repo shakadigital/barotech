@@ -29,7 +29,8 @@ BEGIN
       status, hourly_rate, basic_salary, notes
     ) VALUES (
       NEW.employee_id, NEW.project_id,
-      CURRENT_DATE || ' 08:00:00', CURRENT_DATE || ' 17:00:00',
+      (CURRENT_DATE::TIMESTAMP + '08:00:00'::TIME)::TIMESTAMPTZ,
+      (CURRENT_DATE::TIMESTAMP + '17:00:00'::TIME)::TIMESTAMPTZ,
       'draft', v_hourly, NEW.basic_salary, NEW.notes
     )
     ON CONFLICT DO NOTHING;  -- mencegah duplikat kalau sudah ada
@@ -91,7 +92,8 @@ BEGIN
       status, hourly_rate, basic_salary, notes
     ) VALUES (
       NEW.employee_id, NEW.project_id,
-      CURRENT_DATE || ' 08:00:00', CURRENT_DATE || ' 17:00:00',
+      (CURRENT_DATE::TIMESTAMP + '08:00:00'::TIME)::TIMESTAMPTZ,
+      (CURRENT_DATE::TIMESTAMP + '17:00:00'::TIME)::TIMESTAMPTZ,
       'draft', v_hourly, NEW.basic_salary, NEW.notes
     )
     ON CONFLICT DO NOTHING;
