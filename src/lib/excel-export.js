@@ -59,13 +59,13 @@ export function exportLaporanGaji(data, filters = {}) {
 
     // Sheet 1: Ringkasan per Karyawan
     const summaryRows = data.map(emp => ({
-      'Nama Karyawan': emp.full_name || '',
-      'Jabatan': emp.jabatan || '',
-      'Total Hari': emp.total_hari || 0,
-      'Gaji Pokok': emp.gaji_pokok || 0,
-      'Lembur': emp.lembur || 0,
-      'Kasbon': emp.kasbon || 0,
-      'Total Bersih': emp.total_bersih || 0,
+      'Nama Karyawan': String(emp.full_name || ''),
+      'Jabatan': String(emp.jabatan || ''),
+      'Total Hari': Number(emp.total_hari || 0),
+      'Gaji Pokok': Number(emp.gaji_pokok || 0),
+      'Lembur': Number(emp.lembur || 0),
+      'Kasbon': Number(emp.kasbon || 0),
+      'Total Bersih': Number(emp.total_bersih || 0),
     }));
 
     console.log('Summary rows:', summaryRows);
