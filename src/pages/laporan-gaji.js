@@ -1,4 +1,5 @@
 import { fmtDate, fmtIdr, esc } from '../lib/helpers.js';
+import { supabase } from '../lib/supabase.js';
 import { exportLaporanGaji } from '../lib/excel-export.js';
 
 /**
