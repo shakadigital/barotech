@@ -94,7 +94,8 @@ export function exportLaporanGaji(data, filters = {}) {
     });
 
     // Detail per proyek
-    byProject.forEach((prjData, prjName) => {
+    if (byProject.size > 0) {
+      byProject.forEach((prjData, prjName) => {
       // Header proyek
       detailRows.push({
         'Nama Karyawan': '',
@@ -139,6 +140,7 @@ export function exportLaporanGaji(data, filters = {}) {
       });
       currentRow++;
     });
+    }
 
     // Grand total karyawan
     detailRows.push({
