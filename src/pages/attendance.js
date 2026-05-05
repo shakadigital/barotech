@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase.js';
 import { fmtTime, fmtDate, fmtIdr, esc, showToast } from '../lib/helpers.js';
-import { canFinance, FINANCE_ROLES, canVerify, canDelete, canVerifyAll } from '../lib/roles.js';
+import { canFinance, FINANCE_ROLES, canVerify, canDelete, canVerifyAll, canVerifyOwn } from '../lib/roles.js';
 import { exportLaporanAbsensi } from '../lib/excel-export.js';
 
 const WORK_HOURS_STANDARD = 8; // jam kerja standar per hari
