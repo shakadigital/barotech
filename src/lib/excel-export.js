@@ -55,165 +55,58 @@ export function exportLaporanGaji(data, filters = {}) {
 
     const wb = XLSX.utils.book_new();
 
-  // Sheet 1: Ringkasan per Karyawan
-  const summaryRows = data.map(emp => ({
-    'Nama Karyawan': emp.full_name || '',
-    'Jabatan': emp.jabatan || '',
-    'Total Hari': emp.total_hari || 0,
-    'Gaji Pokok': emp.gaji_pokok || 0,
-    'Lembur': emp.lembur || 0,
-    'Kasbon': emp.kasbon || 0,
-    'Total Bersih': emp.total_bersih || 0,
-  }));
+    // Sheet 1: Ringkasan per Karyawan
+    const summaryRows = data.map(emp => ({
+      'Nama Karyawan': emp.full_name || '',
+      'Jabatan': emp.jabatan || '',
+      'Total Hari': emp.total_hari || 0,
+      'Gaji Pokok': emp.gaji_pokok || 0,
+      'Lembur': emp.lembur || 0,
+      'Kasbon': emp.kasbon || 0,
+      'Total Bersih': emp.total_bersih || 0,
+    }));
 
-  if (summaryRows.length === 0) {
-    showToast('Tidak ada data untuk diexport', 'error');
-    return;
-  }
-
-  const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
-  autoFitColumns(wsSummary);
-  XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan');
-
-  // Sheet 2: Detail per Karyawan dengan grouping per proyek
-  const detailRows = [];
-  let currentRow = 0;
-
-  data.forEach(emp => {
-    // Validate emp has required properties
-    if (!emp || !emp.logs || !Array.isArray(emp.logs)) {
-      console.error('Invalid emp data:', emp);
-      return; // Skip this employee
+    if (summaryRows.length === 0) {
+      showToast('Tidak ada data untuk diexport', 'error');
+      return;
     }
-    // Header karyawan
-    detailRows.push({
-      'Nama Karyawan': emp.full_name,
-      'Jabatan': emp.jabatan,
-      'Proyek': '',
-      'Tanggal': '',
-      'Gaji Pokok': '',
-      'Lembur': '',
-      'Kasbon': '',
-      'Total': '',
-      '_type': 'header'
-    });
-    currentRow++;
 
-    // Group logs by project
-    const byProject = new Map();
-    emp.logs.forEach(log => {
-      const prjName = log.project_name || 'Tidak ada proyek';
-      if (!byProject.has(prjName)) {
-        byProject.set(prjName, { logs: [], total: 0 });
+    const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+    autoFitColumns(wsSummary);
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan');
+
+    // Sheet 2: Detail Flat (tanpa grouping dulu untuk test)
+    const detailRows = [];
+    data.forEach(emp => {
+      if (!emp || !emp.logs || !Array.isArray(emp.logs)) {
+        console.error('Invalid emp data:', emp);
+        return;
       }
-      byProject.get(prjName).logs.push(log);
-      byProject.get(prjName).total += (log.basic_salary || 0) + (log.overtime_pay || 0) - (log.cash_advance || 0);
-    });
-
-    // Detail per proyek
-    if (byProject.size > 0) {
-      byProject.forEach((prjData, prjName) => {
-      // Header proyek
-      detailRows.push({
-        'Nama Karyawan': '',
-        'Jabatan': '',
-        'Proyek': prjName,
-        'Tanggal': '',
-        'Gaji Pokok': '',
-        'Lembur': '',
-        'Kasbon': '',
-        'Total': '',
-        '_type': 'project_header'
-      });
-      currentRow++;
-
-      // Detail logs
-      prjData.logs.forEach(log => {
+      
+      emp.logs.forEach(log => {
         detailRows.push({
-          'Nama Karyawan': '',
-          'Jabatan': '',
-          'Proyek': '',
+          'Nama Karyawan': emp.full_name || '',
+          'Jabatan': emp.jabatan || '',
+          'Proyek': log.project_name || '',
           'Tanggal': formatExcelDate(log.created_at),
-          'Gaji Pokok': log.basic_salary,
-          'Lembur': log.overtime_pay,
-          'Kasbon': log.cash_advance,
+          'Gaji Pokok': log.basic_salary || 0,
+          'Lembur': log.overtime_pay || 0,
+          'Kasbon': log.cash_advance || 0,
           'Total': (log.basic_salary || 0) + (log.overtime_pay || 0) - (log.cash_advance || 0),
-          '_type': 'detail'
         });
-        currentRow++;
       });
-
-      // Subtotal proyek
-      detailRows.push({
-        'Nama Karyawan': '',
-        'Jabatan': '',
-        'Proyek': `Subtotal ${prjName}`,
-        'Tanggal': `${prjData.logs.length} hari`,
-        'Gaji Pokok': prjData.logs.reduce((s, l) => s + (l.basic_salary || 0), 0),
-        'Lembur': prjData.logs.reduce((s, l) => s + (l.overtime_pay || 0), 0),
-        'Kasbon': prjData.logs.reduce((s, l) => s + (l.cash_advance || 0), 0),
-        'Total': prjData.total,
-        '_type': 'subtotal'
-      });
-      currentRow++;
     });
-    }
 
-    // Grand total karyawan
-    detailRows.push({
-      'Nama Karyawan': '',
-      'Jabatan': '',
-      'Proyek': 'TOTAL',
-      'Tanggal': `${emp.logs.length} hari`,
-      'Gaji Pokok': emp.gaji_pokok,
-      'Lembur': emp.lembur,
-      'Kasbon': emp.kasbon,
-      'Total': emp.total_bersih,
-      '_type': 'grand_total'
-    });
-    currentRow++;
+    const wsDetail = XLSX.utils.json_to_sheet(detailRows);
+    autoFitColumns(wsDetail);
+    XLSX.utils.book_append_sheet(wb, wsDetail, 'Detail');
 
-    // Empty row between employees
-    detailRows.push({
-      'Nama Karyawan': '',
-      'Jabatan': '',
-      'Proyek': '',
-      'Tanggal': '',
-      'Gaji Pokok': '',
-      'Lembur': '',
-      'Kasbon': '',
-      'Total': '',
-      '_type': 'spacer'
-    });
-    currentRow++;
-  });
+    // Generate filename
+    const dateStr = filters.month || new Date().toISOString().slice(0, 7);
+    const filename = `Laporan-Gaji-${dateStr}.xlsx`;
 
-  // Create worksheet from rows
-  const wsDetail = XLSX.utils.json_to_sheet(detailRows);
-
-  // Remove _type column
-  const typeColIndex = detailRows[0] ? Object.keys(detailRows[0]).indexOf('_type') : -1;
-  if (typeColIndex >= 0) {
-    const range = XLSX.utils.decode_range(wsDetail['!ref']);
-    for (let row = range.s.r; row <= range.e.r; row++) {
-      const addr = XLSX.utils.encode_cell({ r: row, c: typeColIndex });
-      delete wsDetail[addr];
-    }
-    wsDetail['!ref'] = XLSX.utils.encode_range({
-      s: { r: range.s.r, c: range.s.c },
-      e: { r: range.e.r, c: range.e.c - 1 }
-    });
-  }
-
-  autoFitColumns(wsDetail);
-  XLSX.utils.book_append_sheet(wb, wsDetail, 'Detail');
-
-  // Generate filename
-  const dateStr = filters.month || new Date().toISOString().slice(0, 7);
-  const filename = `Laporan-Gaji-${dateStr}.xlsx`;
-
-  // Download
-  XLSX.writeFile(wb, filename);
+    // Download
+    XLSX.writeFile(wb, filename);
   } catch (err) {
     console.error('Excel export error:', err);
     showToast('Gagal export Excel: ' + err.message, 'error');
