@@ -268,40 +268,50 @@ export async function filterLaporanGaji(state) {
 
 /** Export laporan gaji to Excel */
 export function exportLaporanGajiToExcel() {
-  const data = window.__laporanGajiData;
-  if (!data || data.byEmployee.size === 0) {
-    showToast('Tidak ada data untuk diexport', 'error');
-    return;
-  }
+  try {
+    const data = window.__laporanGajiData;
+    console.log('Export data:', data);
+    if (!data) {
+      showToast('Silakan filter data terlebih dahulu', 'error');
+      return;
+    }
+    if (data.byEmployee.size === 0) {
+      showToast('Tidak ada data untuk diexport', 'error');
+      return;
+    }
 
-  // Format data for export
-  const exportData = Array.from(data.byEmployee.entries()).map(([empId, empData]) => {
-    const emp = data.employees.find(e => e.id === empId);
-    const logs = empData.logs.map(l => {
-      const prj = data.projects.find(p => p.id === l.project_id);
+    // Format data for export
+    const exportData = Array.from(data.byEmployee.entries()).map(([empId, empData]) => {
+      const emp = data.employees.find(e => e.id === empId);
+      const logs = empData.logs.map(l => {
+        const prj = data.projects.find(p => p.id === l.project_id);
+        return {
+          ...l,
+          employee_name: emp?.full_name,
+          employee_jabatan: emp?.jabatan,
+          project_name: prj?.name,
+        };
+      });
+
+      const totalGaji = logs.reduce((s, l) => s + (l.basic_salary || 0), 0);
+      const totalLembur = logs.reduce((s, l) => s + (l.overtime_pay || 0), 0);
+      const totalKasbon = logs.reduce((s, l) => s + (l.cash_advance || 0), 0);
+
       return {
-        ...l,
-        employee_name: emp?.full_name,
-        employee_jabatan: emp?.jabatan,
-        project_name: prj?.name,
+        full_name: emp?.full_name,
+        jabatan: emp?.jabatan,
+        total_hari: logs.length,
+        gaji_pokok: totalGaji,
+        lembur: totalLembur,
+        kasbon: totalKasbon,
+        total_bersih: totalGaji + totalLembur - totalKasbon,
+        logs,
       };
     });
 
-    const totalGaji = logs.reduce((s, l) => s + (l.basic_salary || 0), 0);
-    const totalLembur = logs.reduce((s, l) => s + (l.overtime_pay || 0), 0);
-    const totalKasbon = logs.reduce((s, l) => s + (l.cash_advance || 0), 0);
-
-    return {
-      full_name: emp?.full_name,
-      jabatan: emp?.jabatan,
-      total_hari: logs.length,
-      gaji_pokok: totalGaji,
-      lembur: totalLembur,
-      kasbon: totalKasbon,
-      total_bersih: totalGaji + totalLembur - totalKasbon,
-      logs,
-    };
-  });
-
-  exportLaporanGaji(exportData, data.filters);
+    exportLaporanGaji(exportData, data.filters);
+  } catch (err) {
+    console.error('Export error:', err);
+    showToast('Gagal export: ' + err.message, 'error');
+  }
 }
