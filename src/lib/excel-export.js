@@ -174,41 +174,6 @@ export function exportLaporanGaji(data, filters = {}) {
   // Create worksheet from rows
   const wsDetail = XLSX.utils.json_to_sheet(detailRows);
 
-  // Apply styling based on row type
-  const range = XLSX.utils.decode_range(wsDetail['!ref']);
-  for (let row = range.s.r; row <= range.e.r; row++) {
-    const cellAddress = XLSX.utils.encode_cell({ r: row, c: 0 });
-    const cell = wsDetail[cellAddress];
-    if (cell && cell.v) {
-      const rowData = detailRows[row];
-      if (rowData._type === 'header') {
-        // Bold for employee header
-        for (let col = range.s.c; col <= range.e.c; col++) {
-          const addr = XLSX.utils.encode_cell({ r: row, c: col });
-          if (wsDetail[addr]) {
-            wsDetail[addr].s = { font: { bold: true } };
-          }
-        }
-      } else if (rowData._type === 'project_header') {
-        // Italic for project header
-        for (let col = range.s.c; col <= range.e.c; col++) {
-          const addr = XLSX.utils.encode_cell({ r: row, c: col });
-          if (wsDetail[addr]) {
-            wsDetail[addr].s = { font: { italic: true } };
-          }
-        }
-      } else if (rowData._type === 'subtotal' || rowData._type === 'grand_total') {
-        // Bold for totals
-        for (let col = range.s.c; col <= range.e.c; col++) {
-          const addr = XLSX.utils.encode_cell({ r: row, c: col });
-          if (wsDetail[addr]) {
-            wsDetail[addr].s = { font: { bold: true } };
-          }
-        }
-      }
-    }
-  }
-
   // Remove _type column
   const typeColIndex = detailRows[0] ? Object.keys(detailRows[0]).indexOf('_type') : -1;
   if (typeColIndex >= 0) {
