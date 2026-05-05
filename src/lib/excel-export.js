@@ -76,7 +76,6 @@ export function exportLaporanGaji(data, filters = {}) {
     }
 
     const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
-    autoFitColumns(wsSummary);
     XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan');
 
     // Generate filename
