@@ -5,7 +5,7 @@ import { fmtTime, fmtDate, fmtIdr, esc } from '../lib/helpers.js';
  * Menampilkan kehadiran, kegiatan, dan rincian pendapatan harian.
  */
 export function RiwayatPage(state) {
-  const { user, attendanceLogs, projects } = state;
+  const { user, attendanceLogs, projects, dailyActivities } = state;
 
   // Guard: halaman ini hanya untuk karyawan
   if (user.role !== 'karyawan') {
@@ -145,6 +145,7 @@ export function RiwayatPage(state) {
 
                   // Breakdown keuangan untuk detail row
                   const hasBreakdown = (l.uang_makan||0) > 0 || (l.transport||0) > 0 || (l.tunjangan_lain||0) > 0;
+                  const acts = dailyActivities.filter(a => a.attendance_id === l.id);
                   const detailHtml = `
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:0.78rem;">
                       <div><span class="text-secondary">Status:</span> ${statusBadge}</div>
@@ -173,6 +174,15 @@ export function RiwayatPage(state) {
                         <span class="text-secondary">Total Diterima:</span>
                         <strong class="text-success" style="font-size:0.9rem;">${fmtIdr(totalTerima)}</strong>
                       </div>
+                      ${acts.length > 0 ? `
+                      <div style="grid-column:1/-1;border-top:1px solid var(--border,#e5e7eb);margin-top:8px;padding-top:8px;">
+                        <div class="text-xs fw-bold mb-4" style="color:var(--text-secondary);"><i class="fas fa-tasks"></i> Kegiatan Hari Ini</div>
+                        ${acts.map(a => `
+                          <div style="padding:4px 8px;background:var(--bg-input);border-radius:var(--radius);margin-bottom:4px;">
+                            <span class="text-sm">✓ ${esc(a.description)}</span>
+                          </div>
+                        `).join('')}
+                      </div>` : ''}
                     </div>`;
 
                   return `

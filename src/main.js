@@ -8,7 +8,7 @@ import { LaporanPage, previewPhoto, handleLaporanSubmit } from './pages/laporan.
 import { ProjectPage, handleProjectSubmit, deleteProject, updateProjectStatus, openProjectDetail } from './pages/project.js';
 import { UsersPage, handleUserSubmit, deleteUser, openEditUser, saveEditUser } from './pages/users.js';
 import { BonPage, handleBonSubmit, showBonHistory } from './pages/bon.js';
-import { AssignmentPage, loadAssignments, handleAssignSubmit, toggleAssignRow, openEditAssignment, saveEditAssignment, editAssignmentSalary, endAssignment, resumeAssignment, deleteAssignment } from './pages/assignment.js';
+import { AssignmentPage, loadAssignments, handleAssignSubmit, toggleAssignRow, openEditAssignment, saveEditAssignment, editAssignmentSalary, endAssignment, resumeAssignment, deleteAssignment, openAdminCheckIn, saveAdminCheckIn } from './pages/assignment.js';
 import { OvertimePage, handleOvertimeSubmit, handleOvertimeRequest, loadOvertimeList, approveOvertime, rejectOvertime, deleteOvertime } from './pages/overtime.js';
 import { MaterialPage, handleMaterialSubmit, loadMaterialList, updateMaterialStatus, deleteMaterial } from './pages/material.js';
 import { ExpensePage, handleExpenseSubmit, loadExpenseList, deleteExpense } from './pages/expense.js';
@@ -24,6 +24,7 @@ const state = {
   employees: [],
   projects: [],
   attendanceLogs: [],
+  dailyActivities: [],
   dbConnected: false,
   loading: false,
 };
@@ -65,16 +66,18 @@ async function fetchData() {
           .order('created_at', { ascending: false })
       : supabase.from('attendance_logs').select('*').order('created_at', { ascending: false });
 
-    const [empRes, prjRes, attRes, asgnRes] = await Promise.all([
+    const [empRes, prjRes, attRes, asgnRes, actRes] = await Promise.all([
       supabase.from('profiles').select('*').order('full_name'),
       supabase.from('projects').select('*').order('created_at', { ascending: false }),
       attQuery,
       supabase.from('project_assignments').select('id,employee_id,project_id,status').eq('status','active'),
+      supabase.from('daily_activities').select('*').order('created_at', { ascending: false }),
     ]);
-    state.employees    = empRes.data || [];
-    state.projects     = prjRes.data || [];
-    state.attendanceLogs = attRes.data || [];
-    state.assignments  = asgnRes.data || [];
+    state.employees       = empRes.data || [];
+    state.projects        = prjRes.data || [];
+    state.attendanceLogs  = attRes.data || [];
+    state.assignments     = asgnRes.data || [];
+    state.dailyActivities = actRes.data || [];
     state.dbConnected  = true;
   } catch {
     state.dbConnected = false;
@@ -364,6 +367,8 @@ window.__app = {
   endAssignment(id) { endAssignment(id, state, refreshAndRender); },
   resumeAssignment(id) { resumeAssignment(id, state, refreshAndRender); },
   deleteAssignment(id) { deleteAssignment(id, state, refreshAndRender); },
+  openAdminCheckIn(id) { openAdminCheckIn(id, state); },
+  saveAdminCheckIn(e, id) { saveAdminCheckIn(e, id, state); },
   handleLaporanSubmit(e) { handleLaporanSubmit(e, state, refreshAndRender); },
   previewPhoto,
   handleProjectSubmit(e) { handleProjectSubmit(e, refreshAndRender); },

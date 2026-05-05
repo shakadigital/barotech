@@ -172,13 +172,10 @@ export function AttendancePage(state) {
                         - (l.cash_advance||0) + (l.cash_payout||0);
       const durasi = calcDuration(l.check_in, l.check_out);
       const hasBreakdown = (l.uang_makan||0) > 0 || (l.transport||0) > 0 || (l.tunjangan_lain||0) > 0;
-      // Location tag — only visible to admin+
+      // Location tag — only visible to admin+ (icon only, data saved in DB)
       const locTag = (l.checkin_lat || l.checkout_lat) ? `
         <div class="text-secondary" style="font-size:0.65rem;margin-top:2px;">
-          <i class="fas fa-map-marker-alt"></i>
-          ${l.checkin_lat ? `<a href="https://www.google.com/maps?q=${l.checkin_lat},${l.checkin_lng}" target="_blank" style="color:inherit;text-decoration:none;">Masuk: ${l.checkin_lat.toFixed(4)},${l.checkin_lng.toFixed(4)}</a>` : 'Masuk: -'}
-          ${l.checkin_lat && l.checkout_lat ? ' | ' : ''}
-          ${l.checkout_lat ? `<a href="https://www.google.com/maps?q=${l.checkout_lat},${l.checkout_lng}" target="_blank" style="color:inherit;text-decoration:none;">Pulang: ${l.checkout_lat.toFixed(4)},${l.checkout_lng.toFixed(4)}</a>` : ''}
+          <i class="fas fa-map-marker-alt"></i> Lokasi tercatat
         </div>` : '';
       financeCell = `
         <td>
@@ -265,6 +262,20 @@ export function AttendancePage(state) {
           ${hasClockedIn && hasClockedOut ? '<span class="text-success"><i class="fas fa-check-double"></i> Absensi hari ini selesai</span>' : ''}
           ${!hasClockedIn ? '<span class="text-secondary"><i class="fas fa-info-circle"></i> Lokasi GPS akan direkam saat check-in/out</span>' : ''}
         </div>
+
+        <!-- Kegiatan Hari Ini (Multi-Item) -->
+        ${hasClockedIn && !hasClockedOut ? `
+        <div class="mt-16" style="border-top:1px solid var(--border);padding-top:12px;">
+          <div class="text-xs fw-bold mb-8"><i class="fas fa-tasks text-primary"></i> Kegiatan Hari Ini</div>
+          <div class="flex gap-8 mb-8">
+            <input type="text" class="form-input" id="self-activity-input"
+              placeholder="Tambah kegiatan..." style="flex:1;" />
+            <button type="button" class="btn btn-sm btn-ghost" onclick="window.__addSelfActivity()">
+              <i class="fas fa-plus"></i> Tambah
+            </button>
+          </div>
+          <div id="self-activities-list"></div>
+        </div>` : ''}
       </div>
     `;
   }
@@ -677,6 +688,19 @@ export async function clockOut(state, refreshFn) {
 
     if (error) throw error;
 
+    // Save self activities to daily_activities
+    if (window.__selfActivities && window.__selfActivities.length > 0) {
+      const activityInserts = window.__selfActivities.map(desc => ({
+        attendance_id: existing.id,
+        description: desc,
+        status: 'done',
+        created_by: state.user.id,
+      }));
+      const { error: actError } = await supabase.from('daily_activities').insert(activityInserts);
+      if (actError) throw actError;
+      window.__selfActivities = []; // Clear after save
+    }
+
     const statusDiv = document.getElementById('self-att-status');
     if (statusDiv) {
       statusDiv.innerHTML = `<span class="text-success"><i class="fas fa-check-double"></i> Absen pulang berhasil jam ${now.slice(0,5)}${geo ? ` 📍 ${geo.lat.toFixed(4)},${geo.lng.toFixed(4)}` : ''}</span>`;
@@ -689,6 +713,38 @@ export async function clockOut(state, refreshFn) {
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-out-alt"></i> <span class="text-xs">Pulang</span>'; }
   }
+}
+
+/** Self activity management functions */
+if (typeof window !== 'undefined') {
+  window.__selfActivities = [];
+
+  window.__addSelfActivity = function () {
+    const input = document.getElementById('self-activity-input');
+    const desc = input?.value.trim();
+    if (!desc) return;
+    window.__selfActivities.push(desc);
+    input.value = '';
+    renderSelfActivities();
+  };
+
+  function renderSelfActivities() {
+    const list = document.getElementById('self-activities-list');
+    if (!list) return;
+    list.innerHTML = window.__selfActivities.map((desc, idx) => `
+      <div class="flex align-center gap-8 mb-4" style="padding:6px 10px;background:var(--bg-input);border-radius:var(--radius);">
+        <span class="text-sm">${esc(desc)}</span>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="window.__removeSelfActivity(${idx})" style="margin-left:auto;">
+          <i class="fas fa-times" style="color:var(--danger)"></i>
+        </button>
+      </div>
+    `).join('');
+  }
+
+  window.__removeSelfActivity = function (idx) {
+    window.__selfActivities.splice(idx, 1);
+    renderSelfActivities();
+  };
 }
 
 /** Simpan edit absensi */

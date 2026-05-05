@@ -134,7 +134,7 @@ export function AssignmentPage(state) {
     </div>`;
 }
 
-/** Load daftar penugasan — dengan row collapsible */
+/** Load daftar penugasan — dengan row collapsible + check-in status */
 export async function loadAssignments(state) {
   const el = document.getElementById('penugasan-list');
   if (!el) return;
@@ -153,6 +153,20 @@ export async function loadAssignments(state) {
     }
 
     const isDeleter = ['superadmin','owner'].includes(state.user.role);
+
+    // Check today's attendance for each active assignment
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const { data: attData } = await supabase
+      .from('attendance_logs')
+      .select('employee_id, status')
+      .eq('created_at', todayStr);
+
+    const todayAttendance = new Map();
+    if (attData) {
+      attData.forEach(att => {
+        todayAttendance.set(att.employee_id, att.status);
+      });
+    }
 
     el.innerHTML = `
       <div class="table-wrapper">
@@ -174,6 +188,8 @@ export async function loadAssignments(state) {
               const emp = state.employees.find(e => e.id === a.employee_id);
               const prj = state.projects.find(p => p.id === a.project_id);
               const isActive = a.status === 'active';
+              const attStatus = todayAttendance.get(a.employee_id);
+              const hasCheckedIn = attStatus !== undefined;
               return `
               <tr class="assign-row" data-index="${idx}">
                 <td class="text-xs text-secondary">${idx + 1}</td>
@@ -196,6 +212,11 @@ export async function loadAssignments(state) {
                       <i class="fas fa-edit" style="font-size:0.7rem;"></i>
                     </button>
                     <div class="flex gap-4">
+                    ${isActive && !hasCheckedIn ? `
+                      <button class="btn btn-primary btn-sm" title="Check-In Karyawan"
+                        onclick="window.__app.openAdminCheckIn('${a.id}')">
+                        <i class="fas fa-sign-in-alt"></i>
+                      </button>` : ''}
                     ${isActive ? `
                       <button class="btn btn-danger btn-sm" title="Akhiri"
                         onclick="window.__app.endAssignment('${a.id}')">
@@ -386,6 +407,181 @@ export async function saveEditAssignment(e, id, state, refreshFn) {
 /** Edit gaji penugasan (legacy — redirect ke modal full) */
 export async function editAssignmentSalary(id, currentSalary, state, refreshFn) {
   window.__app.openEditAssignment(id);
+}
+
+/** Buka modal admin check-in dengan multi-item kegiatan */
+export async function openAdminCheckIn(assignmentId, state) {
+  const { data: a, error } = await supabase
+    .from('project_assignments')
+    .select('*')
+    .eq('id', assignmentId)
+    .maybeSingle();
+  if (error || !a) { showToast('Gagal memuat data penugasan', 'error'); return; }
+
+  const emp = state.employees.find(e => e.id === a.employee_id);
+  const prj = state.projects.find(p => p.id === a.project_id);
+
+  document.getElementById('admin-checkin-modal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'admin-checkin-modal';
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-card" style="max-width:600px;">
+      <div class="modal-title">
+        <i class="fas fa-sign-in-alt"></i> Check-In Karyawan
+        <button onclick="document.getElementById('admin-checkin-modal').remove()"
+          style="margin-left:auto;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:1.2rem;">✕</button>
+      </div>
+
+      <div class="mb-16" style="background:var(--bg-hover);border-radius:var(--radius);padding:10px 14px;">
+        <div class="text-sm fw-bold">${esc(emp?.full_name||'-')}</div>
+        <div class="text-xs text-secondary">${esc(prj?.name||'-')}</div>
+      </div>
+
+      <form id="admin-checkin-form" onsubmit="window.__app.saveAdminCheckIn(event, '${assignmentId}')">
+        <div class="form-row mb-16">
+          <div class="form-group">
+            <label class="form-label">Jam Check-In</label>
+            <input type="time" class="form-input" id="admin-checkin-time" value="08:00" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Jam Check-Out (default 17:00)</label>
+            <input type="time" class="form-input" id="admin-checkout-time" value="17:00" />
+          </div>
+        </div>
+
+        <div class="form-section-label mb-8" style="font-size:0.75rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;">
+          <i class="fas fa-tasks"></i> Kegiatan Hari Ini
+        </div>
+
+        <div class="mb-16">
+          <div class="form-group mb-8">
+            <input type="text" class="form-input" id="admin-activity-input"
+              placeholder="Tambah kegiatan..." />
+          </div>
+          <button type="button" class="btn btn-sm btn-ghost" onclick="window.__addAdminActivity()">
+            <i class="fas fa-plus"></i> Tambah Kegiatan
+          </button>
+          <div id="admin-activities-list" class="mt-8"></div>
+        </div>
+
+        <div class="form-group mb-16">
+          <label class="form-label">Catatan Tambahan</label>
+          <input type="text" class="form-input" id="admin-checkin-notes" placeholder="Contoh: HP rusak, admin check-in" />
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="document.getElementById('admin-checkin-modal').remove()">
+            Batal
+          </button>
+          <button type="submit" class="btn btn-primary" id="admin-checkin-submit-btn">
+            <i class="fas fa-check"></i> Check-In & Verifikasi
+          </button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(modal);
+
+  // Initialize activities array
+  window.__adminActivities = [];
+}
+
+/** Tambah kegiatan ke list (admin check-in) */
+if (typeof window !== 'undefined') {
+  window.__addAdminActivity = function () {
+    const input = document.getElementById('admin-activity-input');
+    const desc = input?.value.trim();
+    if (!desc) return;
+    window.__adminActivities.push(desc);
+    input.value = '';
+    renderAdminActivities();
+  };
+
+  function renderAdminActivities() {
+    const list = document.getElementById('admin-activities-list');
+    if (!list) return;
+    list.innerHTML = window.__adminActivities.map((desc, idx) => `
+      <div class="flex align-center gap-8 mb-4" style="padding:6px 10px;background:var(--bg-input);border-radius:var(--radius);">
+        <span class="text-sm">${esc(desc)}</span>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="window.__removeAdminActivity(${idx})" style="margin-left:auto;">
+          <i class="fas fa-times" style="color:var(--danger)"></i>
+        </button>
+      </div>
+    `).join('');
+  }
+
+  window.__removeAdminActivity = function (idx) {
+    window.__adminActivities.splice(idx, 1);
+    renderAdminActivities();
+  };
+}
+
+/** Simpan admin check-in karyawan */
+export async function saveAdminCheckIn(e, assignmentId, state) {
+  e.preventDefault();
+  const btn = document.getElementById('admin-checkin-submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Menyimpan...';
+
+  try {
+    const { data: a, error: assignError } = await supabase
+      .from('project_assignments')
+      .select('*')
+      .eq('id', assignmentId)
+      .maybeSingle();
+    if (assignError || !a) throw assignError || new Error('Penugasan tidak ditemukan');
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const checkInTime = document.getElementById('admin-checkin-time').value;
+    const checkOutTime = document.getElementById('admin-checkout-time').value;
+    const notes = document.getElementById('admin-checkin-notes').value.trim() || 'Check-in oleh admin';
+
+    const checkInTs = `${todayStr}T${checkInTime}:00`;
+    const checkOutTs = checkOutTime ? `${todayStr}T${checkOutTime}:00` : null;
+
+    const hourlyRate = Math.round(a.basic_salary / 8);
+
+    // Create attendance_logs
+    const { data: attData, error: attError } = await supabase.from('attendance_logs').insert({
+      employee_id: a.employee_id,
+      project_id: a.project_id,
+      check_in: checkInTs,
+      check_out: checkOutTs,
+      status: 'verified', // Admin check-in = auto verified
+      hourly_rate: hourlyRate,
+      basic_salary: a.basic_salary,
+      uang_makan: a.uang_makan,
+      transport: a.transport,
+      tunjangan_lain: a.tunjangan_lain,
+      notes: notes,
+      jabatan_snapshot: state.employees.find(e => e.id === a.employee_id)?.jabatan || 'Karyawan',
+    }).select().single();
+
+    if (attError) throw attError;
+
+    // Create daily_activities for each activity
+    if (window.__adminActivities.length > 0) {
+      const activityInserts = window.__adminActivities.map(desc => ({
+        attendance_id: attData.id,
+        description: desc,
+        status: 'done',
+        created_by: state.user.id,
+      }));
+      const { error: actError } = await supabase.from('daily_activities').insert(activityInserts);
+      if (actError) throw actError;
+    }
+
+    showToast('Check-in berhasil disimpan!', 'success');
+    document.getElementById('admin-checkin-modal')?.remove();
+    window.__adminActivities = [];
+    await loadAssignments(state);
+  } catch (err) {
+    showToast('Gagal: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check"></i> Check-In & Verifikasi';
+  }
 }
 
 /** Submit penugasan baru */
