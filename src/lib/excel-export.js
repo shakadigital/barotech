@@ -60,13 +60,16 @@ export function exportLaporanGaji(data, filters = {}) {
     const wb = XLSX.utils.book_new();
 
     // Sheet 1: Ringkasan per Karyawan - use array of arrays instead of json_to_sheet
-    const header = ['Nama Karyawan', 'Jabatan', 'Total Hari', 'Gaji Pokok', 'Lembur', 'Kasbon', 'Total Bersih'];
+    const header = ['Nama Karyawan', 'Jabatan', 'Total Hari', 'Gaji Pokok', 'Lembur', 'Uang Makan', 'Transport', 'Tunjangan Lain', 'Kasbon', 'Total Bersih'];
     const summaryRowsAoA = data.map(emp => [
       String(emp.full_name || ''),
       String(emp.jabatan || ''),
       Number(emp.total_hari || 0),
       Number(emp.gaji_pokok || 0),
       Number(emp.lembur || 0),
+      Number(emp.uang_makan || 0),
+      Number(emp.transport || 0),
+      Number(emp.tunjangan_lain || 0),
       Number(emp.kasbon || 0),
       Number(emp.total_bersih || 0),
     ]);
@@ -80,7 +83,39 @@ export function exportLaporanGaji(data, filters = {}) {
     }
 
     const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+    autoFitColumns(wsSummary);
     XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan');
+
+    // Sheet 2: Detail per Karyawan (semua log dengan tanggal)
+    const detailHeader = [
+      'Nama Karyawan', 'Jabatan', 'Tanggal', 'Proyek',
+      'Gaji Pokok', 'Lembur', 'Uang Makan', 'Transport', 'Tunjangan Lain', 'Kasbon', 'Total Bersih',
+    ];
+    const detailRows = [];
+    data.forEach(emp => {
+      (emp.logs || []).forEach(l => {
+        const total =
+          (l.basic_salary || 0) + (l.overtime_pay || 0) +
+          (l.uang_makan || 0) + (l.transport || 0) + (l.tunjangan_lain || 0) -
+          (l.cash_advance || 0);
+        detailRows.push([
+          String(emp.full_name || ''),
+          String(emp.jabatan || ''),
+          formatExcelDate(l.created_at),
+          String(l.project_name || '-'),
+          Number(l.basic_salary || 0),
+          Number(l.overtime_pay || 0),
+          Number(l.uang_makan || 0),
+          Number(l.transport || 0),
+          Number(l.tunjangan_lain || 0),
+          Number(l.cash_advance || 0),
+          Number(total),
+        ]);
+      });
+    });
+    const wsDetail = XLSX.utils.aoa_to_sheet([detailHeader, ...detailRows]);
+    autoFitColumns(wsDetail);
+    XLSX.utils.book_append_sheet(wb, wsDetail, 'Detail');
 
     // Generate filename
     const dateStr = filters.month || new Date().toISOString().slice(0, 7);

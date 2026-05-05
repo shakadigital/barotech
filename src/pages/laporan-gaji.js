@@ -303,6 +303,9 @@ export function exportLaporanGajiToExcel() {
 
       const totalGaji = logs.reduce((s, l) => s + (l.basic_salary || 0), 0);
       const totalLembur = logs.reduce((s, l) => s + (l.overtime_pay || 0), 0);
+      const totalUangMakan = logs.reduce((s, l) => s + (l.uang_makan || 0), 0);
+      const totalTransport = logs.reduce((s, l) => s + (l.transport || 0), 0);
+      const totalTunjangan = logs.reduce((s, l) => s + (l.tunjangan_lain || 0), 0);
       const totalKasbon = logs.reduce((s, l) => s + (l.cash_advance || 0), 0);
 
       return {
@@ -311,8 +314,11 @@ export function exportLaporanGajiToExcel() {
         total_hari: logs.length,
         gaji_pokok: totalGaji,
         lembur: totalLembur,
+        uang_makan: totalUangMakan,
+        transport: totalTransport,
+        tunjangan_lain: totalTunjangan,
         kasbon: totalKasbon,
-        total_bersih: totalGaji + totalLembur - totalKasbon,
+        total_bersih: totalGaji + totalLembur + totalUangMakan + totalTransport + totalTunjangan - totalKasbon,
         logs,
       };
     });
