@@ -176,8 +176,9 @@ export function AttendancePage(state) {
       const locTag = (l.checkin_lat || l.checkout_lat) ? `
         <div class="text-secondary" style="font-size:0.65rem;margin-top:2px;">
           <i class="fas fa-map-marker-alt"></i>
-          Masuk: ${l.checkin_lat ? `${l.checkin_lat.toFixed(4)},${l.checkin_lng.toFixed(4)}` : '-'}
-          | Pulang: ${l.checkout_lat ? `${l.checkout_lat.toFixed(4)},${l.checkout_lng.toFixed(4)}` : '-'}
+          ${l.checkin_lat ? `<a href="https://www.google.com/maps?q=${l.checkin_lat},${l.checkin_lng}" target="_blank" style="color:inherit;text-decoration:none;">Masuk: ${l.checkin_lat.toFixed(4)},${l.checkin_lng.toFixed(4)}</a>` : 'Masuk: -'}
+          ${l.checkin_lat && l.checkout_lat ? ' | ' : ''}
+          ${l.checkout_lat ? `<a href="https://www.google.com/maps?q=${l.checkout_lat},${l.checkout_lng}" target="_blank" style="color:inherit;text-decoration:none;">Pulang: ${l.checkout_lat.toFixed(4)},${l.checkout_lng.toFixed(4)}</a>` : ''}
         </div>` : '';
       financeCell = `
         <td>
