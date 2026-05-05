@@ -471,8 +471,8 @@ export async function openEditAttendance(id, state) {
         <div class="form-group">
           <label class="form-label">Total / Hari (Rp) <span class="text-muted">(auto-hitung)</span></label>
           <input type="number" class="form-input" id="edit-salary"
-            value="${l.basic_salary||0}" min="0" readonly
-            style="background:var(--bg-input);cursor:default;font-weight:700;" />
+            value="${l.basic_salary||0}" min="0"
+            style="font-weight:700;" />
         </div>
       </div>
       <div class="form-row mb-16">
@@ -490,23 +490,14 @@ export async function openEditAttendance(id, state) {
       </div>
       <div class="form-row mb-16">
         <div class="form-group">
-          <label class="form-label">Jam Lembur</label>
-          <input type="number" class="form-input" id="edit-ot-hours"
-            value="${l.overtime_hours||0}" min="0" step="0.5"
-            oninput="window.__att_editOTCalc()" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Upah Lembur / Jam (Rp)</label>
+          <label class="form-label">Upah Lembur / Jam (Rp) <span class="text-muted">(dari profil)</span></label>
           <input type="number" class="form-input" id="edit-ot-rate"
-            value="${l.overtime_rate||0}" min="0"
-            oninput="window.__att_editOTCalc()" />
+            value="${emp?.overtime_rate || l.overtime_rate || 0}" min="0" />
         </div>
         <div class="form-group">
-          <label class="form-label">Total Lembur</label>
-          <input type="text" class="form-input" id="edit-ot-pay-display"
-            value="${fmtIdr(l.overtime_pay||0)}" readonly
-            style="background:var(--bg-input);cursor:default;" />
-          <input type="hidden" id="edit-ot-pay" value="${l.overtime_pay||0}" />
+          <label class="form-label">Jumlah Lembur (Rp)</label>
+          <input type="number" class="form-input" id="edit-ot-pay"
+            value="${l.overtime_pay||0}" min="0" />
         </div>
       </div>
 
@@ -674,13 +665,14 @@ export async function saveEditAttendance(id, refreshFn) {
     const attDate  = document.getElementById('edit-att-date')?.value || new Date().toISOString().slice(0,10);
     const hourlyRate = parseFloat(document.getElementById('edit-hourly-rate').value) || 0;
 
-    const otHours = parseFloat(document.getElementById('edit-ot-hours').value) || 0;
     const otRate  = parseFloat(document.getElementById('edit-ot-rate').value) || 0;
+    const otPay   = parseFloat(document.getElementById('edit-ot-pay').value) || 0;
 
     const uangMakan  = parseFloat(document.getElementById('edit-uang-makan')?.value) || 0;
     const transportVal = parseFloat(document.getElementById('edit-transport')?.value) || 0;
     const tunjanganVal = parseFloat(document.getElementById('edit-tunjangan')?.value) || 0;
-    const totalSalary  = uangMakan + transportVal + tunjanganVal;
+    const manualSalary = parseFloat(document.getElementById('edit-salary').value) || 0;
+    const totalSalary  = manualSalary || (uangMakan + transportVal + tunjanganVal);
 
     const { error } = await supabase.from('attendance_logs').update({
       check_in:         attDate + ' ' + checkIn + ':00',
@@ -690,9 +682,8 @@ export async function saveEditAttendance(id, refreshFn) {
       uang_makan:       uangMakan,
       transport:        transportVal,
       tunjangan_lain:   tunjanganVal,
-      overtime_hours:   otHours,
       overtime_rate:    otRate,
-      overtime_pay:     Math.round(otHours * otRate),
+      overtime_pay:     otPay,
       misc_amount:      parseFloat(document.getElementById('edit-misc-amount').value) || 0,
       misc_description: document.getElementById('edit-misc-desc').value.trim() || null,
       cash_advance:     parseFloat(document.getElementById('edit-cash-advance').value) || 0,
@@ -744,12 +735,6 @@ if (typeof window !== 'undefined') {
   };
 
   window.__att_editOTCalc = function () {
-    const hours = parseFloat(document.getElementById('edit-ot-hours')?.value) || 0;
-    const rate  = parseFloat(document.getElementById('edit-ot-rate')?.value) || 0;
-    const total = Math.round(hours * rate);
-    const disp  = document.getElementById('edit-ot-pay-display');
-    const hid   = document.getElementById('edit-ot-pay');
-    if (disp) disp.value = 'Rp ' + total.toLocaleString('id-ID');
-    if (hid)  hid.value  = total;
+    // No longer needed - overtime is direct amount
   };
 }
