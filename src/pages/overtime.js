@@ -1,5 +1,7 @@
-import { supabase } from '../lib/supabase.js';
 import { fmtIdr, fmtDate, showToast, esc, getGeoLocation, fmtGeoNote, compressImage } from '../lib/helpers.js';
+import { supabase } from '../lib/supabase.js';
+import { canFinance, FINANCE_ROLES, canApproveOvertime } from '../lib/roles.js';
+import { exportLaporanLembur } from '../lib/excel-export.js';
 
 /**
  * Halaman Lembur
@@ -209,6 +211,9 @@ export function OvertimePage(state) {
       <div class="card">
         <div class="card-header">
           <div class="card-title"><i class="fas fa-history"></i> Riwayat Lembur</div>
+          ${isAdmin ? `<button class="btn btn-sm btn-success" onclick="window.__app.exportLemburToExcel()" title="Download Excel">
+            <i class="fas fa-file-excel"></i>
+          </button>` : ''}
         </div>
         <div id="overtime-list-content">
           <div class="empty-state">
@@ -515,11 +520,44 @@ export async function handleOvertimeSubmit(e, state, refreshFn) {
 }
 
 /** Hapus lembur — superadmin & owner */
-export async function deleteOvertime(id, state, refreshFn) {
+export async function deleteOvertime(id, refreshFn) {
   if (!confirm('Hapus data lembur ini?')) return;
-  const { error } = await supabase.from('overtime_logs').delete().eq('id', id);
-  if (error) showToast(error.message, 'error');
-  else { showToast('Data lembur dihapus', 'success'); await loadOvertimeList(state); }
+  try {
+    const { error } = await supabase.from('overtime_logs').delete().eq('id', id);
+    if (error) throw error;
+    showToast('Data lembur dihapus', 'success');
+    refreshFn?.();
+  } catch (err) {
+    showToast('Gagal: ' + err.message, 'error');
+  }
+}
+
+/** Export Lembur ke Excel */
+export async function exportLemburToExcel(state) {
+  try {
+    const { data: logs, error } = await supabase
+      .from('overtime_logs')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Join with employees and projects
+    const exportLogs = logs.map(l => {
+      const emp = state.employees.find(e => e.id === l.employee_id);
+      const prj = state.projects.find(p => p.id === l.project_id);
+      return {
+        ...l,
+        employee_name: emp?.full_name,
+        employee_jabatan: emp?.jabatan,
+        project_name: prj?.name,
+      };
+    });
+
+    exportLaporanLembur(exportLogs, { month: new Date().toISOString().slice(0, 7) });
+  } catch (err) {
+    showToast('Gagal export: ' + err.message, 'error');
+  }
 }
 
 /** Kalkulasi durasi & upah otomatis */

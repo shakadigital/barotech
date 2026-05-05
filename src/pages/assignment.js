@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabase.js';
 import { fmtIdr, fmtDate, showToast, esc } from '../lib/helpers.js';
+import { canFinance, FINANCE_ROLES } from '../lib/roles.js';
+import { exportLaporanPenugasan } from '../lib/excel-export.js';
 
 /**
  * Halaman Penugasan — Admin / Owner / Superadmin
@@ -126,6 +128,9 @@ export function AssignmentPage(state) {
       <div class="card">
         <div class="card-header">
           <div class="card-title"><i class="fas fa-list-check"></i> Penugasan Aktif</div>
+          ${['superadmin','owner','admin'].includes(user.role) ? `<button class="btn btn-sm btn-success" onclick="window.__app.exportPenugasanToExcel()" title="Download Excel">
+            <i class="fas fa-file-excel"></i>
+          </button>` : ''}
         </div>
         <div id="penugasan-list">
           <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Memuat...</p></div>
@@ -581,6 +586,35 @@ export async function saveAdminCheckIn(e, assignmentId, state) {
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-check"></i> Check-In & Verifikasi';
+  }
+}
+
+/** Export Penugasan ke Excel */
+export async function exportPenugasanToExcel(state) {
+  try {
+    const { data: assignments, error } = await supabase
+      .from('project_assignments')
+      .select('*')
+      .in('status', ['active', 'paused', 'ended'])
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Join with employees and projects
+    const exportAssignments = assignments.map(a => {
+      const emp = state.employees.find(e => e.id === a.employee_id);
+      const prj = state.projects.find(p => p.id === a.project_id);
+      return {
+        ...a,
+        employee_name: emp?.full_name,
+        employee_jabatan: emp?.jabatan,
+        project_name: prj?.name,
+      };
+    });
+
+    exportLaporanPenugasan(exportAssignments, { status: 'all' });
+  } catch (err) {
+    showToast('Gagal export: ' + err.message, 'error');
   }
 }
 

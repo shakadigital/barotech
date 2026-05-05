@@ -1,5 +1,7 @@
-import { supabase } from '../lib/supabase.js';
 import { fmtIdr, fmtDate, showToast, esc } from '../lib/helpers.js';
+import { supabase } from '../lib/supabase.js';
+import { canFinance, FINANCE_ROLES } from '../lib/roles.js';
+import { exportLaporanPengeluaran } from '../lib/excel-export.js';
 
 const CAT_LABELS = {
   material:     'Material',
@@ -80,6 +82,9 @@ export function ExpensePage(state) {
       <div class="card">
         <div class="card-header">
           <div class="card-title"><i class="fas fa-chart-bar"></i> Rekap Pengeluaran per Proyek</div>
+          ${isFinance ? `<button class="btn btn-sm btn-success" onclick="window.__app.exportExpenseToExcel()" title="Download Excel">
+            <i class="fas fa-file-excel"></i>
+          </button>` : ''}
         </div>
 
         <!-- Filter -->
@@ -239,5 +244,30 @@ export async function deleteExpense(id) {
     window.__app.refreshPage?.();
   } catch (e) {
     showToast('Gagal: ' + e.message, 'error');
+  }
+}
+
+/** Export Pengeluaran ke Excel */
+export async function exportExpenseToExcel(state) {
+  try {
+    const { data: expenses, error } = await supabase
+      .from('project_expenses')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Join with projects
+    const exportExpenses = expenses.map(e => {
+      const prj = state.projects.find(p => p.id === e.project_id);
+      return {
+        ...e,
+        project_name: prj?.name,
+      };
+    });
+
+    exportLaporanPengeluaran(exportExpenses, { month: new Date().toISOString().slice(0, 7) });
+  } catch (err) {
+    showToast('Gagal export: ' + err.message, 'error');
   }
 }

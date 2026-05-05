@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase.js';
-import { fmtIdr, fmtTime, showToast, esc, getGeoLocation } from '../lib/helpers.js';
-import { canFinance, canDelete, canVerifyAll, canVerifyOwn } from '../lib/roles.js';
+import { fmtTime, fmtDate, fmtIdr, esc, showToast } from '../lib/helpers.js';
+import { canFinance, FINANCE_ROLES, canVerify, canDelete, canVerifyAll } from '../lib/roles.js';
+import { exportLaporanAbsensi } from '../lib/excel-export.js';
 
 const WORK_HOURS_STANDARD = 8; // jam kerja standar per hari
 
@@ -307,7 +308,12 @@ export function AttendancePage(state) {
       <div class="card">
         <div class="card-header">
           <div class="card-title"><i class="fas fa-clipboard-list"></i> ${pageTitle}</div>
-          <span class="badge badge-role">${todayLogs.length} orang</span>
+          <div class="flex gap-8 align-center">
+            <span class="badge badge-role">${todayLogs.length} orang</span>
+            ${isAdmin ? `<button class="btn btn-sm btn-success" onclick="window.__app.exportAbsensiToExcel()" title="Download Excel">
+              <i class="fas fa-file-excel"></i>
+            </button>` : ''}
+          </div>
         </div>
 
         ${todayLogs.length === 0 ? `
@@ -884,6 +890,35 @@ export async function openEmployeeHistoryModal(employeeId, state) {
       </div>
     </div>`;
   document.body.appendChild(modal);
+}
+
+/** Export Absensi ke Excel */
+export async function exportAbsensiToExcel(state) {
+  try {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const { data: logs, error } = await supabase
+      .from('attendance_logs')
+      .select('*')
+      .gte('created_at', todayStr + ' 00:00:00')
+      .lt('created_at', todayStr + ' 23:59:59');
+
+    if (error) throw error;
+
+    // Join with employees and projects
+    const exportLogs = logs.map(l => {
+      const emp = state.employees.find(e => e.id === l.employee_id);
+      const prj = state.projects.find(p => p.id === l.project_id);
+      return {
+        ...l,
+        employee_name: emp?.full_name,
+        project_name: prj?.name,
+      };
+    });
+
+    exportLaporanAbsensi(exportLogs, { month: todayStr.slice(0, 7) });
+  } catch (err) {
+    showToast('Gagal export: ' + err.message, 'error');
+  }
 }
 
 /** Simpan edit absensi */

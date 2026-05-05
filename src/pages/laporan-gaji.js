@@ -1,4 +1,5 @@
 import { fmtDate, fmtIdr, esc } from '../lib/helpers.js';
+import { exportLaporanGaji } from '../lib/excel-export.js';
 
 /**
  * Laporan Gaji — Admin/Owner/Superadmin only
@@ -27,9 +28,14 @@ export function LaporanGajiPage(state) {
           <h1 class="fw-bold" style="font-size:1.5rem;margin:0;"><i class="fas fa-file-invoice-dollar"></i> Laporan Gaji</h1>
           <div class="text-xs text-secondary">Cetak laporan gaji karyawan per periode</div>
         </div>
-        <button class="btn btn-primary" onclick="window.print()">
-          <i class="fas fa-print"></i> Cetak
-        </button>
+        <div class="flex gap-8">
+          <button class="btn btn-success" onclick="window.__app.exportLaporanGajiToExcel()">
+            <i class="fas fa-file-excel"></i> Download Excel
+          </button>
+          <button class="btn btn-primary" onclick="window.print()">
+            <i class="fas fa-print"></i> Cetak
+          </button>
+        </div>
       </div>
 
       <!-- Filter -->
@@ -126,6 +132,14 @@ export async function filterLaporanGaji(state) {
       byEmployee.get(l.employee_id).total += (l.basic_salary || 0) + (l.overtime_pay || 0) - (l.cash_advance || 0);
     });
 
+    // Store current data for export
+    window.__laporanGajiData = {
+      byEmployee,
+      employees: state.employees,
+      projects: state.projects,
+      filters: { employeeId, month, projectId },
+    };
+
     // Generate report
     let html = '';
 
@@ -218,4 +232,44 @@ export async function filterLaporanGaji(state) {
   } catch (err) {
     container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Gagal: ${esc(err.message)}</p></div>`;
   }
+}
+
+/** Export laporan gaji to Excel */
+export function exportLaporanGajiToExcel() {
+  const data = window.__laporanGajiData;
+  if (!data || data.byEmployee.size === 0) {
+    showToast('Tidak ada data untuk diexport', 'error');
+    return;
+  }
+
+  // Format data for export
+  const exportData = Array.from(data.byEmployee.entries()).map(([empId, empData]) => {
+    const emp = data.employees.find(e => e.id === empId);
+    const logs = empData.logs.map(l => {
+      const prj = data.projects.find(p => p.id === l.project_id);
+      return {
+        ...l,
+        employee_name: emp?.full_name,
+        employee_jabatan: emp?.jabatan,
+        project_name: prj?.name,
+      };
+    });
+
+    const totalGaji = logs.reduce((s, l) => s + (l.basic_salary || 0), 0);
+    const totalLembur = logs.reduce((s, l) => s + (l.overtime_pay || 0), 0);
+    const totalKasbon = logs.reduce((s, l) => s + (l.cash_advance || 0), 0);
+
+    return {
+      full_name: emp?.full_name,
+      jabatan: emp?.jabatan,
+      total_hari: logs.length,
+      gaji_pokok: totalGaji,
+      lembur: totalLembur,
+      kasbon: totalKasbon,
+      total_bersih: totalGaji + totalLembur - totalKasbon,
+      logs,
+    };
+  });
+
+  exportLaporanGaji(exportData, data.filters);
 }
