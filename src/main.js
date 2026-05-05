@@ -9,10 +9,10 @@ import { LaporanGajiPage, filterLaporanGaji, exportLaporanGajiToExcel } from './
 import { ProjectPage, handleProjectSubmit, deleteProject, updateProjectStatus, openProjectDetail } from './pages/project.js';
 import { UsersPage, handleUserSubmit, deleteUser, openEditUser, saveEditUser } from './pages/users.js';
 import { BonPage, handleBonSubmit, showBonHistory } from './pages/bon.js';
-import { AssignmentPage, loadAssignments, handleAssignSubmit, toggleAssignRow, openEditAssignment, saveEditAssignment, editAssignmentSalary, endAssignment, resumeAssignment, deleteAssignment, openAdminCheckIn, saveAdminCheckIn, exportPenugasanToExcel } from './pages/assignment.js';
-import { OvertimePage, handleOvertimeSubmit, handleOvertimeRequest, loadOvertimeList, approveOvertime, rejectOvertime, deleteOvertime, exportLemburToExcel } from './pages/overtime.js';
-import { MaterialPage, handleMaterialSubmit, loadMaterialList, updateMaterialStatus, deleteMaterial, exportMaterialToExcel } from './pages/material.js';
-import { ExpensePage, handleExpenseSubmit, loadExpenseList, deleteExpense, exportExpenseToExcel } from './pages/expense.js';
+import { AssignmentPage, loadAssignments, handleAssignSubmit, toggleAssignRow, openEditAssignment, saveEditAssignment, editAssignmentSalary, endAssignment, resumeAssignment, deleteAssignment, openAdminCheckIn, saveAdminCheckIn } from './pages/assignment.js';
+import { OvertimePage, handleOvertimeSubmit, handleOvertimeRequest, loadOvertimeList, approveOvertime, rejectOvertime, deleteOvertime } from './pages/overtime.js';
+import { MaterialPage, handleMaterialSubmit, loadMaterialList, updateMaterialStatus, deleteMaterial } from './pages/material.js';
+import { ExpensePage, handleExpenseSubmit, loadExpenseList, deleteExpense } from './pages/expense.js';
 import { loadProjectUpdates } from './pages/laporan.js';
 
 // ========== STATE ==========
@@ -364,10 +364,6 @@ window.__app = {
   autoCheckoutStale() { autoCheckoutStale(); },
   filterLaporanGaji() { filterLaporanGaji(state); },
   exportLaporanGajiToExcel() { exportLaporanGajiToExcel(); },
-  exportLemburToExcel() { exportLemburToExcel(state); },
-  exportMaterialToExcel() { exportMaterialToExcel(state); },
-  exportExpenseToExcel() { exportExpenseToExcel(state); },
-  exportPenugasanToExcel() { exportPenugasanToExcel(state); },
   handleAssignSubmit(e) { handleAssignSubmit(e, state, refreshAndRender); },
   toggleAssignRow(idx) { toggleAssignRow(idx); },
   openEditAssignment(id) { openEditAssignment(id, state); },

@@ -1,7 +1,6 @@
 import { supabase } from '../lib/supabase.js';
 import { fmtIdr, fmtDate, showToast, esc } from '../lib/helpers.js';
 import { canFinance, FINANCE_ROLES } from '../lib/roles.js';
-import { exportLaporanMaterial } from '../lib/excel-export.js';
 
 const TYPE_LABELS = {
   gudang:     'Dari Gudang',
@@ -96,9 +95,6 @@ export function MaterialPage(state) {
       <div class="card">
         <div class="card-header">
           <div class="card-title"><i class="fas fa-list"></i> Daftar Order Material</div>
-          ${isFinance ? `<button class="btn btn-sm btn-success" onclick="window.__app.exportMaterialToExcel()" title="Download Excel">
-            <i class="fas fa-file-excel"></i>
-          </button>` : ''}
         </div>
 
         <!-- Filter -->
@@ -258,30 +254,5 @@ export async function deleteMaterial(id) {
     window.__app.refreshPage?.();
   } catch (e) {
     showToast('Gagal: ' + e.message, 'error');
-  }
-}
-
-/** Export Material ke Excel */
-export async function exportMaterialToExcel(state) {
-  try {
-    const { data: materials, error } = await supabase
-      .from('material_orders')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    // Join with projects
-    const exportMaterials = materials.map(m => {
-      const prj = state.projects.find(p => p.id === m.project_id);
-      return {
-        ...m,
-        project_name: prj?.name,
-      };
-    });
-
-    exportLaporanMaterial(exportMaterials, { month: new Date().toISOString().slice(0, 7) });
-  } catch (err) {
-    showToast('Gagal export: ' + err.message, 'error');
   }
 }
