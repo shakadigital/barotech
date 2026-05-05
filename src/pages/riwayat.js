@@ -35,6 +35,26 @@ export function RiwayatPage(state) {
   const totalPinjam    = verifiedLogs.reduce((s, l) => s + (l.cash_payout || 0), 0);
   const saldoBersih    = totalGajiPokok + totalLembur + totalLain + totalPinjam - totalKasbon;
 
+  // ── Group by project untuk subtotal ──
+  const byProject = new Map();
+  verifiedLogs.forEach(l => {
+    const prj = projects.find(p => p.id === l.project_id);
+    const prjName = prj?.name || 'Tidak ada proyek';
+    if (!byProject.has(prjName)) {
+      byProject.set(prjName, { count: 0, total: 0 });
+    }
+    byProject.get(prjName).count += 1;
+    byProject.get(prjName).total += calcTotal(l);
+  });
+
+  // ── Detect project changes ──
+  const logsWithProjectChange = myLogs.map((l, idx) => {
+    const prevPrj = idx > 0 ? projects.find(p => p.id === myLogs[idx - 1].project_id) : null;
+    const currPrj = projects.find(p => p.id === l.project_id);
+    const projectChanged = prevPrj && currPrj && prevPrj.id !== currPrj.id;
+    return { ...l, projectChanged, prevPrjName: prevPrj?.name, currPrjName: currPrj?.name };
+  });
+
   // ── Helper: hitung total_terima per baris ──
   function calcTotal(l) {
     return (l.basic_salary || 0) + (l.overtime_pay || 0) + (l.misc_amount || 0)
@@ -98,6 +118,26 @@ export function RiwayatPage(state) {
             <div class="fw-bold text-success" style="font-size:1.2rem;">${fmtIdr(saldoBersih)}</div>
           </div>
         </div>
+      </div>
+
+      <!-- Breakdown per Proyek -->
+      <div class="card mb-16">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-building"></i> Pendapatan per Proyek</div>
+        </div>
+        <div style="padding:8px 0;">
+          ${Array.from(byProject.entries()).map(([prjName, data]) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;margin-bottom:4px;background:var(--bg-hover);border-radius:var(--radius);">
+              <div>
+                <div class="fw-bold text-sm">${esc(prjName)}</div>
+                <div class="text-xs text-secondary">${data.count} hari kerja</div>
+              </div>
+              <div class="text-right">
+                <div class="fw-bold text-success">${fmtIdr(data.total)}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
       </div>` : ''}
 
       <!-- Tabel Riwayat -->
@@ -128,7 +168,7 @@ export function RiwayatPage(state) {
                 </tr>
               </thead>
               <tbody>
-                ${myLogs.map((l, idx) => {
+                ${logsWithProjectChange.map((l, idx) => {
                   const prj = projects.find(p => p.id === l.project_id);
                   const isVerified = l.status === 'verified';
                   const totalTerima = calcTotal(l);
@@ -142,6 +182,12 @@ export function RiwayatPage(state) {
                   } else {
                     statusBadge = '<span class="badge" style="background:rgba(245,158,11,0.2);color:var(--warning);">PENDING</span>';
                   }
+
+                  // Project change indicator
+                  const projectChangeBadge = l.projectChanged ? `
+                    <div class="text-xs text-warning" style="margin-top:2px;">
+                      <i class="fas fa-exchange-alt"></i> Pindah: ${esc(l.prevPrjName)} → ${esc(l.currPrjName)}
+                    </div>` : '';
 
                   // Breakdown keuangan untuk detail row
                   const hasBreakdown = (l.uang_makan||0) > 0 || (l.transport||0) > 0 || (l.tunjangan_lain||0) > 0;
@@ -192,7 +238,10 @@ export function RiwayatPage(state) {
                       <i class="fas fa-chevron-right text-secondary" id="riwayat-chevron-${idx}"></i>
                     </td>
                     <td class="text-xs">${fmtDate(l.created_at)}</td>
-                    <td class="fw-bold">${esc(prj?.name || '-')}</td>
+                    <td>
+                      <div class="fw-bold">${esc(prj?.name || '-')}</div>
+                      ${projectChangeBadge}
+                    </td>
                     <td class="text-xs text-secondary">${esc(l.work_items || '—')}</td>
                     <td class="text-xs">${fmtTime(l.check_in)}</td>
                     <td class="text-xs">${fmtTime(l.check_out)}</td>
