@@ -187,26 +187,28 @@ export async function loadAssignments(state) {
                     ${isActive ? 'AKTIF' : 'PAUSE'}
                   </span>
                 </td>
-                <td class="text-center">
-                  <div class="flex gap-6 justify-center">
+                <td class="text-center" style="padding:4px 6px;">
+                  <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
                     <button class="btn btn-ghost btn-sm" title="Edit Penugasan"
                       onclick="window.__app.openEditAssignment('${a.id}')">
-                      <i class="fas fa-edit"></i>
+                      <i class="fas fa-edit" style="font-size:0.7rem;"></i>
                     </button>
+                    <div class="flex gap-4">
                     ${isActive ? `
-                    <button class="btn btn-danger btn-sm" title="Akhiri"
-                      onclick="window.__app.endAssignment('${a.id}')">
-                      <i class="fas fa-stop"></i>
-                    </button>` : `
-                    <button class="btn btn-success btn-sm" title="Aktifkan"
-                      onclick="window.__app.resumeAssignment('${a.id}')">
-                      <i class="fas fa-play"></i>
-                    </button>`}
+                      <button class="btn btn-danger btn-sm" title="Akhiri"
+                        onclick="window.__app.endAssignment('${a.id}')">
+                        <i class="fas fa-stop"></i>
+                      </button>` : `
+                      <button class="btn btn-success btn-sm" title="Aktifkan"
+                        onclick="window.__app.resumeAssignment('${a.id}')">
+                        <i class="fas fa-play"></i>
+                      </button>`}
                     ${isDeleter ? `
-                    <button class="btn btn-danger btn-sm" title="Hapus"
-                      onclick="window.__app.deleteAssignment('${a.id}')">
-                      <i class="fas fa-trash" style="color:#ef4444"></i>
-                    </button>` : ''}
+                      <button class="btn btn-danger btn-sm" title="Hapus"
+                        onclick="window.__app.deleteAssignment('${a.id}')">
+                        <i class="fas fa-trash" style="color:#ef4444"></i>
+                      </button>` : ''}
+                    </div>
                   </div>
                 </td>
               </tr>
