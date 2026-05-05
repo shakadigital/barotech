@@ -100,12 +100,16 @@ export async function filterLaporanGaji(state) {
   const container = document.getElementById('laporan-container');
   if (!container) return;
 
+  // Show loading indicator
+  container.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Memuat data...</p></div>';
+
   try {
-    // Build query - select only needed columns
+    // Build query - select only needed columns with limit
     let query = supabase
       .from('attendance_logs')
       .select('id, employee_id, project_id, created_at, basic_salary, overtime_pay, cash_advance, uang_makan, transport, tunjangan_lain')
-      .eq('status', 'verified');
+      .eq('status', 'verified')
+      .limit(1000); // Limit to 1000 records max
 
     // Use date range filtering instead of .like() for better performance
     if (month) {
@@ -123,6 +127,12 @@ export async function filterLaporanGaji(state) {
     const { data: logs, error } = await query.order('created_at', { ascending: true });
 
     if (error) throw error;
+
+    // Check if we hit the limit
+    if (logs.length >= 1000) {
+      container.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Terlalu banyak data. Silakan filter berdasarkan karyawan atau periode yang lebih spesifik.</p></div>';
+      return;
+    }
 
     // Fetch daily activities only if there are logs
     let activities = [];
