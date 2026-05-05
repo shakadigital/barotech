@@ -84,6 +84,7 @@ export function UsersPage(state) {
         <div class="table-wrapper"><table class="data-table">
           <thead>
             <tr>
+              <th style="width:40px;">No.</th>
               <th>Nama</th>
               <th>Username</th>
               <th>Email</th>
@@ -96,7 +97,8 @@ export function UsersPage(state) {
             </tr>
           </thead>
           <tbody>
-            ${employees.map(e => `<tr>
+            ${employees.map((e, idx) => `<tr>
+              <td class="text-xs text-secondary">${idx + 1}</td>
               <td class="fw-bold">${esc(e.full_name)}</td>
               <td class="text-xs text-primary">@${esc(e.username||'-')}</td>
               <td class="text-xs">${esc(e.email||'-')}</td>

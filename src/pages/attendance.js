@@ -63,7 +63,7 @@ export function AttendancePage(state) {
   }
 
   // ── Render baris tabel ──────────────────────────────────────────────────
-  function renderRow(l) {
+  function renderRow(l, idx) {
     const emp = employees.find(e => e.id === l.employee_id);
     const prj = projects.find(p => p.id === l.project_id);
     const isDraft    = l.status === 'draft';
@@ -212,16 +212,18 @@ export function AttendancePage(state) {
         </td>`;
     }
 
-    return `<tr>
-      <td>
-        <div class="fw-bold">${esc(emp?.full_name || '-')}</div>
-        ${l.jabatan_snapshot ? `<div class="text-xs text-secondary">${esc(l.jabatan_snapshot)}</div>` : ''}
-      </td>
-      <td><span class="text-xs text-secondary">${esc(prj?.name || '-')}</span></td>
-      <td>${statusBadge}</td>
-      ${financeCell}
-      <td>${actions}</td>
-    </tr>`;
+    return `
+      <tr>
+        <td class="text-xs text-secondary">${idx !== undefined ? idx + 1 : ''}</td>
+        <td>
+          <div class="fw-bold">${esc(emp?.full_name || '-')}</div>
+          ${l.jabatan_snapshot ? `<div class="text-xs text-secondary">${esc(l.jabatan_snapshot)}</div>` : ''}
+        </td>
+        <td><span class="text-xs text-secondary">${esc(prj?.name || '-')}</span></td>
+        <td>${statusBadge}</td>
+        ${financeCell}
+        <td>${actions}</td>
+      </tr>`;
   }
 
   const pageTitle = isAdmin      ? 'Daftar Absensi Hari Ini'
@@ -303,6 +305,7 @@ export function AttendancePage(state) {
             <table class="data-table">
               <thead>
                 <tr>
+                  <th style="width:40px;">No.</th>
                   <th>Karyawan</th>
                   <th>Proyek</th>
                   <th>Status</th>
@@ -311,7 +314,7 @@ export function AttendancePage(state) {
                 </tr>
               </thead>
               <tbody>
-                ${todayLogs.map(l => renderRow(l)).join('')}
+                ${todayLogs.map((l, idx) => renderRow(l, idx)).join('')}
               </tbody>
             </table>
           </div>

@@ -259,6 +259,7 @@ export async function loadOvertimeList(state) {
         <table class="data-table">
           <thead>
             <tr>
+              <th style="width:40px;">No.</th>
               <th>Tanggal</th>
               <th>Karyawan</th>
               <th>Proyek</th>
@@ -271,7 +272,7 @@ export async function loadOvertimeList(state) {
             </tr>
           </thead>
           <tbody>
-            ${data.map(ot => {
+            ${data.map((ot, idx) => {
               const emp = state.employees.find(e => e.id === ot.employee_id);
               const prj = state.projects.find(p => p.id === ot.project_id);
               const otStatus = ot.status || 'approved';
@@ -305,6 +306,7 @@ export async function loadOvertimeList(state) {
                 }
               }
               return `<tr>
+                <td class="text-xs text-secondary">${idx + 1}</td>
                 <td class="text-xs">${fmtDate(ot.overtime_date)}</td>
                 <td class="fw-bold">${esc(emp?.full_name || '-')}</td>
                 <td class="text-xs text-secondary">${esc(prj?.name || '-')}</td>

@@ -79,6 +79,7 @@ export function RiwayatPage(state) {
             <table class="data-table">
               <thead>
                 <tr>
+                  <th style="width:40px;">No.</th>
                   <th>Tanggal</th>
                   <th>Proyek</th>
                   <th>Status</th>
@@ -87,7 +88,7 @@ export function RiwayatPage(state) {
                 </tr>
               </thead>
               <tbody>
-                ${myLogs.map(l => {
+                ${myLogs.map((l, idx) => {
                   const prj = projects.find(p => p.id === l.project_id);
 
                   // Status badge
@@ -101,6 +102,7 @@ export function RiwayatPage(state) {
                   }
 
                   return `<tr>
+                    <td class="text-xs text-secondary">${idx + 1}</td>
                     <td class="text-xs">${fmtDate(l.created_at)}</td>
                     <td class="fw-bold">${esc(prj?.name || '-')}</td>
                     <td>${statusBadge}</td>

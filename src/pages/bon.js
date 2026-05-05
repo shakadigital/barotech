@@ -86,6 +86,7 @@ export function BonPage(state) {
             <table class="data-table">
               <thead>
                 <tr>
+                  <th style="width:40px;">No.</th>
                   <th>Nama</th>
                   <th>Jabatan</th>
                   <th class="text-right">Saldo Bon</th>
@@ -93,8 +94,9 @@ export function BonPage(state) {
                 </tr>
               </thead>
               <tbody>
-                ${karyawanList.map(e => `
+                ${karyawanList.map((e, idx) => `
                   <tr>
+                    <td class="text-xs text-secondary">${idx + 1}</td>
                     <td class="fw-bold">${esc(e.full_name)}</td>
                     <td class="text-xs text-secondary">${esc(e.jabatan || 'Karyawan')}</td>
                     <td class="text-right">
@@ -228,6 +230,7 @@ export async function showBonHistory(employeeId, name, month) {
         <table class="data-table">
           <thead>
             <tr>
+              <th style="width:40px;">No.</th>
               <th>Tanggal</th>
               <th>Jenis</th>
               <th class="text-right">Jumlah</th>
@@ -236,8 +239,9 @@ export async function showBonHistory(employeeId, name, month) {
             </tr>
           </thead>
           <tbody>
-            ${data.map(t => `
+            ${data.map((t, idx) => `
               <tr>
+                <td class="text-xs text-secondary">${idx + 1}</td>
                 <td class="text-xs">${fmtDate(t.created_at)}</td>
                 <td>
                   <span class="badge ${t.type === 'pinjam' ? 'badge-offline' : 'badge-online'}">

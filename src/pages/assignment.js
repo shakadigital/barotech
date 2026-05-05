@@ -159,7 +159,8 @@ export async function loadAssignments(state) {
         <table class="data-table" id="assign-table">
           <thead>
             <tr>
-              <th></th>
+              <th style="width:40px;">No.</th>
+              <th style="width:30px;"></th>
               <th>Karyawan</th>
               <th>Proyek</th>
               <th>Gaji/Hari</th>
@@ -175,6 +176,7 @@ export async function loadAssignments(state) {
               const isActive = a.status === 'active';
               return `
               <tr class="assign-row" data-index="${idx}">
+                <td class="text-xs text-secondary">${idx + 1}</td>
                 <td style="width:30px;cursor:pointer;" onclick="window.__app.toggleAssignRow(${idx})">
                   <i class="fas fa-chevron-right text-secondary" id="assign-chevron-${idx}"></i>
                 </td>
@@ -213,7 +215,7 @@ export async function loadAssignments(state) {
                 </td>
               </tr>
               <tr id="assign-detail-${idx}" style="display:none;background:var(--bg-hover);">
-                <td colspan="7" style="padding:12px 16px;">
+                <td colspan="8" style="padding:12px 16px;">
                   <div class="text-xs" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px 16px;">
                     <div><span class="text-secondary">Uang Makan:</span> ${fmtIdr(a.uang_makan||0)}</div>
                     <div><span class="text-secondary">Transport:</span> ${fmtIdr(a.transport||0)}</div>

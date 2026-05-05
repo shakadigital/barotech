@@ -74,6 +74,7 @@ export function ProjectPage(state) {
           : `<div class="table-wrapper"><table class="data-table">
               <thead>
                 <tr>
+                  <th style="width:40px;">No.</th>
                   <th>Nama</th>
                   <th>Lokasi</th>
                   <th>Penanggung Jawab</th>
@@ -84,10 +85,11 @@ export function ProjectPage(state) {
                 </tr>
               </thead>
               <tbody>
-                ${visibleProjects.map(p => {
+                ${visibleProjects.map((p, idx) => {
                   const lead = employees.find(e => e.id === p.lead_id);
                   const statusKey = p.status || 'aktif';
                   return `<tr>
+                    <td class="text-xs text-secondary">${idx + 1}</td>
                     <td class="fw-bold">${esc(p.name)}</td>
                     <td class="text-xs">${esc(p.location_name)||'-'}</td>
                     <td class="text-xs">${esc(lead?.full_name||'-')}</td>

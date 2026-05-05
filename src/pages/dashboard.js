@@ -82,10 +82,10 @@ export function DashboardPage(state) {
         </div>
         <div class="table-wrapper">
           <table class="data-table">
-            <thead><tr><th>Nama</th><th>Role</th><th>Proyek</th><th>Status</th><th>Masuk</th><th>Keluar</th><th>Keterangan</th></tr></thead>
+            <thead><tr><th style="width:40px;">No.</th><th>Nama</th><th>Role</th><th>Proyek</th><th>Status</th><th>Masuk</th><th>Keluar</th><th>Keterangan</th></tr></thead>
             <tbody>
-              ${logs.length === 0 ? `<tr><td colspan="7" class="text-center text-muted">${emptyText}</td></tr>` :
-                logs.map(l => {
+              ${logs.length === 0 ? `<tr><td colspan="8" class="text-center text-muted">${emptyText}</td></tr>` :
+                logs.map((l, idx) => {
                   const emp = employees.find(e => e.id === l.employee_id);
                   const prj = projects.find(p => p.id === l.project_id);
                   const isHadir = l.status === 'verified';
@@ -95,6 +95,7 @@ export function DashboardPage(state) {
                       ? '<span class="badge badge-offline">Tidak Hadir</span>'
                       : '<span class="badge" style="background:rgba(245,158,11,0.2);color:var(--warning);">Pending</span>';
                   return `<tr>
+                    <td class="text-xs text-secondary">${idx + 1}</td>
                     <td class="fw-bold">${esc(emp?.full_name || '-')}</td>
                     <td><span class="badge badge-role">${esc(ROLE_LABELS[emp?.role] || emp?.role || '-')}</span></td>
                     <td>${esc(prj?.name || 'Absensi Mandiri')}</td>
@@ -121,10 +122,11 @@ export function DashboardPage(state) {
         </div>
         <div class="table-wrapper">
           <table class="data-table">
-            <thead><tr><th>Nama</th><th>Role</th><th>WhatsApp</th></tr></thead>
+            <thead><tr><th style="width:40px;">No.</th><th>Nama</th><th>Role</th><th>WhatsApp</th></tr></thead>
             <tbody>
-              ${visibleEmps.length === 0 ? '<tr><td colspan="3" class="text-center text-muted">Belum ada personil</td></tr>' :
-                visibleEmps.map(e => `<tr>
+              ${visibleEmps.length === 0 ? '<tr><td colspan="4" class="text-center text-muted">Belum ada personil</td></tr>' :
+                visibleEmps.map((e, idx) => `<tr>
+                  <td class="text-xs text-secondary">${idx + 1}</td>
                   <td class="fw-bold">${esc(e.full_name)}</td>
                   <td><span class="badge badge-role">${esc(ROLE_LABELS[e.role] || e.role)}</span></td>
                   <td>${esc(e.whatsapp_number) || '-'}</td>
@@ -142,10 +144,10 @@ export function DashboardPage(state) {
         </div>
         <div class="table-wrapper">
           <table class="data-table">
-            <thead><tr><th>Proyek</th><th>Kepala Lapangan</th><th>Personel</th><th>Progres</th></tr></thead>
+            <thead><tr><th style="width:40px;">No.</th><th>Proyek</th><th>Kepala Lapangan</th><th>Personel</th><th>Progres</th></tr></thead>
             <tbody>
-              ${visibleProjects.length === 0 ? '<tr><td colspan="4" class="text-center text-muted">Belum ada proyek aktif</td></tr>' :
-                visibleProjects.map(p => {
+              ${visibleProjects.length === 0 ? '<tr><td colspan="5" class="text-center text-muted">Belum ada proyek aktif</td></tr>' :
+                visibleProjects.map((p, idx) => {
                   const lead = employees.find(e => e.id === p.lead_id);
                   // Count personnel assigned to this project
                   const personnel = employees.filter(e => {
@@ -154,6 +156,7 @@ export function DashboardPage(state) {
                     );
                   }).length;
                   return `<tr>
+                    <td class="text-xs text-secondary">${idx + 1}</td>
                     <td class="fw-bold">${esc(p.name)}</td>
                     <td>${esc(lead?.full_name || '-')}</td>
                     <td class="text-center">${personnel}</td>
@@ -184,10 +187,10 @@ export function DashboardPage(state) {
         </div>
         <div class="table-wrapper">
           <table class="data-table">
-            <thead><tr><th>Nama</th><th>Role</th><th>Proyek</th><th>Status</th><th>Masuk</th><th>Keluar</th><th>Keterangan</th></tr></thead>
+            <thead><tr><th style="width:40px;">No.</th><th>Nama</th><th>Role</th><th>Proyek</th><th>Status</th><th>Masuk</th><th>Keluar</th><th>Keterangan</th></tr></thead>
             <tbody>
-              ${todayLogs.length === 0 ? '<tr><td colspan="7" class="text-center text-muted">Belum ada aktivitas hari ini</td></tr>' :
-                todayLogs.map(l => {
+              ${todayLogs.length === 0 ? '<tr><td colspan="8" class="text-center text-muted">Belum ada aktivitas hari ini</td></tr>' :
+                todayLogs.map((l, idx) => {
                 const emp = employees.find(e => e.id === l.employee_id);
                 const prj = projects.find(p => p.id === l.project_id);
                 const isHadir = l.status === 'verified';
@@ -197,6 +200,7 @@ export function DashboardPage(state) {
                     ? '<span class="badge badge-offline">Tidak Hadir</span>'
                     : '<span class="badge" style="background:rgba(245,158,11,0.2);color:var(--warning);">Pending</span>';
                 return `<tr>
+                  <td class="text-xs text-secondary">${idx + 1}</td>
                   <td class="fw-bold">${esc(emp?.full_name || '-')}</td>
                   <td><span class="badge badge-role">${esc(ROLE_LABELS[emp?.role] || emp?.role || '-')}</span></td>
                   <td>${esc(prj?.name || 'Absensi Mandiri')}</td>

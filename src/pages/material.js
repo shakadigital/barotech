@@ -155,6 +155,7 @@ export async function loadMaterialList(state, containerId = 'material-list', opt
         <table class="data-table">
           <thead>
             <tr>
+              <th style="width:40px;">No.</th>
               <th>Tanggal</th>
               <th>Proyek</th>
               <th>Material</th>
@@ -166,9 +167,10 @@ export async function loadMaterialList(state, containerId = 'material-list', opt
             </tr>
           </thead>
           <tbody>
-            ${data.map(m => {
+            ${data.map((m, idx) => {
               const st = STATUS_LABELS[m.status] || STATUS_LABELS.pending;
               return `<tr>
+                <td class="text-xs text-secondary">${idx + 1}</td>
                 <td class="text-xs">${fmtDate(m.order_date)}</td>
                 <td class="text-xs">${esc(m.projects?.name || '-')}</td>
                 <td class="fw-bold">${esc(m.material_name)}</td>

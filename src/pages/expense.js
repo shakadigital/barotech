@@ -140,6 +140,7 @@ export async function loadExpenseList(state, containerId = 'expense-list', opts 
         <table class="data-table">
           <thead>
             <tr>
+              <th style="width:40px;">No.</th>
               <th>Tanggal</th>
               <th>Proyek</th>
               <th>Kategori</th>
@@ -151,8 +152,9 @@ export async function loadExpenseList(state, containerId = 'expense-list', opts 
             </tr>
           </thead>
           <tbody>
-            ${data.map(x => {
+            ${data.map((x, idx) => {
               return `<tr>
+                <td class="text-xs text-secondary">${idx + 1}</td>
                 <td class="text-xs">${fmtDate(x.expense_date)}</td>
                 <td class="text-xs">${esc(x.projects?.name || '-')}</td>
                 <td class="text-xs">${CAT_LABELS[x.category] || x.category}</td>
