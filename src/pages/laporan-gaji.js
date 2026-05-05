@@ -101,26 +101,39 @@ export async function filterLaporanGaji(state) {
   if (!container) return;
 
   try {
-    // Build query
+    // Build query - select only needed columns
     let query = supabase
       .from('attendance_logs')
-      .select('*')
+      .select('id, employee_id, project_id, created_at, basic_salary, overtime_pay, cash_advance, uang_makan, transport, tunjangan_lain')
       .eq('status', 'verified');
 
+    // Use date range filtering instead of .like() for better performance
+    if (month) {
+      const startDate = `${month}-01`;
+      // Get last day of the month
+      const [year, monthNum] = month.split('-');
+      const lastDay = new Date(year, monthNum, 0).getDate();
+      const endDate = `${month}-${String(lastDay).padStart(2, '0')}`;
+      query = query.gte('created_at', startDate).lte('created_at', endDate);
+    }
+
     if (employeeId) query = query.eq('employee_id', employeeId);
-    if (month) query = query.like('created_at', `${month}%`);
     if (projectId) query = query.eq('project_id', projectId);
 
     const { data: logs, error } = await query.order('created_at', { ascending: true });
 
     if (error) throw error;
 
-    // Fetch daily activities
-    const attIds = logs.map(l => l.id);
-    const { data: activities } = await supabase
-      .from('daily_activities')
-      .select('*')
-      .in('attendance_id', attIds);
+    // Fetch daily activities only if there are logs
+    let activities = [];
+    if (logs.length > 0) {
+      const attIds = logs.map(l => l.id);
+      const { data: acts } = await supabase
+        .from('daily_activities')
+        .select('attendance_id, description')
+        .in('attendance_id', attIds);
+      activities = acts || [];
+    }
 
     // Group by employee
     const byEmployee = new Map();
