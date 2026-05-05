@@ -134,7 +134,7 @@ export function AssignmentPage(state) {
     </div>`;
 }
 
-/** Load daftar penugasan */
+/** Load daftar penugasan — dengan row collapsible */
 export async function loadAssignments(state) {
   const el = document.getElementById('penugasan-list');
   if (!el) return;
@@ -156,48 +156,49 @@ export async function loadAssignments(state) {
 
     el.innerHTML = `
       <div class="table-wrapper">
-        <table class="data-table">
+        <table class="data-table" id="assign-table">
           <thead>
             <tr>
+              <th></th>
               <th>Karyawan</th>
               <th>Proyek</th>
               <th>Gaji/Hari</th>
               <th>Mulai</th>
-              <th>Selesai</th>
               <th>Status</th>
-              <th>Keterangan</th>
               <th class="text-center">Aksi</th>
             </tr>
           </thead>
           <tbody>
-            ${data.map(a => {
+            ${data.map((a, idx) => {
               const emp = state.employees.find(e => e.id === a.employee_id);
               const prj = state.projects.find(p => p.id === a.project_id);
               const isActive = a.status === 'active';
-              return `<tr>
+              return `
+              <tr class="assign-row" data-index="${idx}">
+                <td style="width:30px;cursor:pointer;" onclick="window.__app.toggleAssignRow(${idx})">
+                  <i class="fas fa-chevron-right text-secondary" id="assign-chevron-${idx}"></i>
+                </td>
                 <td class="fw-bold">${esc(emp?.full_name || '-')}</td>
                 <td class="text-xs">${esc(prj?.name || '-')}</td>
                 <td class="text-xs">${fmtIdr(a.basic_salary)}</td>
                 <td class="text-xs">${fmtDate(a.start_date)}</td>
-                <td class="text-xs">${a.end_date ? fmtDate(a.end_date) : '<span class="text-secondary">s/d selesai</span>'}</td>
                 <td>
                   <span class="badge ${isActive ? 'badge-online' : 'badge-role'}">
                     ${isActive ? 'AKTIF' : 'PAUSE'}
                   </span>
                 </td>
-                <td class="text-xs text-secondary">${esc(a.notes || '-')}</td>
                 <td class="text-center">
                   <div class="flex gap-6 justify-center">
-                    <button class="btn btn-ghost btn-sm" title="Edit Gaji"
-                      onclick="window.__app.editAssignmentSalary('${a.id}', ${a.basic_salary})">
+                    <button class="btn btn-ghost btn-sm" title="Edit Penugasan"
+                      onclick="window.__app.openEditAssignment('${a.id}')">
                       <i class="fas fa-edit"></i>
                     </button>
                     ${isActive ? `
-                    <button class="btn btn-danger btn-sm" title="Akhiri Assignment"
+                    <button class="btn btn-danger btn-sm" title="Akhiri"
                       onclick="window.__app.endAssignment('${a.id}')">
                       <i class="fas fa-stop"></i>
                     </button>` : `
-                    <button class="btn btn-success btn-sm" title="Aktifkan Kembali"
+                    <button class="btn btn-success btn-sm" title="Aktifkan"
                       onclick="window.__app.resumeAssignment('${a.id}')">
                       <i class="fas fa-play"></i>
                     </button>`}
@@ -208,6 +209,17 @@ export async function loadAssignments(state) {
                     </button>` : ''}
                   </div>
                 </td>
+              </tr>
+              <tr id="assign-detail-${idx}" style="display:none;background:var(--bg-hover);">
+                <td colspan="7" style="padding:12px 16px;">
+                  <div class="text-xs" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px 16px;">
+                    <div><span class="text-secondary">Uang Makan:</span> ${fmtIdr(a.uang_makan||0)}</div>
+                    <div><span class="text-secondary">Transport:</span> ${fmtIdr(a.transport||0)}</div>
+                    <div><span class="text-secondary">Tunjangan:</span> ${fmtIdr(a.tunjangan_lain||0)}</div>
+                    <div><span class="text-secondary">Selesai:</span> ${a.end_date ? fmtDate(a.end_date) : '<span class="text-secondary">s/d selesai</span>'}</div>
+                    <div style="grid-column:1/-1;"><span class="text-secondary">Keterangan:</span> ${esc(a.notes || '-')}</div>
+                  </div>
+                </td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -216,6 +228,160 @@ export async function loadAssignments(state) {
   } catch (err) {
     el.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Gagal: ${esc(err.message)}</p></div>`;
   }
+}
+
+/** Toggle collapsible row */
+export function toggleAssignRow(idx) {
+  const detail = document.getElementById(`assign-detail-${idx}`);
+  const chevron = document.getElementById(`assign-chevron-${idx}`);
+  if (!detail) return;
+  const isHidden = detail.style.display === 'none';
+  detail.style.display = isHidden ? 'table-row' : 'none';
+  if (chevron) {
+    chevron.className = isHidden ? 'fas fa-chevron-down text-primary' : 'fas fa-chevron-right text-secondary';
+  }
+}
+
+/** Buka modal edit penugasan — full form seperti input awal */
+export async function openEditAssignment(id, state) {
+  const { data: a, error } = await supabase
+    .from('project_assignments')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error || !a) { showToast('Gagal memuat data penugasan', 'error'); return; }
+
+  const emp = state.employees.find(e => e.id === a.employee_id);
+  const prj = state.projects.find(p => p.id === a.project_id);
+
+  document.getElementById('assign-edit-modal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'assign-edit-modal';
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-card" style="max-width:520px;">
+      <div class="modal-title">
+        <i class="fas fa-edit"></i> Edit Penugasan
+        <button onclick="document.getElementById('assign-edit-modal').remove()"
+          style="margin-left:auto;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:1.2rem;">✕</button>
+      </div>
+
+      <div class="mb-16" style="background:var(--bg-hover);border-radius:var(--radius);padding:10px 14px;">
+        <div class="text-sm fw-bold">${esc(emp?.full_name||'-')}</div>
+        <div class="text-xs text-secondary">${esc(prj?.name||'-')}</div>
+      </div>
+
+      <form id="assign-edit-form" onsubmit="window.__app.saveEditAssignment(event, '${id}')">
+        <!-- Komponen Upah / Hari -->
+        <div class="form-section-label mb-8" style="font-size:0.75rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;">
+          <i class="fas fa-coins"></i> Komponen Upah / Hari
+        </div>
+        <div class="form-row mb-8">
+          <div class="form-group">
+            <label class="form-label">Uang Makan (Rp)</label>
+            <input type="number" class="form-input" id="edit-asgn-uang-makan"
+              value="${a.uang_makan||0}" min="0"
+              oninput="window.__asgn_editCalc()" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Transport (Rp)</label>
+            <input type="number" class="form-input" id="edit-asgn-transport"
+              value="${a.transport||0}" min="0"
+              oninput="window.__asgn_editCalc()" />
+          </div>
+        </div>
+        <div class="form-row mb-8">
+          <div class="form-group">
+            <label class="form-label">Tunjangan Lain (Rp)</label>
+            <input type="number" class="form-input" id="edit-asgn-tunjangan"
+              value="${a.tunjangan_lain||0}" min="0"
+              oninput="window.__asgn_editCalc()" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Total / Hari (Rp)</label>
+            <input type="number" class="form-input" id="edit-asgn-salary"
+              value="${a.basic_salary||0}" min="0"
+              style="font-weight:700;" />
+          </div>
+        </div>
+
+        <div class="form-row mb-16">
+          <div class="form-group">
+            <label class="form-label">Tanggal Mulai</label>
+            <input type="date" class="form-input" id="edit-asgn-start"
+              value="${a.start_date || ''}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tanggal Selesai <span class="text-muted">(kosongkan = terus berjalan)</span></label>
+            <input type="date" class="form-input" id="edit-asgn-end"
+              value="${a.end_date || ''}" />
+          </div>
+        </div>
+        <div class="form-row mb-16">
+          <div class="form-group">
+            <label class="form-label">Keterangan</label>
+            <input type="text" class="form-input" id="edit-asgn-notes"
+              value="${esc(a.notes || '')}" />
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="document.getElementById('assign-edit-modal').remove()">
+            Batal
+          </button>
+          <button type="submit" class="btn btn-primary" id="edit-asgn-submit-btn">
+            <i class="fas fa-save"></i> Simpan Perubahan
+          </button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+/** Simpan edit penugasan */
+export async function saveEditAssignment(e, id, state, refreshFn) {
+  e.preventDefault();
+  const btn = document.getElementById('edit-asgn-submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Menyimpan...';
+
+  try {
+    const uangMakan   = parseFloat(document.getElementById('edit-asgn-uang-makan').value) || 0;
+    const transport   = parseFloat(document.getElementById('edit-asgn-transport').value) || 0;
+    const tunjangan   = parseFloat(document.getElementById('edit-asgn-tunjangan').value) || 0;
+    const manualSalary = parseFloat(document.getElementById('edit-asgn-salary').value) || 0;
+    const totalSalary = manualSalary || (uangMakan + transport + tunjangan);
+
+    const startVal = document.getElementById('edit-asgn-start').value || null;
+    const endVal   = document.getElementById('edit-asgn-end').value || null;
+
+    const { error } = await supabase.from('project_assignments').update({
+      basic_salary:   totalSalary,
+      uang_makan:     uangMakan,
+      transport:      transport,
+      tunjangan_lain: tunjangan,
+      start_date:     startVal,
+      end_date:       endVal,
+      notes:          document.getElementById('edit-asgn-notes').value.trim() || null,
+      updated_at:     new Date().toISOString(),
+    }).eq('id', id);
+
+    if (error) throw error;
+    showToast('Penugasan berhasil diupdate!', 'success');
+    document.getElementById('assign-edit-modal')?.remove();
+    await loadAssignments(state);
+  } catch (err) {
+    showToast('Gagal: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save"></i> Simpan Perubahan';
+  }
+}
+
+/** Edit gaji penugasan (legacy — redirect ke modal full) */
+export async function editAssignmentSalary(id, currentSalary, state, refreshFn) {
+  window.__app.openEditAssignment(id);
 }
 
 /** Submit penugasan baru */
@@ -311,6 +477,14 @@ if (typeof window !== 'undefined') {
     const tr  = parseFloat(document.getElementById('asgn-transport')?.value) || 0;
     const tj  = parseFloat(document.getElementById('asgn-tunjangan')?.value) || 0;
     const el  = document.getElementById('asgn-salary');
+    if (el) el.value = um + tr + tj;
+  };
+
+  window.__asgn_editCalc = function () {
+    const um  = parseFloat(document.getElementById('edit-asgn-uang-makan')?.value) || 0;
+    const tr  = parseFloat(document.getElementById('edit-asgn-transport')?.value) || 0;
+    const tj  = parseFloat(document.getElementById('edit-asgn-tunjangan')?.value) || 0;
+    const el  = document.getElementById('edit-asgn-salary');
     if (el) el.value = um + tr + tj;
   };
 

@@ -8,7 +8,7 @@ import { LaporanPage, previewPhoto, handleLaporanSubmit } from './pages/laporan.
 import { ProjectPage, handleProjectSubmit, deleteProject, updateProjectStatus, openProjectDetail } from './pages/project.js';
 import { UsersPage, handleUserSubmit, deleteUser, openEditUser, saveEditUser } from './pages/users.js';
 import { BonPage, handleBonSubmit, showBonHistory } from './pages/bon.js';
-import { AssignmentPage, loadAssignments, handleAssignSubmit, editAssignmentSalary, endAssignment, resumeAssignment, deleteAssignment } from './pages/assignment.js';
+import { AssignmentPage, loadAssignments, handleAssignSubmit, toggleAssignRow, openEditAssignment, saveEditAssignment, editAssignmentSalary, endAssignment, resumeAssignment, deleteAssignment } from './pages/assignment.js';
 import { OvertimePage, handleOvertimeSubmit, loadOvertimeList, deleteOvertime } from './pages/overtime.js';
 import { MaterialPage, handleMaterialSubmit, loadMaterialList, updateMaterialStatus, deleteMaterial } from './pages/material.js';
 import { ExpensePage, handleExpenseSubmit, loadExpenseList, deleteExpense } from './pages/expense.js';
@@ -351,6 +351,9 @@ window.__app = {
   clockIn() { clockIn(state, refreshAndRender); },
   clockOut() { clockOut(state, refreshAndRender); },
   handleAssignSubmit(e) { handleAssignSubmit(e, state, refreshAndRender); },
+  toggleAssignRow(idx) { toggleAssignRow(idx); },
+  openEditAssignment(id) { openEditAssignment(id, state); },
+  saveEditAssignment(e, id) { saveEditAssignment(e, id, state, refreshAndRender); },
   editAssignmentSalary(id, salary) { editAssignmentSalary(id, salary, state, refreshAndRender); },
   endAssignment(id) { endAssignment(id, state, refreshAndRender); },
   resumeAssignment(id) { resumeAssignment(id, state, refreshAndRender); },
