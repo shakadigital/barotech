@@ -2,7 +2,7 @@ import './style.css';
 import { supabase, hasCredentials } from './lib/supabase.js';
 import { showToast, esc } from './lib/helpers.js';
 import { DashboardPage, loadBonNotifications, loadTodayExpenses } from './pages/dashboard.js';
-import { AttendancePage, verifyAttendance, deleteAttendance, saveWorkItems, generateDailyAttendance, openEditAttendance, saveEditAttendance, clockIn, clockOut, autoCheckoutStale, openEmployeeHistoryModal, exportAbsensiToExcel } from './pages/attendance.js';
+import { AttendancePage, verifyAttendance, deleteAttendance, saveWorkItems, generateDailyAttendance, openEditAttendance, saveEditAttendance, clockIn, clockOut, autoCheckoutStale, exportAbsensiToExcel } from './pages/attendance.js';
 import { RiwayatPage } from './pages/riwayat.js';
 import { LaporanPage, previewPhoto, handleLaporanSubmit } from './pages/laporan.js';
 import { LaporanGajiPage, filterLaporanGaji, exportLaporanGajiToExcel } from './pages/laporan-gaji.js';
@@ -362,7 +362,6 @@ window.__app = {
   clockIn() { clockIn(state, refreshAndRender); },
   clockOut() { clockOut(state, refreshAndRender); },
   autoCheckoutStale() { autoCheckoutStale(); },
-  openEmployeeHistoryModal(id) { openEmployeeHistoryModal(id, state); },
   exportAbsensiToExcel() { exportAbsensiToExcel(state); },
   filterLaporanGaji() { filterLaporanGaji(state); },
   exportLaporanGajiToExcel() { exportLaporanGajiToExcel(); },
