@@ -309,6 +309,11 @@ export function exportLaporanGajiToExcel() {
       };
     });
 
+    console.log('Export data prepared:', exportData);
+    console.log('Export data type:', typeof exportData);
+    console.log('Is array:', Array.isArray(exportData));
+    console.log('First item:', exportData[0]);
+
     exportLaporanGaji(exportData, data.filters);
   } catch (err) {
     console.error('Export error:', err);

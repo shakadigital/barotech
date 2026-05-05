@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { fmtDate, fmtIdr } from './helpers.js';
+import { fmtDate, fmtIdr, showToast } from './helpers.js';
 
 /**
  * Excel Export Functions for Admin/Superadmin
@@ -46,18 +46,30 @@ function autoFitColumns(ws) {
  * @param {Object} filters - Filter yang digunakan { month, employeeId, projectId }
  */
 export function exportLaporanGaji(data, filters = {}) {
-  const wb = XLSX.utils.book_new();
+  try {
+    if (!Array.isArray(data)) {
+      console.error('exportLaporanGaji expects an array, got:', typeof data, data);
+      showToast('Format data tidak valid untuk export', 'error');
+      return;
+    }
+
+    const wb = XLSX.utils.book_new();
 
   // Sheet 1: Ringkasan per Karyawan
   const summaryRows = data.map(emp => ({
-    'Nama Karyawan': emp.full_name,
-    'Jabatan': emp.jabatan,
-    'Total Hari': emp.total_hari,
-    'Gaji Pokok': emp.gaji_pokok,
-    'Lembur': emp.lembur,
-    'Kasbon': emp.kasbon,
-    'Total Bersih': emp.total_bersih,
+    'Nama Karyawan': emp.full_name || '',
+    'Jabatan': emp.jabatan || '',
+    'Total Hari': emp.total_hari || 0,
+    'Gaji Pokok': emp.gaji_pokok || 0,
+    'Lembur': emp.lembur || 0,
+    'Kasbon': emp.kasbon || 0,
+    'Total Bersih': emp.total_bersih || 0,
   }));
+
+  if (summaryRows.length === 0) {
+    showToast('Tidak ada data untuk diexport', 'error');
+    return;
+  }
 
   const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
   autoFitColumns(wsSummary);
@@ -68,6 +80,11 @@ export function exportLaporanGaji(data, filters = {}) {
   let currentRow = 0;
 
   data.forEach(emp => {
+    // Validate emp has required properties
+    if (!emp || !emp.logs || !Array.isArray(emp.logs)) {
+      console.error('Invalid emp data:', emp);
+      return; // Skip this employee
+    }
     // Header karyawan
     detailRows.push({
       'Nama Karyawan': emp.full_name,
@@ -197,6 +214,10 @@ export function exportLaporanGaji(data, filters = {}) {
 
   // Download
   XLSX.writeFile(wb, filename);
+  } catch (err) {
+    console.error('Excel export error:', err);
+    showToast('Gagal export Excel: ' + err.message, 'error');
+  }
 }
 
 /**
