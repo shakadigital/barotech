@@ -57,10 +57,10 @@ const MENU_META = {
 async function fetchData() {
   try {
     const role = state.user.role;
-    // karyawan hanya fetch absensi milik sendiri, tanpa kolom keuangan
+    // karyawan fetch absensi milik sendiri + kolom keuangan (untuk halaman Riwayat)
     const attQuery = role === 'karyawan'
       ? supabase.from('attendance_logs')
-          .select('id, employee_id, project_id, status, check_in, check_out, notes, overtime_hours, jabatan_snapshot, work_items, checkin_lat, checkin_lng, checkout_lat, checkout_lng, created_at')
+          .select('id, employee_id, project_id, status, check_in, check_out, notes, overtime_hours, overtime_rate, overtime_pay, jabatan_snapshot, work_items, basic_salary, hourly_rate, uang_makan, transport, tunjangan_lain, misc_amount, misc_description, cash_advance, cash_payout, checkin_lat, checkin_lng, checkout_lat, checkout_lng, created_at')
           .eq('employee_id', state.user.id)
           .order('created_at', { ascending: false })
       : supabase.from('attendance_logs').select('*').order('created_at', { ascending: false });
