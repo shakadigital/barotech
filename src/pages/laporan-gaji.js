@@ -1,4 +1,4 @@
-import { fmtDate, fmtIdr, esc } from '../lib/helpers.js';
+import { fmtDate, fmtIdr, esc, showToast } from '../lib/helpers.js';
 import { supabase } from '../lib/supabase.js';
 import { exportLaporanGaji } from '../lib/excel-export.js';
 
@@ -119,11 +119,11 @@ export async function filterLaporanGaji(state) {
 
     // Use date range filtering instead of .like() for better performance
     if (month) {
-      const startDate = `${month}-01`;
+      const startDate = `${month}-01T00:00:00`;
       // Get last day of the month
       const [year, monthNum] = month.split('-');
       const lastDay = new Date(year, monthNum, 0).getDate();
-      const endDate = `${month}-${String(lastDay).padStart(2, '0')}`;
+      const endDate = `${month}-${String(lastDay).padStart(2, '0')}T23:59:59`;
       query = query.gte('created_at', startDate).lte('created_at', endDate);
     }
 
@@ -160,7 +160,10 @@ export async function filterLaporanGaji(state) {
         byEmployee.set(l.employee_id, { logs: [], total: 0 });
       }
       byEmployee.get(l.employee_id).logs.push(l);
-      byEmployee.get(l.employee_id).total += (l.basic_salary || 0) + (l.overtime_pay || 0) - (l.cash_advance || 0);
+      byEmployee.get(l.employee_id).total +=
+        (l.basic_salary || 0) + (l.overtime_pay || 0) +
+        (l.uang_makan || 0) + (l.transport || 0) + (l.tunjangan_lain || 0) -
+        (l.cash_advance || 0);
     });
 
     // Store current data for export
@@ -190,7 +193,10 @@ export async function filterLaporanGaji(state) {
             byProject.set(prjName, { count: 0, total: 0, logs: [] });
           }
           byProject.get(prjName).count += 1;
-          byProject.get(prjName).total += (l.basic_salary || 0) + (l.overtime_pay || 0) - (l.cash_advance || 0);
+          byProject.get(prjName).total +=
+            (l.basic_salary || 0) + (l.overtime_pay || 0) +
+            (l.uang_makan || 0) + (l.transport || 0) + (l.tunjangan_lain || 0) -
+            (l.cash_advance || 0);
           byProject.get(prjName).logs.push(l);
         });
 
@@ -234,7 +240,9 @@ export async function filterLaporanGaji(state) {
               <tbody>
                 ${empLogs.map(l => {
                   const prj = state.projects.find(p => p.id === l.project_id);
-                  const total = (l.basic_salary || 0) + (l.overtime_pay || 0) - (l.cash_advance || 0);
+                  const total = (l.basic_salary || 0) + (l.overtime_pay || 0) +
+                    (l.uang_makan || 0) + (l.transport || 0) + (l.tunjangan_lain || 0) -
+                    (l.cash_advance || 0);
                   return `
                     <tr style="border-bottom:1px solid var(--border);">
                       <td style="padding:8px;">${fmtDate(l.created_at)}</td>

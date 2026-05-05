@@ -24,19 +24,21 @@ function formatExcelTime(timeStr) {
 
 // Helper: Auto-fit column width
 function autoFitColumns(ws) {
-  const cols = Object.keys(ws).filter(k => k[0] === '!').length === 0;
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
   const colWidths = [];
-  
-  cols.forEach(col => {
-    const colLetter = col.replace(/[0-9]/g, '');
-    const maxLen = Math.max(
-      ...Object.keys(ws)
-        .filter(k => k.startsWith(colLetter) && k !== colLetter)
-        .map(k => ws[k].v ? String(ws[k].v).length : 0)
-    );
+
+  for (let C = range.s.c; C <= range.e.c; C++) {
+    let maxLen = 10;
+    for (let R = range.s.r; R <= range.e.r; R++) {
+      const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
+      if (cell && cell.v != null) {
+        const len = String(cell.v).length;
+        if (len > maxLen) maxLen = len;
+      }
+    }
     colWidths.push({ wch: Math.min(maxLen + 2, 50) });
-  });
-  
+  }
+
   ws['!cols'] = colWidths;
 }
 
