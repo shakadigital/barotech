@@ -103,6 +103,11 @@ export async function filterLaporanGaji(state) {
   // Show loading indicator
   container.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Memuat data...</p></div>';
 
+  // Add timeout to detect slow queries
+  const timeoutId = setTimeout(() => {
+    container.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Memuat data memakan waktu lama. Silakan filter berdasarkan karyawan atau periode yang lebih spesifik.</p></div>';
+  }, 10000); // 10 second timeout
+
   try {
     // Build query - select only needed columns with limit
     let query = supabase
@@ -125,6 +130,8 @@ export async function filterLaporanGaji(state) {
     if (projectId) query = query.eq('project_id', projectId);
 
     const { data: logs, error } = await query.order('created_at', { ascending: true });
+
+    clearTimeout(timeoutId);
 
     if (error) throw error;
 
@@ -253,6 +260,7 @@ export async function filterLaporanGaji(state) {
 
     container.innerHTML = html;
   } catch (err) {
+    clearTimeout(timeoutId);
     container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Gagal: ${esc(err.message)}</p></div>`;
   }
 }
