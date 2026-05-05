@@ -6,6 +6,7 @@ import { AttendancePage, verifyAttendance, deleteAttendance, saveWorkItems, gene
 import { RiwayatPage } from './pages/riwayat.js';
 import { LaporanPage, previewPhoto, handleLaporanSubmit } from './pages/laporan.js';
 import { LaporanGajiPage, filterLaporanGaji, exportLaporanGajiToExcel } from './pages/laporan-gaji.js';
+import { RekapProyekPage, loadRekapProyek, exportRekapProyek } from './pages/rekap-proyek.js';
 import { ProjectPage, handleProjectSubmit, deleteProject, updateProjectStatus, openProjectDetail } from './pages/project.js';
 import { UsersPage, handleUserSubmit, deleteUser, openEditUser, saveEditUser } from './pages/users.js';
 import { BonPage, handleBonSubmit, showBonHistory } from './pages/bon.js';
@@ -14,8 +15,6 @@ import { OvertimePage, handleOvertimeSubmit, handleOvertimeRequest, loadOvertime
 import { MaterialPage, handleMaterialSubmit, loadMaterialList, updateMaterialStatus, deleteMaterial } from './pages/material.js';
 import { ExpensePage, handleExpenseSubmit, loadExpenseList, deleteExpense } from './pages/expense.js';
 import { loadProjectUpdates } from './pages/laporan.js';
-
-// ========== STATE ==========
 const state = {
   isLoggedIn: false,
   showSplash: true,
@@ -32,9 +31,9 @@ const state = {
 
 // Role-based menu config
 const MENUS = {
-  superadmin:    ['home','assignment','absensi','overtime','lapor','laporan-gaji','project','material','expense','bon','users'],
-  owner:         ['home','assignment','absensi','overtime','lapor','laporan-gaji','project','material','expense','bon','users'],
-  admin:         ['home','assignment','absensi','overtime','lapor','laporan-gaji','project','material','expense','bon','users'],
+  superadmin:    ['home','assignment','absensi','overtime','lapor','laporan-gaji','rekap-proyek','project','material','expense','bon','users'],
+  owner:         ['home','assignment','absensi','overtime','lapor','laporan-gaji','rekap-proyek','project','material','expense','bon','users'],
+  admin:         ['home','assignment','absensi','overtime','lapor','laporan-gaji','rekap-proyek','project','material','expense','bon','users'],
   kepala_proyek: ['home','absensi','overtime','lapor','project','material','expense'],
   kepala_gudang: ['home','absensi','material'],
   kepala_lapangan: ['home','absensi','overtime','lapor','project','material','expense'],
@@ -49,6 +48,7 @@ const MENU_META = {
   riwayat:    { icon: 'fa-history',          label: 'Riwayat' },
   lapor:      { icon: 'fa-camera',           label: 'Laporan' },
   'laporan-gaji': { icon: 'fa-file-invoice-dollar', label: 'Laporan Gaji' },
+  'rekap-proyek': { icon: 'fa-chart-pie',           label: 'Rekap Proyek' },
   project:    { icon: 'fa-building',         label: 'Proyek' },
   material:   { icon: 'fa-box',              label: 'Material' },
   expense:    { icon: 'fa-receipt',          label: 'Pengeluaran' },
@@ -181,6 +181,7 @@ function renderPage() {
     case 'riwayat':  return RiwayatPage(state);
     case 'lapor':      return LaporanPage(state);
     case 'laporan-gaji': return LaporanGajiPage(state);
+    case 'rekap-proyek': return RekapProyekPage(state);
     case 'project':    return ProjectPage(state);
     case 'material': return MaterialPage(state);
     case 'expense': return ExpensePage(state);
@@ -342,6 +343,9 @@ function render() {
   if (state.currentPage === 'expense') {
     window.__app.loadFilteredExpenses();
   }
+  if (state.currentPage === 'rekap-proyek') {
+    loadRekapProyek();
+  }
   if (state.currentPage === 'home') {
     loadBonNotifications(state.employees);
     loadTodayExpenses(state.projects);
@@ -364,6 +368,8 @@ window.__app = {
   autoCheckoutStale() { autoCheckoutStale(); },
   filterLaporanGaji() { filterLaporanGaji(state); },
   exportLaporanGajiToExcel() { exportLaporanGajiToExcel(); },
+  loadRekapProyek() { loadRekapProyek(); },
+  exportRekapProyek() { exportRekapProyek(); },
   toggleAssignRow(idx) { toggleAssignRow(idx); },
   openEditAssignment(id) { openEditAssignment(id, state); },
   saveEditAssignment(e, id) { saveEditAssignment(e, id, state, refreshAndRender); },

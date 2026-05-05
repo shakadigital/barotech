@@ -278,3 +278,55 @@ export function exportLaporanPenugasan(assignments, filters = {}) {
   
   XLSX.writeFile(wb, filename);
 }
+
+/**
+ * Export Rekap Biaya Proyek ke Excel
+ * @param {Array} data   - Array hasil RPC get_rekap_biaya_proyek
+ * @param {Object} filters - { month, projectId }
+ */
+export function exportRekapProyekExcel(data, filters = {}) {
+  try {
+    if (!Array.isArray(data) || data.length === 0) {
+      showToast('Tidak ada data untuk diexport', 'error');
+      return;
+    }
+
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: Ringkasan per Proyek
+    const header = [
+      'Proyek', 'Status',
+      'Gaji Karyawan', 'Lembur', 'Material', 'Pengeluaran Operasional', 'Grand Total',
+    ];
+    const rows = data.map(r => [
+      String(r.project_name || ''),
+      String(r.project_status || ''),
+      Number(r.total_gaji || 0),
+      Number(r.total_lembur || 0),
+      Number(r.total_material || 0),
+      Number(r.total_pengeluaran || 0),
+      Number(r.grand_total || 0),
+    ]);
+
+    // Baris total
+    const totalRow = [
+      'TOTAL KESELURUHAN', '',
+      rows.reduce((s, r) => s + r[2], 0),
+      rows.reduce((s, r) => s + r[3], 0),
+      rows.reduce((s, r) => s + r[4], 0),
+      rows.reduce((s, r) => s + r[5], 0),
+      rows.reduce((s, r) => s + r[6], 0),
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows, totalRow]);
+    autoFitColumns(ws);
+    XLSX.utils.book_append_sheet(wb, ws, 'Rekap Biaya Proyek');
+
+    const dateStr = filters.month || new Date().toISOString().slice(0, 7);
+    const filename = `Rekap-Biaya-Proyek-${dateStr}.xlsx`;
+    XLSX.writeFile(wb, filename);
+  } catch (err) {
+    console.error('Export rekap proyek error:', err);
+    showToast('Gagal export Excel: ' + err.message, 'error');
+  }
+}
