@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase.js';
-import { fmtIdr, fmtTime, showToast, esc } from '../lib/helpers.js';
+import { fmtIdr, fmtTime, showToast, esc, getGeoLocation } from '../lib/helpers.js';
 import { canFinance, canDelete, canVerifyAll, canVerifyOwn } from '../lib/roles.js';
 
 const WORK_HOURS_STANDARD = 8; // jam kerja standar per hari
@@ -172,6 +172,13 @@ export function AttendancePage(state) {
                         - (l.cash_advance||0) + (l.cash_payout||0);
       const durasi = calcDuration(l.check_in, l.check_out);
       const hasBreakdown = (l.uang_makan||0) > 0 || (l.transport||0) > 0 || (l.tunjangan_lain||0) > 0;
+      // Location tag — only visible to admin+
+      const locTag = (l.checkin_lat || l.checkout_lat) ? `
+        <div class="text-secondary" style="font-size:0.65rem;margin-top:2px;">
+          <i class="fas fa-map-marker-alt"></i>
+          Masuk: ${l.checkin_lat ? `${l.checkin_lat.toFixed(4)},${l.checkin_lng.toFixed(4)}` : '-'}
+          | Pulang: ${l.checkout_lat ? `${l.checkout_lat.toFixed(4)},${l.checkout_lng.toFixed(4)}` : '-'}
+        </div>` : '';
       financeCell = `
         <td>
           <div class="text-xs">
@@ -184,6 +191,7 @@ export function AttendancePage(state) {
                 <i class="fas fa-edit" style="font-size:0.7rem;"></i>
               </button>
             </div>
+            ${locTag}
             ${hasBreakdown ? `
             <div style="margin-bottom:2px;">
               ${l.uang_makan ? `<div>Makan: ${fmtIdr(l.uang_makan)}</div>` : ''}
@@ -222,12 +230,14 @@ export function AttendancePage(state) {
     : isReadOnly                 ? 'Daftar Kehadiran Hari Ini'
     : 'Absensi';
 
-  // Self-attendance for non-karyawan roles
-  const isNonKaryawan = ['admin', 'kepala_gudang', 'kepala_proyek', 'kepala_lapangan'].includes(role);
-  const canSelfAttend = isNonKaryawan || role === 'karyawan';
-
+  // Self-attendance for ALL roles
   function selfAttendanceSection() {
-    if (!canSelfAttend) return '';
+    // Find today's own attendance
+    const myTodayLog = attendanceLogs.find(l =>
+      l.employee_id === user.id && l.created_at?.startsWith(todayStr)
+    );
+    const hasClockedIn  = !!myTodayLog?.check_in;
+    const hasClockedOut = !!myTodayLog?.check_out;
 
     return `
       <div class="card mb-16" style="background:rgba(25,210,193,0.08);border-left:4px solid var(--primary);padding:16px;">
@@ -237,15 +247,21 @@ export function AttendancePage(state) {
             <div class="text-xs text-secondary">Absen masuk/pulang untuk ${esc(user.full_name)}</div>
           </div>
           <div class="flex gap-8">
-            <button class="btn btn-success" id="btn-clockin" onclick="window.__app.clockIn()">
-              <i class="fas fa-sign-in-alt"></i> <span class="text-xs">Masuk</span>
+            <button class="btn btn-success" id="btn-clockin" onclick="window.__app.clockIn()"
+              ${hasClockedIn ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>
+              <i class="fas fa-sign-in-alt"></i> <span class="text-xs">${hasClockedIn ? fmtTime(myTodayLog.check_in) : 'Masuk'}</span>
             </button>
-            <button class="btn btn-danger" id="btn-clockout" onclick="window.__app.clockOut()">
-              <i class="fas fa-sign-out-alt"></i> <span class="text-xs">Pulang</span>
+            <button class="btn btn-danger" id="btn-clockout" onclick="window.__app.clockOut()"
+              ${!hasClockedIn || hasClockedOut ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>
+              <i class="fas fa-sign-out-alt"></i> <span class="text-xs">${hasClockedOut ? fmtTime(myTodayLog.check_out) : 'Pulang'}</span>
             </button>
           </div>
         </div>
-        <div id="self-att-status" class="mt-12 text-xs"></div>
+        <div id="self-att-status" class="mt-12 text-xs">
+          ${hasClockedIn && !hasClockedOut ? '<span class="text-warning"><i class="fas fa-clock"></i> Sudah masuk, menunggu check-out</span>' : ''}
+          ${hasClockedIn && hasClockedOut ? '<span class="text-success"><i class="fas fa-check-double"></i> Absensi hari ini selesai</span>' : ''}
+          ${!hasClockedIn ? '<span class="text-secondary"><i class="fas fa-info-circle"></i> Lokasi GPS akan direkam saat check-in/out</span>' : ''}
+        </div>
       </div>
     `;
   }
@@ -568,7 +584,7 @@ export async function clockIn(state, refreshFn) {
       throw new Error('Anda sudah absen masuk hari ini');
     }
 
-    // Get user's basic salary from profiles (optional - may not exist yet)
+    // Get user's basic salary from profiles
     let basicSalary = 0;
     try {
       const { data: profile } = await supabase
@@ -583,23 +599,28 @@ export async function clockIn(state, refreshFn) {
 
     const hourlyRate = basicSalary / 8;
 
+    // Capture GPS location
+    const geo = await getGeoLocation();
+
     // Insert attendance baru
     const { error } = await supabase.from('attendance_logs').insert({
       employee_id: state.user.id,
-      project_id: null, // Non-karyawan tidak punya project spesifik
+      project_id: null,
       check_in: today + ' ' + now,
       check_out: null,
-      status: 'verified',
+      status: 'draft',
       hourly_rate: hourlyRate,
       basic_salary: basicSalary,
       notes: 'Absensi Mandiri',
+      checkin_lat: geo?.lat || null,
+      checkin_lng: geo?.lng || null,
     });
 
     if (error) throw error;
 
     const statusDiv = document.getElementById('self-att-status');
     if (statusDiv) {
-      statusDiv.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> Absen masuk berhasil jam ${now.slice(0,5)}</span>`;
+      statusDiv.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> Absen masuk berhasil jam ${now.slice(0,5)}${geo ? ` 📍 ${geo.lat.toFixed(4)},${geo.lng.toFixed(4)}` : ''}</span>`;
     }
 
     showToast('Absen masuk berhasil!', 'success');
@@ -637,17 +658,24 @@ export async function clockOut(state, refreshFn) {
       throw new Error('Anda sudah absen pulang hari ini');
     }
 
-    // Update check_out
+    // Capture GPS location
+    const geo = await getGeoLocation();
+
+    // Update check_out + location
     const { error } = await supabase
       .from('attendance_logs')
-      .update({ check_out: today + ' ' + now })
+      .update({
+        check_out: today + ' ' + now,
+        checkout_lat: geo?.lat || null,
+        checkout_lng: geo?.lng || null,
+      })
       .eq('id', existing.id);
 
     if (error) throw error;
 
     const statusDiv = document.getElementById('self-att-status');
     if (statusDiv) {
-      statusDiv.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> Absen pulang berhasil jam ${now.slice(0,5)}</span>`;
+      statusDiv.innerHTML = `<span class="text-success"><i class="fas fa-check-double"></i> Absen pulang berhasil jam ${now.slice(0,5)}${geo ? ` 📍 ${geo.lat.toFixed(4)},${geo.lng.toFixed(4)}` : ''}</span>`;
     }
 
     showToast('Absen pulang berhasil!', 'success');
@@ -713,4 +741,17 @@ if (typeof window !== 'undefined') {
     if (disp) disp.value = 'Rp ' + total.toLocaleString('id-ID');
     if (hid)  hid.value  = total;
   };
+}
+
+/** Auto check-out stale records (>15 jam tanpa check-out) */
+export async function autoCheckoutStale() {
+  try {
+    const { data, error } = await supabase.rpc('auto_checkout_stale');
+    if (error) throw error;
+    if (data > 0) {
+      showToast(`${data} absensi di-auto check-out (lebih dari 15 jam)`, 'info');
+    }
+  } catch (err) {
+    console.log('auto_checkout_stale:', err.message);
+  }
 }

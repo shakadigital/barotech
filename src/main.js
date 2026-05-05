@@ -2,14 +2,14 @@ import './style.css';
 import { supabase, hasCredentials } from './lib/supabase.js';
 import { showToast, esc } from './lib/helpers.js';
 import { DashboardPage, loadBonNotifications, loadTodayExpenses } from './pages/dashboard.js';
-import { AttendancePage, verifyAttendance, deleteAttendance, saveWorkItems, generateDailyAttendance, openEditAttendance, saveEditAttendance, clockIn, clockOut } from './pages/attendance.js';
+import { AttendancePage, verifyAttendance, deleteAttendance, saveWorkItems, generateDailyAttendance, openEditAttendance, saveEditAttendance, clockIn, clockOut, autoCheckoutStale } from './pages/attendance.js';
 import { RiwayatPage } from './pages/riwayat.js';
 import { LaporanPage, previewPhoto, handleLaporanSubmit } from './pages/laporan.js';
 import { ProjectPage, handleProjectSubmit, deleteProject, updateProjectStatus, openProjectDetail } from './pages/project.js';
 import { UsersPage, handleUserSubmit, deleteUser, openEditUser, saveEditUser } from './pages/users.js';
 import { BonPage, handleBonSubmit, showBonHistory } from './pages/bon.js';
 import { AssignmentPage, loadAssignments, handleAssignSubmit, toggleAssignRow, openEditAssignment, saveEditAssignment, editAssignmentSalary, endAssignment, resumeAssignment, deleteAssignment } from './pages/assignment.js';
-import { OvertimePage, handleOvertimeSubmit, loadOvertimeList, deleteOvertime } from './pages/overtime.js';
+import { OvertimePage, handleOvertimeSubmit, handleOvertimeRequest, loadOvertimeList, approveOvertime, rejectOvertime, deleteOvertime } from './pages/overtime.js';
 import { MaterialPage, handleMaterialSubmit, loadMaterialList, updateMaterialStatus, deleteMaterial } from './pages/material.js';
 import { ExpensePage, handleExpenseSubmit, loadExpenseList, deleteExpense } from './pages/expense.js';
 import { loadProjectUpdates } from './pages/laporan.js';
@@ -36,7 +36,7 @@ const MENUS = {
   kepala_proyek: ['home','absensi','overtime','lapor','project','material','expense'],
   kepala_gudang: ['home','absensi','material'],
   kepala_lapangan: ['home','absensi','overtime','lapor','project','material','expense'],
-  karyawan:      ['home','riwayat'],
+  karyawan:      ['home','absensi','overtime','riwayat'],
 };
 
 const MENU_META = {
@@ -60,7 +60,7 @@ async function fetchData() {
     // karyawan hanya fetch absensi milik sendiri, tanpa kolom keuangan
     const attQuery = role === 'karyawan'
       ? supabase.from('attendance_logs')
-          .select('id, employee_id, project_id, status, check_in, check_out, notes, overtime_hours, jabatan_snapshot, work_items, created_at')
+          .select('id, employee_id, project_id, status, check_in, check_out, notes, overtime_hours, jabatan_snapshot, work_items, checkin_lat, checkin_lng, checkout_lat, checkout_lng, created_at')
           .eq('employee_id', state.user.id)
           .order('created_at', { ascending: false })
       : supabase.from('attendance_logs').select('*').order('created_at', { ascending: false });
@@ -314,6 +314,9 @@ function render() {
   });
 
   // Post-render hooks
+  if (state.currentPage === 'absensi') {
+    autoCheckoutStale();
+  }
   if (state.currentPage === 'overtime') {
     loadOvertimeList(state);
   }
@@ -350,6 +353,7 @@ window.__app = {
   saveEditAttendance(id) { saveEditAttendance(id, refreshAndRender); },
   clockIn() { clockIn(state, refreshAndRender); },
   clockOut() { clockOut(state, refreshAndRender); },
+  autoCheckoutStale() { autoCheckoutStale(); },
   handleAssignSubmit(e) { handleAssignSubmit(e, state, refreshAndRender); },
   toggleAssignRow(idx) { toggleAssignRow(idx); },
   openEditAssignment(id) { openEditAssignment(id, state); },
@@ -381,6 +385,9 @@ window.__app = {
     if (empId) showBonHistory(empId, null, month);
   },
   handleOvertimeSubmit(e) { handleOvertimeSubmit(e, state, refreshAndRender); },
+  handleOvertimeRequest(e) { handleOvertimeRequest(e, state, refreshAndRender); },
+  approveOvertime(id) { approveOvertime(id, state, refreshAndRender); },
+  rejectOvertime(id) { rejectOvertime(id, state, refreshAndRender); },
   deleteOvertime(id) { deleteOvertime(id, state, refreshAndRender); },
   handleMaterialSubmit(e) { handleMaterialSubmit(e); },
   updateMaterialStatus(id, status) { updateMaterialStatus(id, status, refreshAndRender); },
