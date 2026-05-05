@@ -252,6 +252,14 @@ img { max-width: 100%; display: block; }
 .nav-item.active { background: linear-gradient(135deg, rgba(25,210,193,0.15), rgba(8,174,234,0.08)); color: var(--primary-light); font-weight: 600; }
 .nav-item i { width: 20px; text-align: center; font-size: 1rem; }
 
+/* Sub-menu item */
+.nav-subitem {
+  padding-left: 36px !important;
+  font-size: 0.875rem !important;
+  opacity: 0.9;
+}
+.nav-subitem i { font-size: 0.85rem !important; }
+
 .nav-section { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; padding: 16px 14px 8px; }
 
 /* Main content */

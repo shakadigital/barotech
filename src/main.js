@@ -7,6 +7,9 @@ import { RiwayatPage } from './pages/riwayat.js';
 import { LaporanPage, previewPhoto, handleLaporanSubmit } from './pages/laporan.js';
 import { LaporanGajiPage, filterLaporanGaji, exportLaporanGajiToExcel } from './pages/laporan-gaji.js';
 import { RekapProyekPage, loadRekapProyek, exportRekapProyek } from './pages/rekap-proyek.js';
+import { LaporanRekapGajiPage, loadRekapGaji, exportRekapGaji } from './pages/laporan-rekap-gaji.js';
+import { LaporanBonPage, loadLaporanBon, loadDetailBon, exportLaporanBon } from './pages/laporan-bon.js';
+import { LaporanKegiatanPage, loadLaporanKegiatan, exportLaporanKegiatan } from './pages/laporan-kegiatan.js';
 import { ProjectPage, handleProjectSubmit, deleteProject, updateProjectStatus, openProjectDetail } from './pages/project.js';
 import { UsersPage, handleUserSubmit, deleteUser, openEditUser, saveEditUser } from './pages/users.js';
 import { BonPage, handleBonSubmit, showBonHistory } from './pages/bon.js';
@@ -31,14 +34,24 @@ const state = {
 
 // Role-based menu config
 const MENUS = {
-  superadmin:    ['home','assignment','absensi','overtime','lapor','laporan-gaji','rekap-proyek','project','material','expense','bon','users'],
-  owner:         ['home','assignment','absensi','overtime','lapor','laporan-gaji','rekap-proyek','project','material','expense','bon','users'],
-  admin:         ['home','assignment','absensi','overtime','lapor','laporan-gaji','rekap-proyek','project','material','expense','bon','users'],
+  superadmin:    ['home','assignment','absensi','overtime','laporan','project','material','expense','bon','users'],
+  owner:         ['home','assignment','absensi','overtime','laporan','project','material','expense','bon','users'],
+  admin:         ['home','assignment','absensi','overtime','laporan','project','material','expense','bon','users'],
   kepala_proyek: ['home','absensi','overtime','lapor','project','material','expense'],
   kepala_gudang: ['home','absensi','material'],
   kepala_lapangan: ['home','absensi','overtime','lapor','project','material','expense'],
   karyawan:      ['home','absensi','overtime','riwayat'],
 };
+
+// Sub-menu di bawah "Laporan" (hanya untuk admin/owner/superadmin)
+const LAPORAN_SUBMENU = [
+  { key: 'lapor',          icon: 'fa-camera',              label: 'Laporan Progress' },
+  { key: 'laporan-gaji',   icon: 'fa-file-invoice-dollar', label: 'Laporan Gaji' },
+  { key: 'rekap-gaji',     icon: 'fa-money-bill-wave',     label: 'Rekap Gaji Lengkap' },
+  { key: 'rekap-proyek',   icon: 'fa-chart-pie',           label: 'Rekap Biaya Proyek' },
+  { key: 'laporan-bon',    icon: 'fa-hand-holding-usd',    label: 'Laporan Bon' },
+  { key: 'laporan-kegiatan', icon: 'fa-tasks',             label: 'Kegiatan Harian' },
+];
 
 const MENU_META = {
   home:       { icon: 'fa-home',             label: 'Beranda' },
@@ -46,9 +59,8 @@ const MENU_META = {
   absensi:    { icon: 'fa-clipboard-check',  label: 'Absensi' },
   overtime:   { icon: 'fa-clock',            label: 'Lembur' },
   riwayat:    { icon: 'fa-history',          label: 'Riwayat' },
-  lapor:      { icon: 'fa-camera',           label: 'Laporan' },
-  'laporan-gaji': { icon: 'fa-file-invoice-dollar', label: 'Laporan Gaji' },
-  'rekap-proyek': { icon: 'fa-chart-pie',           label: 'Rekap Proyek' },
+  laporan:    { icon: 'fa-chart-bar',        label: 'Laporan' },
+  lapor:      { icon: 'fa-camera',           label: 'Laporan Progress' },
   project:    { icon: 'fa-building',         label: 'Proyek' },
   material:   { icon: 'fa-box',              label: 'Material' },
   expense:    { icon: 'fa-receipt',          label: 'Pengeluaran' },
@@ -152,9 +164,33 @@ function navigate(page) {
 }
 
 // ========== RENDER ==========
+// Halaman yang termasuk grup "laporan"
+const LAPORAN_PAGES = new Set(['lapor','laporan-gaji','rekap-gaji','rekap-proyek','laporan-bon','laporan-kegiatan']);
+
 function renderSidebar() {
   const menus = MENUS[state.user.role] || ['home'];
+  const isLaporanActive = LAPORAN_PAGES.has(state.currentPage);
+
   return menus.map(key => {
+    if (key === 'laporan') {
+      // Parent dengan sub-menu collapsible
+      const subOpen = isLaporanActive;
+      return `
+        <button class="nav-item ${isLaporanActive ? 'active' : ''}"
+          onclick="window.__app.toggleLaporanMenu()" id="nav-laporan-parent">
+          <i class="fas fa-chart-bar"></i> Laporan
+          <i class="fas fa-chevron-${subOpen ? 'up' : 'down'}"
+            style="margin-left:auto;font-size:0.7rem;" id="laporan-chevron"></i>
+        </button>
+        <div id="laporan-submenu" style="display:${subOpen ? 'block' : 'none'};">
+          ${LAPORAN_SUBMENU.map(s => `
+            <button class="nav-item nav-subitem ${state.currentPage === s.key ? 'active' : ''}"
+              data-page="${s.key}">
+              <i class="fas ${s.icon}"></i> ${s.label}
+            </button>
+          `).join('')}
+        </div>`;
+    }
     const m = MENU_META[key];
     return `<button class="nav-item ${state.currentPage === key ? 'active' : ''}" data-page="${key}">
       <i class="fas ${m.icon}"></i> ${m.label}
@@ -164,7 +200,15 @@ function renderSidebar() {
 
 function renderBottomNav() {
   const menus = MENUS[state.user.role] || ['home'];
+  const isLaporanActive = LAPORAN_PAGES.has(state.currentPage);
+
   return menus.map(key => {
+    if (key === 'laporan') {
+      return `<button class="bottom-nav-item ${isLaporanActive ? 'active' : ''}"
+        onclick="window.__app.navigateTo('laporan-gaji')">
+        <i class="fas fa-chart-bar"></i><span>Laporan</span>
+      </button>`;
+    }
     const m = MENU_META[key];
     return `<button class="bottom-nav-item ${state.currentPage === key ? 'active' : ''}" data-page="${key}">
       <i class="fas ${m.icon}"></i><span>${m.label}</span>
@@ -181,7 +225,10 @@ function renderPage() {
     case 'riwayat':  return RiwayatPage(state);
     case 'lapor':      return LaporanPage(state);
     case 'laporan-gaji': return LaporanGajiPage(state);
+    case 'rekap-gaji':   return LaporanRekapGajiPage(state);
     case 'rekap-proyek': return RekapProyekPage(state);
+    case 'laporan-bon':  return LaporanBonPage(state);
+    case 'laporan-kegiatan': return LaporanKegiatanPage(state);
     case 'project':    return ProjectPage(state);
     case 'material': return MaterialPage(state);
     case 'expense': return ExpensePage(state);
@@ -346,6 +393,17 @@ function render() {
   if (state.currentPage === 'rekap-proyek') {
     loadRekapProyek();
   }
+  if (state.currentPage === 'rekap-gaji') {
+    loadRekapGaji();
+  }
+  if (state.currentPage === 'laporan-bon') {
+    loadLaporanBon();
+  }
+  if (state.currentPage === 'laporan-kegiatan') {
+    // Inject state reference untuk resolve nama karyawan/proyek
+    window.__laporanKegiatanState = { employees: state.employees, projects: state.projects };
+    loadLaporanKegiatan();
+  }
   if (state.currentPage === 'home') {
     loadBonNotifications(state.employees);
     loadTodayExpenses(state.projects);
@@ -370,6 +428,22 @@ window.__app = {
   exportLaporanGajiToExcel() { exportLaporanGajiToExcel(); },
   loadRekapProyek() { loadRekapProyek(); },
   exportRekapProyek() { exportRekapProyek(); },
+  loadRekapGaji() { loadRekapGaji(); },
+  exportRekapGaji() { exportRekapGaji(); },
+  loadLaporanBon() { loadLaporanBon(); },
+  loadDetailBon(id, name) { loadDetailBon(id, name); },
+  exportLaporanBon() { exportLaporanBon(); },
+  loadLaporanKegiatan() { loadLaporanKegiatan(); },
+  exportLaporanKegiatan() { exportLaporanKegiatan(); },
+  navigateTo(page) { navigate(page); },
+  toggleLaporanMenu() {
+    const sub      = document.getElementById('laporan-submenu');
+    const chevron  = document.getElementById('laporan-chevron');
+    if (!sub) return;
+    const isOpen = sub.style.display !== 'none';
+    sub.style.display = isOpen ? 'none' : 'block';
+    if (chevron) chevron.className = `fas fa-chevron-${isOpen ? 'down' : 'up'}`;
+  },
   toggleAssignRow(idx) { toggleAssignRow(idx); },
   openEditAssignment(id) { openEditAssignment(id, state); },
   saveEditAssignment(e, id) { saveEditAssignment(e, id, state, refreshAndRender); },

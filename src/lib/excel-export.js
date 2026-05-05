@@ -330,3 +330,148 @@ export function exportRekapProyekExcel(data, filters = {}) {
     showToast('Gagal export Excel: ' + err.message, 'error');
   }
 }
+
+/**
+ * Export Rekap Gaji Lengkap ke Excel
+ * @param {Array} data    - Hasil RPC get_rekap_gaji_lengkap
+ * @param {Object} filters
+ */
+export function exportRekapGajiExcel(data, filters = {}) {
+  try {
+    const wb = XLSX.utils.book_new();
+
+    const header = [
+      'Karyawan', 'Jabatan', 'Hari Kerja',
+      'Gaji Pokok', 'Uang Makan', 'Transport', 'Tunjangan Lain',
+      'Lembur (Absensi)', 'Lembur (Overtime)', 'Total Lembur',
+      'Kasbon', 'Total Bersih',
+    ];
+    const rows = data.map(r => [
+      String(r.full_name || ''),
+      String(r.jabatan || ''),
+      Number(r.hari_kerja || 0),
+      Number(r.total_gaji_pokok || 0),
+      Number(r.total_uang_makan || 0),
+      Number(r.total_transport || 0),
+      Number(r.total_tunjangan || 0),
+      Number(r.total_lembur_att || 0),
+      Number(r.total_lembur_ot || 0),
+      Number(r.total_lembur_att || 0) + Number(r.total_lembur_ot || 0),
+      Number(r.total_kasbon || 0),
+      Number(r.total_bersih || 0),
+    ]);
+
+    const totalRow = [
+      'TOTAL', '',
+      rows.reduce((s, r) => s + r[2], 0),
+      rows.reduce((s, r) => s + r[3], 0),
+      rows.reduce((s, r) => s + r[4], 0),
+      rows.reduce((s, r) => s + r[5], 0),
+      rows.reduce((s, r) => s + r[6], 0),
+      rows.reduce((s, r) => s + r[7], 0),
+      rows.reduce((s, r) => s + r[8], 0),
+      rows.reduce((s, r) => s + r[9], 0),
+      rows.reduce((s, r) => s + r[10], 0),
+      rows.reduce((s, r) => s + r[11], 0),
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows, totalRow]);
+    autoFitColumns(ws);
+    XLSX.utils.book_append_sheet(wb, ws, 'Rekap Gaji');
+
+    const dateStr = filters.month || new Date().toISOString().slice(0, 7);
+    XLSX.writeFile(wb, `Rekap-Gaji-Lengkap-${dateStr}.xlsx`);
+  } catch (err) {
+    showToast('Gagal export: ' + err.message, 'error');
+  }
+}
+
+/**
+ * Export Laporan Bon ke Excel
+ * @param {Array} data    - Hasil RPC get_rekap_bon
+ * @param {Object} filters
+ */
+export function exportLaporanBonExcel(data, filters = {}) {
+  try {
+    const wb = XLSX.utils.book_new();
+
+    const header = [
+      'Karyawan', 'Jabatan', 'Saldo Hutang',
+      'Total Pinjam (periode)', 'Total Bayar (periode)',
+      'Jumlah Transaksi', 'Transaksi Terakhir',
+    ];
+    const rows = data.map(r => [
+      String(r.full_name || ''),
+      String(r.jabatan || ''),
+      Number(r.saldo_hutang || 0),
+      Number(r.total_pinjam || 0),
+      Number(r.total_bayar || 0),
+      Number(r.jumlah_transaksi || 0),
+      r.transaksi_terakhir
+        ? new Date(r.transaksi_terakhir).toLocaleDateString('id-ID')
+        : '-',
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    autoFitColumns(ws);
+    XLSX.utils.book_append_sheet(wb, ws, 'Rekap Bon');
+
+    const dateStr = filters.month || new Date().toISOString().slice(0, 7);
+    XLSX.writeFile(wb, `Laporan-Bon-${dateStr}.xlsx`);
+  } catch (err) {
+    showToast('Gagal export: ' + err.message, 'error');
+  }
+}
+
+/**
+ * Export Laporan Kegiatan Harian ke Excel
+ * @param {Array} logs        - attendance_logs
+ * @param {Array} activities  - daily_activities
+ * @param {Object} filters
+ * @param {Object} stateRef   - { employees, projects }
+ */
+export function exportLaporanKegiatanExcel(logs, activities, filters = {}, stateRef = {}) {
+  try {
+    const wb = XLSX.utils.book_new();
+
+    // Map activities by attendance_id
+    const actByAtt = new Map();
+    (activities || []).forEach(a => {
+      if (!actByAtt.has(a.attendance_id)) actByAtt.set(a.attendance_id, []);
+      actByAtt.get(a.attendance_id).push(a);
+    });
+
+    const header = ['Tanggal', 'Karyawan', 'Proyek', 'Kegiatan', 'Status Kegiatan'];
+    const rows = [];
+
+    logs.forEach(l => {
+      const empName = stateRef?.employees?.find(e => e.id === l.employee_id)?.full_name || l.employee_id;
+      const prjName = stateRef?.projects?.find(p => p.id === l.project_id)?.name || '-';
+      const acts    = actByAtt.get(l.id) || [];
+      const dateStr = formatExcelDate(l.created_at);
+
+      if (acts.length === 0) {
+        rows.push([dateStr, String(empName), String(prjName), '-', '-']);
+      } else {
+        acts.forEach(a => {
+          rows.push([
+            dateStr,
+            String(empName),
+            String(prjName),
+            String(a.description || ''),
+            a.status === 'done' ? 'Selesai' : 'Dalam Proses',
+          ]);
+        });
+      }
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    autoFitColumns(ws);
+    XLSX.utils.book_append_sheet(wb, ws, 'Kegiatan Harian');
+
+    const dateStr = filters.month || new Date().toISOString().slice(0, 7);
+    XLSX.writeFile(wb, `Laporan-Kegiatan-${dateStr}.xlsx`);
+  } catch (err) {
+    showToast('Gagal export: ' + err.message, 'error');
+  }
+}
