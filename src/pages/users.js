@@ -44,9 +44,9 @@ export function UsersPage(state) {
           </div>
           <div class="form-row mb-16">
             <div class="form-group">
-              <label class="form-label">Gaji Pokok / Bulan (Rp)</label>
+              <label class="form-label">Gaji Pokok / Hari (Rp)</label>
               <input type="number" class="form-input" id="usr-basic-salary"
-                placeholder="Gaji pokok bulanan" value="0" min="0" />
+                placeholder="Gaji pokok harian" value="0" min="0" />
               <div class="form-hint">Untuk referensi penugasan & kehadiran</div>
             </div>
             <div class="form-group">
@@ -231,7 +231,7 @@ export function openEditUser(employee, refreshFn) {
         </div>
         <div class="form-row mb-16">
           <div class="form-group">
-            <label class="form-label">Gaji Pokok / Bulan (Rp)</label>
+            <label class="form-label">Gaji Pokok / Hari (Rp)</label>
             <input type="number" class="form-input" id="edit-usr-basic-salary"
               value="${e.basic_salary || 0}" min="0" />
           </div>
