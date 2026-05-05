@@ -2,9 +2,10 @@ import './style.css';
 import { supabase, hasCredentials } from './lib/supabase.js';
 import { showToast, esc } from './lib/helpers.js';
 import { DashboardPage, loadBonNotifications, loadTodayExpenses } from './pages/dashboard.js';
-import { AttendancePage, verifyAttendance, deleteAttendance, saveWorkItems, generateDailyAttendance, openEditAttendance, saveEditAttendance, clockIn, clockOut, autoCheckoutStale } from './pages/attendance.js';
+import { AttendancePage, verifyAttendance, deleteAttendance, saveWorkItems, generateDailyAttendance, openEditAttendance, saveEditAttendance, clockIn, clockOut, autoCheckoutStale, openEmployeeHistoryModal } from './pages/attendance.js';
 import { RiwayatPage } from './pages/riwayat.js';
 import { LaporanPage, previewPhoto, handleLaporanSubmit } from './pages/laporan.js';
+import { LaporanGajiPage, filterLaporanGaji } from './pages/laporan-gaji.js';
 import { ProjectPage, handleProjectSubmit, deleteProject, updateProjectStatus, openProjectDetail } from './pages/project.js';
 import { UsersPage, handleUserSubmit, deleteUser, openEditUser, saveEditUser } from './pages/users.js';
 import { BonPage, handleBonSubmit, showBonHistory } from './pages/bon.js';
@@ -31,9 +32,9 @@ const state = {
 
 // Role-based menu config
 const MENUS = {
-  superadmin:    ['home','assignment','absensi','overtime','lapor','project','material','expense','bon','users'],
-  owner:         ['home','assignment','absensi','overtime','lapor','project','material','expense','bon','users'],
-  admin:         ['home','assignment','absensi','overtime','lapor','project','material','expense','bon','users'],
+  superadmin:    ['home','assignment','absensi','overtime','lapor','laporan-gaji','project','material','expense','bon','users'],
+  owner:         ['home','assignment','absensi','overtime','lapor','laporan-gaji','project','material','expense','bon','users'],
+  admin:         ['home','assignment','absensi','overtime','lapor','laporan-gaji','project','material','expense','bon','users'],
   kepala_proyek: ['home','absensi','overtime','lapor','project','material','expense'],
   kepala_gudang: ['home','absensi','material'],
   kepala_lapangan: ['home','absensi','overtime','lapor','project','material','expense'],
@@ -47,6 +48,7 @@ const MENU_META = {
   overtime:   { icon: 'fa-clock',            label: 'Lembur' },
   riwayat:    { icon: 'fa-history',          label: 'Riwayat' },
   lapor:      { icon: 'fa-camera',           label: 'Laporan' },
+  'laporan-gaji': { icon: 'fa-file-invoice-dollar', label: 'Laporan Gaji' },
   project:    { icon: 'fa-building',         label: 'Proyek' },
   material:   { icon: 'fa-box',              label: 'Material' },
   expense:    { icon: 'fa-receipt',          label: 'Pengeluaran' },
@@ -177,8 +179,9 @@ function renderPage() {
     case 'absensi':    return AttendancePage(state);
     case 'overtime':   return OvertimePage(state);
     case 'riwayat':  return RiwayatPage(state);
-    case 'lapor':   return LaporanPage(state);
-    case 'project': return ProjectPage(state);
+    case 'lapor':      return LaporanPage(state);
+    case 'laporan-gaji': return LaporanGajiPage(state);
+    case 'project':    return ProjectPage(state);
     case 'material': return MaterialPage(state);
     case 'expense': return ExpensePage(state);
     case 'bon':     return BonPage(state);
@@ -359,6 +362,7 @@ window.__app = {
   clockIn() { clockIn(state, refreshAndRender); },
   clockOut() { clockOut(state, refreshAndRender); },
   autoCheckoutStale() { autoCheckoutStale(); },
+  openEmployeeHistoryModal(id) { openEmployeeHistoryModal(id, state); },
   handleAssignSubmit(e) { handleAssignSubmit(e, state, refreshAndRender); },
   toggleAssignRow(idx) { toggleAssignRow(idx); },
   openEditAssignment(id) { openEditAssignment(id, state); },
@@ -371,6 +375,7 @@ window.__app = {
   saveAdminCheckIn(e, id) { saveAdminCheckIn(e, id, state); },
   handleLaporanSubmit(e) { handleLaporanSubmit(e, state, refreshAndRender); },
   previewPhoto,
+  filterLaporanGaji() { filterLaporanGaji(state); },
   handleProjectSubmit(e) { handleProjectSubmit(e, refreshAndRender); },
   deleteProject(id) { deleteProject(id, refreshAndRender); },
   updateProjectStatus(id, status) { updateProjectStatus(id, status, refreshAndRender); },
