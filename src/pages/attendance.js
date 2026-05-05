@@ -172,11 +172,28 @@ export function AttendancePage(state) {
                         - (l.cash_advance||0) + (l.cash_payout||0);
       const durasi = calcDuration(l.check_in, l.check_out);
       const hasBreakdown = (l.uang_makan||0) > 0 || (l.transport||0) > 0 || (l.tunjangan_lain||0) > 0;
-      // Location tag — only visible to admin+ (icon only, data saved in DB)
-      const locTag = (l.checkin_lat || l.checkout_lat) ? `
-        <div class="text-secondary" style="font-size:0.65rem;margin-top:2px;">
-          <i class="fas fa-map-marker-alt"></i> Lokasi tercatat
-        </div>` : '';
+      // Location tag — only visible to admin+ (clickable, opens Google Maps)
+      const hasCheckin  = l.checkin_lat  && l.checkin_lng;
+      const hasCheckout = l.checkout_lat && l.checkout_lng;
+      const locTag = (hasCheckin || hasCheckout) ? `
+        <span style="margin-left:6px;">
+          ${hasCheckin ? `
+            <a href="https://www.google.com/maps?q=${l.checkin_lat},${l.checkin_lng}"
+              target="_blank" rel="noopener"
+              title="Lokasi Check-in: ${l.checkin_lat?.toFixed(5)}, ${l.checkin_lng?.toFixed(5)}"
+              style="color:var(--success);font-size:1rem;text-decoration:none;"
+              onclick="event.stopPropagation()">
+              <i class="fas fa-map-marker-alt"></i>
+            </a>` : ''}
+          ${hasCheckout ? `
+            <a href="https://www.google.com/maps?q=${l.checkout_lat},${l.checkout_lng}"
+              target="_blank" rel="noopener"
+              title="Lokasi Check-out: ${l.checkout_lat?.toFixed(5)}, ${l.checkout_lng?.toFixed(5)}"
+              style="color:var(--warning);font-size:1rem;text-decoration:none;margin-left:4px;"
+              onclick="event.stopPropagation()">
+              <i class="fas fa-map-marker-alt"></i>
+            </a>` : ''}
+        </span>` : '';
       financeCell = `
         <td>
           <div class="text-xs">
@@ -188,8 +205,8 @@ export function AttendancePage(state) {
                 title="Edit jam & keuangan">
                 <i class="fas fa-edit" style="font-size:0.7rem;"></i>
               </button>
+              ${locTag}
             </div>
-            ${locTag}
             ${hasBreakdown ? `
             <div style="margin-bottom:2px;">
               ${l.uang_makan ? `<div>Makan: ${fmtIdr(l.uang_makan)}</div>` : ''}
