@@ -430,20 +430,6 @@ export async function handleAssignSubmit(e, state, refreshFn) {
   }
 }
 
-/** Edit gaji penugasan */
-export async function editAssignmentSalary(id, currentSalary, state, refreshFn) {
-  const newSalary = prompt(`Gaji baru (Rp):\nSaat ini: ${Number(currentSalary).toLocaleString('id-ID')}`, currentSalary);
-  if (newSalary === null) return;
-  const val = parseFloat(newSalary);
-  if (isNaN(val) || val < 0) { showToast('Nilai tidak valid', 'error'); return; }
-
-  const { error } = await supabase.from('project_assignments')
-    .update({ basic_salary: val, updated_at: new Date().toISOString() })
-    .eq('id', id);
-  if (error) showToast(error.message, 'error');
-  else { showToast('Gaji berhasil diupdate', 'success'); await loadAssignments(state); }
-}
-
 /** Akhiri penugasan */
 export async function endAssignment(id, state, refreshFn) {
   if (!confirm('Akhiri penugasan ini? Karyawan tidak akan muncul di absensi proyek ini lagi.')) return;
