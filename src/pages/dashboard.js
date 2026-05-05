@@ -1,30 +1,63 @@
 import { supabase } from '../lib/supabase.js';
-import { fmtIdr, fmtDate, esc } from '../lib/helpers.js';
+import { fmtIdr, fmtDate, fmtTime, esc } from '../lib/helpers.js';
+import { ROLE_LABELS } from '../lib/roles.js';
 
 const BON_WARNING_THRESHOLD = 500000; // Rp 500.000
 
 /**
- * Dashboard / Beranda page
+ * Dashboard / Beranda page — role-based views
+ *
+ * Owner/Admin/Superadmin  : semua karyawan + semua proyek + hadir/tidak hadir
+ * Kepala Proyek/Gudang    : karyawan s/d kepala_lapangan + semua proyek + hadir/tidak hadir
+ * Kepala Lapangan         : karyawan s/d kepala_lapangan + proyek sendiri + hadir/tidak hadir
+ * Karyawan                : karyawan s/d kepala_lapangan + tanpa quick action card
  */
 export function DashboardPage(state) {
   const { user, employees, projects, attendanceLogs, dbConnected, dashboardView } = state;
+  const role = user.role;
   const todayStr = new Date().toISOString().slice(0, 10);
-  const todayLogs = attendanceLogs.filter(l => l.created_at?.startsWith(todayStr));
-  const hadirLogs = todayLogs.filter(l => l.status === 'verified');
-  const absenLogs = todayLogs.filter(l => l.status === 'absent');
+
+  // ── Role-based employee filter ──
+  // Owner/Admin/Superadmin: lihat semua role
+  // Lainnya: hanya karyawan, kepala_proyek, kepala_gudang, kepala_lapangan
+  const showAdminRoles = ['owner', 'admin', 'superadmin'].includes(role);
+  const visibleRoles = showAdminRoles
+    ? ['karyawan','kepala_proyek','kepala_gudang','kepala_lapangan','admin','superadmin']
+    : ['karyawan','kepala_proyek','kepala_gudang','kepala_lapangan'];
+  const visibleEmps = employees.filter(e => visibleRoles.includes(e.role));
+  const visibleEmpIds = new Set(visibleEmps.map(e => e.id));
+
+  // ── Role-based project filter ──
+  // Kepala Lapangan: hanya proyeknya
+  const isKepalaLapangan = role === 'kepala_lapangan';
+  const activeProjects = projects.filter(p => p.status !== 'selesai');
+  const visibleProjects = isKepalaLapangan
+    ? activeProjects.filter(p => p.lead_id === user.id)
+    : activeProjects;
+
+  // ── Today's attendance ──
+  const todayLogs = attendanceLogs.filter(l =>
+    l.created_at?.startsWith(todayStr) && visibleEmpIds.has(l.employee_id)
+  );
+  const hadirLogs  = todayLogs.filter(l => l.status === 'verified');
+  const absenLogs  = todayLogs.filter(l => l.status === 'absent');
   const hadirCount = hadirLogs.length;
   const absenCount = absenLogs.length;
 
-  const statsHtml = `
+  // ── Karyawan: no quick action stats ──
+  const isKaryawan = role === 'karyawan';
+
+  // ── Stats cards ──
+  const statsHtml = isKaryawan ? '' : `
     <div class="stats-grid">
       <div class="stat-card" onclick="window.__app.switchDashboardView('employees')" id="stat-employees">
         <div class="stat-icon purple"><i class="fas fa-users"></i></div>
-        <div class="stat-value">${employees.length}</div>
-        <div class="stat-label">Total Karyawan</div>
+        <div class="stat-value">${visibleEmps.length}</div>
+        <div class="stat-label">Personil</div>
       </div>
       <div class="stat-card" onclick="window.__app.switchDashboardView('projects')" id="stat-projects">
         <div class="stat-icon cyan"><i class="fas fa-building"></i></div>
-        <div class="stat-value">${projects.length}</div>
+        <div class="stat-value">${visibleProjects.length}</div>
         <div class="stat-label">Proyek Aktif</div>
       </div>
       <div class="stat-card" onclick="window.__app.switchDashboardView('hadir')" id="stat-hadir">
@@ -39,6 +72,7 @@ export function DashboardPage(state) {
       </div>
     </div>`;
 
+  // ── Shared: attendance table ──
   function attendanceTable(logs, title, emptyText) {
     return `
       <div class="card slide-up">
@@ -48,18 +82,26 @@ export function DashboardPage(state) {
         </div>
         <div class="table-wrapper">
           <table class="data-table">
-            <thead><tr><th>Nama</th><th>Role</th><th>Proyek</th><th>Masuk</th><th>Keluar</th></tr></thead>
+            <thead><tr><th>Nama</th><th>Role</th><th>Proyek</th><th>Status</th><th>Masuk</th><th>Keluar</th><th>Keterangan</th></tr></thead>
             <tbody>
-              ${logs.length === 0 ? `<tr><td colspan="5" class="text-center text-muted">${emptyText}</td></tr>` :
+              ${logs.length === 0 ? `<tr><td colspan="7" class="text-center text-muted">${emptyText}</td></tr>` :
                 logs.map(l => {
                   const emp = employees.find(e => e.id === l.employee_id);
                   const prj = projects.find(p => p.id === l.project_id);
+                  const isHadir = l.status === 'verified';
+                  const statusBadge = isHadir
+                    ? '<span class="badge badge-online">Hadir</span>'
+                    : l.status === 'absent'
+                      ? '<span class="badge badge-offline">Tidak Hadir</span>'
+                      : '<span class="badge" style="background:rgba(245,158,11,0.2);color:var(--warning);">Pending</span>';
                   return `<tr>
                     <td class="fw-bold">${esc(emp?.full_name || '-')}</td>
-                    <td><span class="badge badge-role">${esc(emp?.role || '-')}</span></td>
+                    <td><span class="badge badge-role">${esc(ROLE_LABELS[emp?.role] || emp?.role || '-')}</span></td>
                     <td>${esc(prj?.name || 'Absensi Mandiri')}</td>
-                    <td>${l.check_in ? l.check_in.slice(0,5) : '-'}</td>
-                    <td>${l.check_out ? l.check_out.slice(0,5) : '-'}</td>
+                    <td>${statusBadge}</td>
+                    <td>${l.check_in ? fmtTime(l.check_in) : '-'}</td>
+                    <td>${l.check_out ? fmtTime(l.check_out) : '-'}</td>
+                    <td class="text-xs text-secondary">${esc(l.notes || '-')}</td>
                   </tr>`;
                 }).join('')}
             </tbody>
@@ -68,22 +110,23 @@ export function DashboardPage(state) {
       </div>`;
   }
 
+  // ── Detail views ──
   let detailHtml = '';
   if (dashboardView === 'employees') {
     detailHtml = `
       <div class="card slide-up">
         <div class="card-header">
-          <div class="card-title"><i class="fas fa-users"></i> Daftar Karyawan</div>
+          <div class="card-title"><i class="fas fa-users"></i> Daftar Personil</div>
           <button class="btn btn-ghost btn-sm" onclick="window.__app.switchDashboardView(null)"><i class="fas fa-times"></i></button>
         </div>
         <div class="table-wrapper">
           <table class="data-table">
             <thead><tr><th>Nama</th><th>Role</th><th>WhatsApp</th></tr></thead>
             <tbody>
-              ${employees.length === 0 ? '<tr><td colspan="3" class="text-center text-muted">Belum ada karyawan</td></tr>' :
-                employees.map(e => `<tr>
+              ${visibleEmps.length === 0 ? '<tr><td colspan="3" class="text-center text-muted">Belum ada personil</td></tr>' :
+                visibleEmps.map(e => `<tr>
                   <td class="fw-bold">${esc(e.full_name)}</td>
-                  <td><span class="badge badge-role">${esc(e.role)}</span></td>
+                  <td><span class="badge badge-role">${esc(ROLE_LABELS[e.role] || e.role)}</span></td>
                   <td>${esc(e.whatsapp_number) || '-'}</td>
                 </tr>`).join('')}
             </tbody>
@@ -94,24 +137,34 @@ export function DashboardPage(state) {
     detailHtml = `
       <div class="card slide-up">
         <div class="card-header">
-          <div class="card-title"><i class="fas fa-building"></i> Daftar Proyek</div>
+          <div class="card-title"><i class="fas fa-building"></i> Proyek Aktif</div>
           <button class="btn btn-ghost btn-sm" onclick="window.__app.switchDashboardView(null)"><i class="fas fa-times"></i></button>
         </div>
         <div class="table-wrapper">
           <table class="data-table">
-            <thead><tr><th>Proyek</th><th>Lokasi</th><th>Progress</th></tr></thead>
+            <thead><tr><th>Proyek</th><th>Kepala Lapangan</th><th>Personel</th><th>Progres</th></tr></thead>
             <tbody>
-              ${projects.length === 0 ? '<tr><td colspan="3" class="text-center text-muted">Belum ada proyek</td></tr>' :
-                projects.map(p => `<tr>
-                  <td class="fw-bold">${esc(p.name)}</td>
-                  <td>${esc(p.location_name) || '-'}</td>
-                  <td>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                      <div class="progress-bar-wrap" style="width:80px"><div class="progress-bar-fill" style="width:${p.progress_pct||0}%"></div></div>
-                      <span class="text-sm">${p.progress_pct||0}%</span>
-                    </div>
-                  </td>
-                </tr>`).join('')}
+              ${visibleProjects.length === 0 ? '<tr><td colspan="4" class="text-center text-muted">Belum ada proyek aktif</td></tr>' :
+                visibleProjects.map(p => {
+                  const lead = employees.find(e => e.id === p.lead_id);
+                  // Count personnel assigned to this project
+                  const personnel = employees.filter(e => {
+                    return state.assignments?.some(a =>
+                      a.project_id === p.id && a.employee_id === e.id && a.status === 'active'
+                    );
+                  }).length;
+                  return `<tr>
+                    <td class="fw-bold">${esc(p.name)}</td>
+                    <td>${esc(lead?.full_name || '-')}</td>
+                    <td class="text-center">${personnel}</td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:8px;">
+                        <div class="progress-bar-wrap" style="width:80px"><div class="progress-bar-fill" style="width:${p.progress_pct||0}%"></div></div>
+                        <span class="text-sm">${p.progress_pct||0}%</span>
+                      </div>
+                    </td>
+                  </tr>`;
+                }).join('')}
             </tbody>
           </table>
         </div>
@@ -122,6 +175,7 @@ export function DashboardPage(state) {
     detailHtml = attendanceTable(absenLogs, 'Daftar Tidak Hadir Hari Ini', 'Belum ada yang tidak hadir hari ini');
   }
 
+  // ── Default view: aktivitas hari ini ──
   if (!dashboardView) {
     detailHtml = `
       <div class="card slide-up">
@@ -130,20 +184,26 @@ export function DashboardPage(state) {
         </div>
         <div class="table-wrapper">
           <table class="data-table">
-            <thead><tr><th>Karyawan</th><th>Proyek</th><th>Status</th><th>Masuk</th><th>Keluar</th></tr></thead>
+            <thead><tr><th>Nama</th><th>Role</th><th>Proyek</th><th>Status</th><th>Masuk</th><th>Keluar</th><th>Keterangan</th></tr></thead>
             <tbody>
-              ${todayLogs.length === 0 ? '<tr><td colspan="5" class="text-center text-muted">Belum ada aktivitas hari ini</td></tr>' :
+              ${todayLogs.length === 0 ? '<tr><td colspan="7" class="text-center text-muted">Belum ada aktivitas hari ini</td></tr>' :
                 todayLogs.map(l => {
                 const emp = employees.find(e => e.id === l.employee_id);
                 const prj = projects.find(p => p.id === l.project_id);
                 const isHadir = l.status === 'verified';
-                const statusText = isHadir ? 'Hadir' : l.status === 'absent' ? 'Tidak Hadir' : 'Belum Verifikasi';
+                const statusBadge = isHadir
+                  ? '<span class="badge badge-online">Hadir</span>'
+                  : l.status === 'absent'
+                    ? '<span class="badge badge-offline">Tidak Hadir</span>'
+                    : '<span class="badge" style="background:rgba(245,158,11,0.2);color:var(--warning);">Pending</span>';
                 return `<tr>
                   <td class="fw-bold">${esc(emp?.full_name || '-')}</td>
+                  <td><span class="badge badge-role">${esc(ROLE_LABELS[emp?.role] || emp?.role || '-')}</span></td>
                   <td>${esc(prj?.name || 'Absensi Mandiri')}</td>
-                  <td><span class="${isHadir ? 'text-success' : 'text-danger'}">${esc(statusText)}</span></td>
-                  <td>${l.check_in ? l.check_in.slice(0,5) : '-'}</td>
-                  <td>${l.check_out ? l.check_out.slice(0,5) : '-'}</td>
+                  <td>${statusBadge}</td>
+                  <td>${l.check_in ? fmtTime(l.check_in) : '-'}</td>
+                  <td>${l.check_out ? fmtTime(l.check_out) : '-'}</td>
+                  <td class="text-xs text-secondary">${esc(l.notes || '-')}</td>
                 </tr>`;
               }).join('')}
             </tbody>

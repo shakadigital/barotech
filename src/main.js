@@ -65,14 +65,16 @@ async function fetchData() {
           .order('created_at', { ascending: false })
       : supabase.from('attendance_logs').select('*').order('created_at', { ascending: false });
 
-    const [empRes, prjRes, attRes] = await Promise.all([
+    const [empRes, prjRes, attRes, asgnRes] = await Promise.all([
       supabase.from('profiles').select('*').order('full_name'),
       supabase.from('projects').select('*').order('created_at', { ascending: false }),
       attQuery,
+      supabase.from('project_assignments').select('id,employee_id,project_id,status').eq('status','active'),
     ]);
     state.employees    = empRes.data || [];
     state.projects     = prjRes.data || [];
     state.attendanceLogs = attRes.data || [];
+    state.assignments  = asgnRes.data || [];
     state.dbConnected  = true;
   } catch {
     state.dbConnected = false;
