@@ -57,25 +57,27 @@ export function exportLaporanGaji(data, filters = {}) {
 
     const wb = XLSX.utils.book_new();
 
-    // Sheet 1: Ringkasan per Karyawan
-    const summaryRows = data.map(emp => ({
-      'Nama Karyawan': String(emp.full_name || ''),
-      'Jabatan': String(emp.jabatan || ''),
-      'Total Hari': Number(emp.total_hari || 0),
-      'Gaji Pokok': Number(emp.gaji_pokok || 0),
-      'Lembur': Number(emp.lembur || 0),
-      'Kasbon': Number(emp.kasbon || 0),
-      'Total Bersih': Number(emp.total_bersih || 0),
-    }));
+    // Sheet 1: Ringkasan per Karyawan - use array of arrays instead of json_to_sheet
+    const header = ['Nama Karyawan', 'Jabatan', 'Total Hari', 'Gaji Pokok', 'Lembur', 'Kasbon', 'Total Bersih'];
+    const summaryRowsAoA = data.map(emp => [
+      String(emp.full_name || ''),
+      String(emp.jabatan || ''),
+      Number(emp.total_hari || 0),
+      Number(emp.gaji_pokok || 0),
+      Number(emp.lembur || 0),
+      Number(emp.kasbon || 0),
+      Number(emp.total_bersih || 0),
+    ]);
+    const summaryRows = [header, ...summaryRowsAoA];
 
-    console.log('Summary rows:', summaryRows);
+    console.log('Summary rows (AoA):', summaryRows);
 
     if (summaryRows.length === 0) {
       showToast('Tidak ada data untuk diexport', 'error');
       return;
     }
 
-    const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
     XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan');
 
     // Generate filename
