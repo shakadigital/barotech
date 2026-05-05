@@ -47,6 +47,8 @@ function autoFitColumns(ws) {
  */
 export function exportLaporanGaji(data, filters = {}) {
   try {
+    console.log('exportLaporanGaji called with data:', data);
+    
     if (!Array.isArray(data)) {
       console.error('exportLaporanGaji expects an array, got:', typeof data, data);
       showToast('Format data tidak valid untuk export', 'error');
@@ -66,6 +68,8 @@ export function exportLaporanGaji(data, filters = {}) {
       'Total Bersih': emp.total_bersih || 0,
     }));
 
+    console.log('Summary rows:', summaryRows);
+
     if (summaryRows.length === 0) {
       showToast('Tidak ada data untuk diexport', 'error');
       return;
@@ -75,35 +79,11 @@ export function exportLaporanGaji(data, filters = {}) {
     autoFitColumns(wsSummary);
     XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan');
 
-    // Sheet 2: Detail Flat (tanpa grouping dulu untuk test)
-    const detailRows = [];
-    data.forEach(emp => {
-      if (!emp || !emp.logs || !Array.isArray(emp.logs)) {
-        console.error('Invalid emp data:', emp);
-        return;
-      }
-      
-      emp.logs.forEach(log => {
-        detailRows.push({
-          'Nama Karyawan': emp.full_name || '',
-          'Jabatan': emp.jabatan || '',
-          'Proyek': log.project_name || '',
-          'Tanggal': formatExcelDate(log.created_at),
-          'Gaji Pokok': log.basic_salary || 0,
-          'Lembur': log.overtime_pay || 0,
-          'Kasbon': log.cash_advance || 0,
-          'Total': (log.basic_salary || 0) + (log.overtime_pay || 0) - (log.cash_advance || 0),
-        });
-      });
-    });
-
-    const wsDetail = XLSX.utils.json_to_sheet(detailRows);
-    autoFitColumns(wsDetail);
-    XLSX.utils.book_append_sheet(wb, wsDetail, 'Detail');
-
     // Generate filename
     const dateStr = filters.month || new Date().toISOString().slice(0, 7);
     const filename = `Laporan-Gaji-${dateStr}.xlsx`;
+
+    console.log('About to write file:', filename);
 
     // Download
     XLSX.writeFile(wb, filename);
