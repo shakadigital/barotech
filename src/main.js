@@ -10,6 +10,7 @@ import { RekapProyekPage, loadRekapProyek, exportRekapProyek } from './pages/rek
 import { LaporanRekapGajiPage, loadRekapGaji, exportRekapGaji } from './pages/laporan-rekap-gaji.js';
 import { LaporanBonPage, loadLaporanBon, loadDetailBon, exportLaporanBon } from './pages/laporan-bon.js';
 import { LaporanKegiatanPage, loadLaporanKegiatan, exportLaporanKegiatan } from './pages/laporan-kegiatan.js';
+import { SalaryPaymentPage, loadUnpaidSalaries, openPaymentModal, paySelectedSalaries, toggleSelectAllSalary, loadPaymentHistory, printSalarySlip } from './pages/salary-payment.js';
 import { ProjectPage, handleProjectSubmit, deleteProject, updateProjectStatus, openProjectDetail } from './pages/project.js';
 import { UsersPage, handleUserSubmit, deleteUser, openEditUser, saveEditUser } from './pages/users.js';
 import { BonPage, handleBonSubmit, showBonHistory } from './pages/bon.js';
@@ -50,6 +51,7 @@ const LAPORAN_SUBMENU = [
   { key: 'rekap-proyek',   icon: 'fa-chart-pie',           label: 'Rekap Biaya Proyek' },
   { key: 'laporan-bon',    icon: 'fa-hand-holding-usd',    label: 'Laporan Bon' },
   { key: 'laporan-kegiatan', icon: 'fa-tasks',             label: 'Kegiatan Harian' },
+  { key: 'salary-payment', icon: 'fa-money-check-alt',     label: 'Pembayaran Gaji' },
 ];
 
 const MENU_META = {
@@ -164,7 +166,7 @@ function navigate(page) {
 
 // ========== RENDER ==========
 // Halaman yang termasuk grup "laporan"
-const LAPORAN_PAGES = new Set(['lapor','laporan-gaji','rekap-gaji','rekap-proyek','laporan-bon','laporan-kegiatan']);
+const LAPORAN_PAGES = new Set(['lapor','laporan-gaji','rekap-gaji','rekap-proyek','laporan-bon','laporan-kegiatan','salary-payment']);
 
 function renderSidebar() {
   const menus = MENUS[state.user.role] || ['home'];
@@ -228,6 +230,7 @@ function renderPage() {
     case 'rekap-proyek': return RekapProyekPage(state);
     case 'laporan-bon':  return LaporanBonPage(state);
     case 'laporan-kegiatan': return LaporanKegiatanPage(state);
+    case 'salary-payment': return SalaryPaymentPage(state);
     case 'project':    return ProjectPage(state);
     case 'material': return MaterialPage(state);
     case 'expense': return ExpensePage(state);
@@ -408,6 +411,9 @@ function render() {
     window.__laporanKegiatanState = { employees: state.employees, projects: state.projects };
     loadLaporanKegiatan();
   }
+  if (state.currentPage === 'salary-payment') {
+    loadPaymentHistory();
+  }
   if (state.currentPage === 'home') {
     loadBonNotifications(state.employees);
     loadTodayExpenses(state.projects);
@@ -442,6 +448,12 @@ window.__app = {
   exportLaporanBon() { exportLaporanBon(); },
   loadLaporanKegiatan() { loadLaporanKegiatan(); },
   exportLaporanKegiatan() { exportLaporanKegiatan(); },
+  loadUnpaidSalaries() { loadUnpaidSalaries(); },
+  openPaymentModal(employeeId, startDate, endDate) { openPaymentModal(employeeId, startDate, endDate); },
+  paySelectedSalaries(startDate, endDate) { paySelectedSalaries(startDate, endDate); },
+  toggleSelectAllSalary(checked) { toggleSelectAllSalary(checked); },
+  loadPaymentHistory() { loadPaymentHistory(); },
+  printSalarySlip(paymentId) { printSalarySlip(paymentId); },
   navigateTo(page) { navigate(page); },
   toggleLaporanMenu() {
     const sub      = document.getElementById('laporan-submenu');

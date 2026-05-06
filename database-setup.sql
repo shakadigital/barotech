@@ -25,6 +25,7 @@
 -- │  sql/v9-material-expenses.sql       ✅ SUDAH DIJALANKAN │
 -- │  sql/v10-role-rename.sql            ✅ SUDAH DIJALANKAN │
 -- │  sql/v28-add-leave-status-and-activities.sql ✅ SUDAH DIJALANKAN │
+-- │  sql/v29-salary-payment-and-budget.sql ⚠️ BELUM DIJALANKAN      │
 -- └───────────────────────────────────────────────────────┘
 --
 -- File berikutnya akan ditambahkan di sini saat ada
