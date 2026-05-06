@@ -6,17 +6,21 @@ export function fmtIdr(n) {
   return 'Rp ' + Number(n).toLocaleString('id-ID');
 }
 
-/** Format waktu HH:MM — handle string TIME maupun TIMESTAMPTZ */
+/** Format waktu HH:MM — handle string TIME, datetime lokal, maupun TIMESTAMPTZ */
 export function fmtTime(t) {
   if (!t) return '-';
-  // Kalau berisi 'T' atau '+' → ini timestamp ISO, ambil bagian jam
-  if (t.includes('T') || t.includes('+') || t.length > 8) {
-    const d = new Date(t);
-    if (isNaN(d)) return '-';
+  const s = String(t).trim();
+
+  // Format TIME murni: "HH:MM" atau "HH:MM:SS"
+  if (/^\d{2}:\d{2}/.test(s)) return s.slice(0, 5);
+
+  // Format datetime lokal: "YYYY-MM-DD HH:MM:SS" atau ISO "YYYY-MM-DDTHH:MM..."
+  const d = new Date(s);
+  if (!isNaN(d)) {
     return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
   }
-  // String TIME biasa: HH:MM:SS
-  return t.slice(0, 5);
+
+  return '-';
 }
 
 /** Format tanggal lokal Indonesia — responsive (desktop: lengkap, mobile: singkat) */
