@@ -372,6 +372,11 @@ function render() {
   // Post-render hooks
   if (state.currentPage === 'absensi') {
     autoCheckoutStale();
+    // Load kegiatan dari DB setelah render
+    setTimeout(() => {
+      window.__loadSelfActivities?.('self-activities-list', false);
+      window.__loadSelfActivities?.('self-activities-list-done', true);
+    }, 100);
   }
   if (state.currentPage === 'overtime') {
     loadOvertimeList(state);

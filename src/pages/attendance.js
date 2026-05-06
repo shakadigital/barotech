@@ -273,6 +273,7 @@ export function AttendancePage(state) {
               <i class="fas fa-sign-out-alt"></i> <span class="text-xs">${hasClockedOut ? fmtTime(myTodayLog.check_out) : 'Pulang'}</span>
             </button>
           </div>
+          ${myTodayLog?.id ? `<span data-att-id="${myTodayLog.id}" id="self-att-id" style="display:none;"></span>` : ''}
         </div>
         <div id="self-att-status" class="mt-12 text-xs">
           ${hasClockedIn && !hasClockedOut ? '<span class="text-warning"><i class="fas fa-clock"></i> Sudah masuk, menunggu check-out</span>' : ''}
@@ -286,12 +287,23 @@ export function AttendancePage(state) {
           <div class="text-xs fw-bold mb-8"><i class="fas fa-tasks text-primary"></i> Kegiatan Hari Ini</div>
           <div class="flex gap-8 mb-8">
             <input type="text" class="form-input" id="self-activity-input"
-              placeholder="Tambah kegiatan..." style="flex:1;" />
-            <button type="button" class="btn btn-sm btn-ghost" onclick="window.__addSelfActivity()">
+              placeholder="Tambah kegiatan..." style="flex:1;"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();window.__addSelfActivity();}" />
+            <button type="button" class="btn btn-sm btn-primary" id="btn-add-activity"
+              onclick="window.__addSelfActivity()">
               <i class="fas fa-plus"></i> Tambah
             </button>
           </div>
-          <div id="self-activities-list"></div>
+          <div id="self-activities-list">
+            <div class="text-xs text-secondary"><i class="fas fa-spinner fa-spin"></i> Memuat...</div>
+          </div>
+        </div>` : ''}
+        ${hasClockedIn && hasClockedOut ? `
+        <div class="mt-16" style="border-top:1px solid var(--border);padding-top:12px;">
+          <div class="text-xs fw-bold mb-8"><i class="fas fa-tasks text-primary"></i> Kegiatan Hari Ini</div>
+          <div id="self-activities-list-done">
+            <div class="text-xs text-secondary"><i class="fas fa-spinner fa-spin"></i> Memuat...</div>
+          </div>
         </div>` : ''}
       </div>
     `;
@@ -709,19 +721,6 @@ export async function clockOut(state, refreshFn) {
 
     if (error) throw error;
 
-    // Save self activities to daily_activities
-    if (window.__selfActivities && window.__selfActivities.length > 0) {
-      const activityInserts = window.__selfActivities.map(desc => ({
-        attendance_id: existing.id,
-        description: desc,
-        status: 'done',
-        created_by: state.user.id,
-      }));
-      const { error: actError } = await supabase.from('daily_activities').insert(activityInserts);
-      if (actError) throw actError;
-      window.__selfActivities = []; // Clear after save
-    }
-
     const statusDiv = document.getElementById('self-att-status');
     if (statusDiv) {
       statusDiv.innerHTML = `<span class="text-success"><i class="fas fa-check-double"></i> Absen pulang berhasil jam ${now.slice(0,5)}${geo ? ` 📍 ${geo.lat.toFixed(4)},${geo.lng.toFixed(4)}` : ''}</span>`;
@@ -736,35 +735,100 @@ export async function clockOut(state, refreshFn) {
   }
 }
 
-/** Self activity management functions */
+/** Self activity management — Opsi A: save langsung ke DB saat tambah */
 if (typeof window !== 'undefined') {
-  window.__selfActivities = [];
 
-  window.__addSelfActivity = function () {
-    const input = document.getElementById('self-activity-input');
-    const desc = input?.value.trim();
-    if (!desc) return;
-    window.__selfActivities.push(desc);
-    input.value = '';
-    renderSelfActivities();
+  // Load kegiatan dari DB dan render ke list
+  window.__loadSelfActivities = async function (listId = 'self-activities-list', readonly = false) {
+    const attId = document.getElementById('self-att-id')?.dataset?.attId;
+    const list  = document.getElementById(listId);
+    if (!list) return;
+    if (!attId) { list.innerHTML = ''; return; }
+
+    try {
+      const { data, error } = await supabase
+        .from('daily_activities')
+        .select('id, description, status')
+        .eq('attendance_id', attId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        list.innerHTML = '<div class="text-xs text-secondary">Belum ada kegiatan.</div>';
+        return;
+      }
+
+      list.innerHTML = data.map(a => `
+        <div class="flex align-center gap-8 mb-4"
+          style="padding:6px 10px;background:var(--bg-input);border-radius:var(--radius);">
+          <i class="fas fa-check-circle" style="color:var(--success);font-size:0.8rem;flex-shrink:0;"></i>
+          <span class="text-sm" style="flex:1;">${esc(a.description)}</span>
+          ${!readonly ? `
+          <button type="button" class="btn btn-ghost btn-sm"
+            onclick="window.__removeSelfActivity('${a.id}')"
+            style="margin-left:auto;padding:2px 6px;">
+            <i class="fas fa-times" style="color:var(--danger);font-size:0.75rem;"></i>
+          </button>` : ''}
+        </div>
+      `).join('');
+    } catch (err) {
+      list.innerHTML = `<div class="text-xs text-secondary">Gagal memuat: ${esc(err.message)}</div>`;
+    }
   };
 
-  function renderSelfActivities() {
-    const list = document.getElementById('self-activities-list');
-    if (!list) return;
-    list.innerHTML = window.__selfActivities.map((desc, idx) => `
-      <div class="flex align-center gap-8 mb-4" style="padding:6px 10px;background:var(--bg-input);border-radius:var(--radius);">
-        <span class="text-sm">${esc(desc)}</span>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="window.__removeSelfActivity(${idx})" style="margin-left:auto;">
-          <i class="fas fa-times" style="color:var(--danger)"></i>
-        </button>
-      </div>
-    `).join('');
-  }
+  // Tambah kegiatan — langsung insert ke DB
+  window.__addSelfActivity = async function () {
+    const input  = document.getElementById('self-activity-input');
+    const btn    = document.getElementById('btn-add-activity');
+    const attId  = document.getElementById('self-att-id')?.dataset?.attId;
+    const desc   = input?.value.trim();
 
-  window.__removeSelfActivity = function (idx) {
-    window.__selfActivities.splice(idx, 1);
-    renderSelfActivities();
+    if (!desc) { input?.focus(); return; }
+    if (!attId) { showToast('Silakan absen masuk terlebih dahulu', 'error'); return; }
+
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
+
+    try {
+      // Ambil user id dari supabase session atau dari attendance_logs
+      const { data: attData } = await supabase
+        .from('attendance_logs')
+        .select('employee_id')
+        .eq('id', attId)
+        .maybeSingle();
+
+      const { error } = await supabase.from('daily_activities').insert({
+        attendance_id: attId,
+        description:   desc,
+        status:        'done',
+        created_by:    attData?.employee_id || null,
+      });
+
+      if (error) throw error;
+
+      input.value = '';
+      input.focus();
+      await window.__loadSelfActivities('self-activities-list', false);
+    } catch (err) {
+      showToast('Gagal simpan kegiatan: ' + err.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-plus"></i> Tambah'; }
+    }
+  };
+
+  // Hapus kegiatan — delete dari DB
+  window.__removeSelfActivity = async function (activityId) {
+    try {
+      const { error } = await supabase
+        .from('daily_activities')
+        .delete()
+        .eq('id', activityId);
+
+      if (error) throw error;
+      await window.__loadSelfActivities('self-activities-list', false);
+    } catch (err) {
+      showToast('Gagal hapus kegiatan: ' + err.message, 'error');
+    }
   };
 }
 
