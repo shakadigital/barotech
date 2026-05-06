@@ -589,17 +589,21 @@ body::after { animation: orbDrift 18s ease-in-out infinite; }
   .nav-item { padding: 14px 20px; font-size: 1rem; }
 
   /* Stats grid: 2 columns on small screens, 1 on very small */
-  .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .stat-card { padding: 12px; width: 100%; }
-  .stat-value { font-size: 1.3rem; }
-  .stat-icon { width: 40px; height: 40px; font-size: 1rem; }
+  .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+  .stat-card { padding: 10px 8px; cursor: pointer; }
+  .stat-card::before { height: 2px; }
+  .stat-icon { width: 28px; height: 28px; font-size: 0.8rem; margin-bottom: 6px; border-radius: 6px; }
+  .stat-value { font-size: 1.3rem; line-height: 1.1; }
+  .stat-label { font-size: 0.65rem; margin-top: 2px; }
 
   .modal-card { padding: 20px; width: 95vw; }
   .form-row { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 400px) {
-  .stats-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .stat-value { font-size: 1.1rem; }
+  .stat-label { font-size: 0.6rem; }
   .bottom-nav-item span { display: none; }
   .bottom-nav-item i { font-size: 1.4rem; }
 }

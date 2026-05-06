@@ -63,7 +63,7 @@ export function DashboardPage(state) {
       <div class="stat-card" onclick="window.__app.switchDashboardView('hadir')" id="stat-hadir">
         <div class="stat-icon green"><i class="fas fa-user-check"></i></div>
         <div class="stat-value">${hadirCount}</div>
-        <div class="stat-label">Hadir Hari Ini</div>
+        <div class="stat-label">Hadir</div>
       </div>
       <div class="stat-card" onclick="window.__app.switchDashboardView('absen')" id="stat-absen">
         <div class="stat-icon amber"><i class="fas fa-user-xmark"></i></div>
