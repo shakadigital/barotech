@@ -343,9 +343,8 @@ export function printLaporanGaji() {
     return;
   }
 
-  // Ambil info filter yang aktif
-  const month      = document.getElementById('lg-month')?.value || '';
-  const empName    = document.getElementById('lg-employee')?.selectedOptions?.[0]?.text || 'Semua Karyawan';
+  const month       = document.getElementById('lg-month')?.value || '';
+  const empName     = document.getElementById('lg-employee')?.selectedOptions?.[0]?.text || 'Semua Karyawan';
   const projectName = document.getElementById('lg-project')?.selectedOptions?.[0]?.text || 'Semua Proyek';
 
   const bulanLabel = month
@@ -356,83 +355,141 @@ export function printLaporanGaji() {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
   });
 
-  // Hapus overlay lama jika ada
   document.getElementById('lg-print-overlay')?.remove();
 
   const overlay = document.createElement('div');
   overlay.id = 'lg-print-overlay';
-  overlay.style.cssText = `
-    position: fixed; inset: 0; z-index: 9999;
-    background: #f8f9fa;
-    overflow-y: auto;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    color: #1a1a1a;
-  `;
 
   overlay.innerHTML = `
-    <!-- Toolbar (tidak ikut cetak) -->
-    <div id="lg-print-toolbar" style="
-      position: sticky; top: 0; z-index: 10;
-      background: #1a1a2e; color: white;
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 10px 16px; gap: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    ">
-      <span style="font-weight:600;font-size:0.9rem;">
-        <i class="fas fa-print"></i> Preview Cetak — Laporan Gaji ${esc(bulanLabel)}
-      </span>
-      <div style="display:flex;gap:8px;">
-        <button onclick="window.print()" style="
-          background:#19d2c1; color:#fff; border:none; border-radius:6px;
-          padding:7px 14px; font-size:0.85rem; cursor:pointer; font-weight:600;
-        ">
-          <i class="fas fa-print"></i> Cetak / Simpan PDF
-        </button>
-        <button onclick="document.getElementById('lg-print-overlay').remove()" style="
-          background:rgba(255,255,255,0.15); color:#fff; border:none; border-radius:6px;
-          padding:7px 12px; font-size:0.85rem; cursor:pointer;
-        ">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-    </div>
-
-    <!-- Konten yang akan dicetak -->
-    <div id="lg-print-content" style="
-      max-width: 900px; margin: 24px auto; padding: 32px;
-      background: white; border-radius: 8px;
-      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
-    ">
-      <!-- Kop Surat -->
-      <div style="display:flex;align-items:center;gap:16px;padding-bottom:16px;border-bottom:2px solid #19d2c1;margin-bottom:20px;">
-        <img src="/apple-touch-icon.png" alt="Logo Barotech"
-          style="width:60px;height:60px;border-radius:10px;object-fit:contain;flex-shrink:0;" />
-        <div style="flex:1;">
-          <div style="font-size:1.4rem;font-weight:800;color:#1a1a2e;letter-spacing:0.5px;">BAROTECH</div>
-          <div style="font-size:0.8rem;color:#555;margin-top:2px;">Sistem Manajemen Absensi & Proyek</div>
-        </div>
-        <div style="text-align:right;font-size:0.78rem;color:#555;line-height:1.6;">
-          <div style="font-weight:700;font-size:1rem;color:#1a1a2e;">LAPORAN GAJI KARYAWAN</div>
-          <div>Periode: <strong>${esc(bulanLabel)}</strong></div>
-          <div>Karyawan: <strong>${esc(empName)}</strong></div>
-          <div>Proyek: <strong>${esc(projectName)}</strong></div>
-          <div style="margin-top:4px;color:#888;">Dicetak: ${printDate}</div>
-        </div>
-      </div>
-
-      <!-- Isi Laporan -->
-      <div id="lg-print-body">
-        ${container.innerHTML}
-      </div>
-
-      <!-- Footer -->
-      <div style="margin-top:32px;padding-top:12px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;font-size:0.75rem;color:#888;">
-        <span>Barotech — Laporan Gaji ${esc(bulanLabel)}</span>
-        <span>Dicetak pada ${printDate}</span>
-      </div>
-    </div>
-
     <style>
+      #lg-print-overlay {
+        position: fixed; inset: 0; z-index: 9999;
+        background: #eef0f3;
+        overflow-y: auto;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: #1a1a1a;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* ── Toolbar ── */
+      #lg-print-toolbar {
+        position: sticky; top: 0; z-index: 10;
+        background: #0f172a; color: #fff;
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 10px 16px; gap: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+      }
+      #lg-print-toolbar .tb-title {
+        font-weight: 600; font-size: 0.88rem; white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis;
+      }
+      #lg-print-toolbar .tb-actions { display: flex; gap: 8px; flex-shrink: 0; }
+      #btn-lg-print {
+        background: #19d2c1; color: #fff; border: none; border-radius: 6px;
+        padding: 7px 14px; font-size: 0.82rem; cursor: pointer; font-weight: 700;
+        white-space: nowrap;
+      }
+      #btn-lg-close {
+        background: rgba(255,255,255,0.12); color: #fff; border: none;
+        border-radius: 6px; padding: 7px 11px; font-size: 0.82rem; cursor: pointer;
+      }
+
+      /* ── Paper ── */
+      #lg-print-content {
+        max-width: 860px; margin: 20px auto 40px;
+        background: #fff; border-radius: 10px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+        padding: 28px 28px 24px;
+        overflow: visible;
+      }
+
+      /* ── Kop ── */
+      .lg-kop {
+        display: grid;
+        grid-template-columns: 52px 1fr;
+        gap: 12px;
+        align-items: flex-start;
+        padding-bottom: 14px;
+        border-bottom: 2.5px solid #19d2c1;
+        margin-bottom: 18px;
+      }
+      .lg-kop-logo {
+        width: 52px; height: 52px; border-radius: 8px;
+        object-fit: contain;
+      }
+      .lg-kop-right { display: flex; flex-direction: column; gap: 6px; }
+      .lg-kop-brand {
+        font-size: 1.25rem; font-weight: 800;
+        color: #0f172a; letter-spacing: 0.5px; line-height: 1;
+      }
+      .lg-kop-header {
+        font-size: 1rem; font-weight: 700;
+        color: #0f172a; text-align: center;
+        letter-spacing: 0.5px;
+      }
+      .lg-kop-meta {
+        font-size: 0.78rem; color: #444; line-height: 1.7;
+      }
+      .lg-kop-meta span { display: block; }
+
+      /* ── Isi laporan: override style dari app ── */
+      #lg-print-body {
+        overflow: visible;
+      }
+      #lg-print-body > div {
+        margin-bottom: 18px !important;
+        padding: 14px !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 8px !important;
+        overflow: visible !important;
+      }
+      #lg-print-body table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 0.78rem !important;
+        table-layout: auto !important;
+        overflow: visible !important;
+      }
+      #lg-print-body th, #lg-print-body td {
+        padding: 6px 8px !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        white-space: nowrap !important;
+        font-size: 0.78rem !important;
+      }
+      #lg-print-body thead tr {
+        background: #f1f5f9 !important;
+      }
+      #lg-print-body tfoot tr {
+        background: #f8fafc !important;
+        font-weight: 700 !important;
+      }
+      /* Employee header */
+      #lg-print-body .fw-bold { font-weight: 700 !important; }
+      #lg-print-body .text-success { color: #16a34a !important; }
+      #lg-print-body .text-secondary, #lg-print-body .text-xs { color: #64748b !important; }
+
+      /* ── Footer ── */
+      .lg-footer {
+        margin-top: 24px; padding-top: 10px;
+        border-top: 1px solid #e2e8f0;
+        display: flex; justify-content: space-between;
+        font-size: 0.72rem; color: #94a3b8;
+      }
+
+      /* ── Mobile ── */
+      @media (max-width: 600px) {
+        #lg-print-content { margin: 12px; padding: 16px 12px; border-radius: 8px; }
+        .lg-kop { grid-template-columns: 40px 1fr; gap: 10px; }
+        .lg-kop-logo { width: 40px; height: 40px; }
+        .lg-kop-brand { font-size: 1rem; }
+        .lg-kop-header { font-size: 0.88rem; }
+        .lg-kop-meta { font-size: 0.72rem; }
+        #lg-print-body table { font-size: 0.7rem !important; }
+        #lg-print-body th, #lg-print-body td { padding: 4px 5px !important; font-size: 0.7rem !important; }
+        #lg-print-toolbar .tb-title { font-size: 0.78rem; }
+      }
+
+      /* ── Print media ── */
       @media print {
         #lg-print-toolbar { display: none !important; }
         #lg-print-overlay {
@@ -441,16 +498,61 @@ export function printLaporanGaji() {
           overflow: visible !important;
         }
         #lg-print-content {
-          box-shadow: none !important;
-          border-radius: 0 !important;
-          margin: 0 !important;
-          max-width: 100% !important;
+          box-shadow: none !important; border-radius: 0 !important;
+          margin: 0 !important; max-width: 100% !important;
+          padding: 16px !important;
         }
         body > *:not(#lg-print-overlay) { display: none !important; }
+        #lg-print-body table { font-size: 0.72rem !important; }
+        #lg-print-body th, #lg-print-body td { padding: 5px 6px !important; }
       }
     </style>
+
+    <!-- Toolbar -->
+    <div id="lg-print-toolbar">
+      <div class="tb-title">
+        <i class="fas fa-print"></i> Preview — Laporan Gaji ${esc(bulanLabel)}
+      </div>
+      <div class="tb-actions">
+        <button id="btn-lg-print" onclick="window.print()">
+          <i class="fas fa-print"></i> Cetak / PDF
+        </button>
+        <button id="btn-lg-close" onclick="document.getElementById('lg-print-overlay').remove()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Paper -->
+    <div id="lg-print-content">
+
+      <!-- Kop Surat -->
+      <div class="lg-kop">
+        <img src="/apple-touch-icon.png" alt="Logo" class="lg-kop-logo" />
+        <div class="lg-kop-right">
+          <div class="lg-kop-brand">BAROTECH</div>
+          <div class="lg-kop-header">LAPORAN GAJI KARYAWAN</div>
+          <div class="lg-kop-meta">
+            <span>Periode &nbsp;: <strong>${esc(bulanLabel)}</strong></span>
+            <span>Karyawan : <strong>${esc(empName)}</strong></span>
+            <span>Proyek &nbsp;&nbsp;: <strong>${esc(projectName)}</strong></span>
+            <span style="color:#94a3b8;font-size:0.72rem;">Dicetak: ${printDate}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Isi Laporan -->
+      <div id="lg-print-body">${container.innerHTML}</div>
+
+      <!-- Footer -->
+      <div class="lg-footer">
+        <span>Barotech — Laporan Gaji ${esc(bulanLabel)}</span>
+        <span>${printDate}</span>
+      </div>
+    </div>
   `;
 
   document.body.appendChild(overlay);
   overlay.scrollTop = 0;
 }
+
