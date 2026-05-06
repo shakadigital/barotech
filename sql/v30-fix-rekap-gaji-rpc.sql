@@ -1,6 +1,6 @@
 -- =============================================
 -- V30 — FIX RPC: get_rekap_gaji_lengkap
--- ⚠️ BELUM DIJALANKAN
+-- ✅ SUDAH DIJALANKAN
 -- =============================================
 -- Perbaikan:
 -- - Update status filter dari 'verified' ke 'hadir' (sesuai V28)

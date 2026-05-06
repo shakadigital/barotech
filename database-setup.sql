@@ -26,7 +26,7 @@
 -- │  sql/v10-role-rename.sql            ✅ SUDAH DIJALANKAN │
 -- │  sql/v28-add-leave-status-and-activities.sql ✅ SUDAH DIJALANKAN │
 -- │  sql/v29-salary-payment-and-budget.sql ✅ SUDAH DIJALANKAN      │
--- │  sql/v30-fix-rekap-gaji-rpc.sql        ⚠️ BELUM DIJALANKAN      │
+-- │  sql/v30-fix-rekap-gaji-rpc.sql        ✅ SUDAH DIJALANKAN      │
 -- └───────────────────────────────────────────────────────┘
 --
 -- File berikutnya akan ditambahkan di sini saat ada
