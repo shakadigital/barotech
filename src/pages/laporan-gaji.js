@@ -405,30 +405,23 @@ export function printLaporanGaji() {
 
       /* ── Kop ── */
       .lg-kop {
-        display: grid;
-        grid-template-columns: 52px 1fr;
-        gap: 12px;
-        align-items: flex-start;
         padding-bottom: 14px;
         border-bottom: 2.5px solid #19d2c1;
         margin-bottom: 18px;
+        text-align: center;
       }
       .lg-kop-logo {
-        width: 52px; height: 52px; border-radius: 8px;
-        object-fit: contain;
-      }
-      .lg-kop-right { display: flex; flex-direction: column; gap: 6px; }
-      .lg-kop-brand {
-        font-size: 1.25rem; font-weight: 800;
-        color: #0f172a; letter-spacing: 0.5px; line-height: 1;
+        width: 72px; height: 72px; border-radius: 12px;
+        object-fit: contain; display: block; margin: 0 auto 10px;
       }
       .lg-kop-header {
-        font-size: 1rem; font-weight: 700;
-        color: #0f172a; text-align: center;
-        letter-spacing: 0.5px;
+        font-size: 1.05rem; font-weight: 800;
+        color: #0f172a; letter-spacing: 0.8px;
+        margin-bottom: 10px;
       }
       .lg-kop-meta {
-        font-size: 0.78rem; color: #444; line-height: 1.7;
+        font-size: 0.78rem; color: #444; line-height: 1.8;
+        text-align: left; display: inline-block;
       }
       .lg-kop-meta span { display: block; }
 
@@ -479,10 +472,8 @@ export function printLaporanGaji() {
       /* ── Mobile ── */
       @media (max-width: 600px) {
         #lg-print-content { margin: 12px; padding: 16px 12px; border-radius: 8px; }
-        .lg-kop { grid-template-columns: 40px 1fr; gap: 10px; }
-        .lg-kop-logo { width: 40px; height: 40px; }
-        .lg-kop-brand { font-size: 1rem; }
-        .lg-kop-header { font-size: 0.88rem; }
+        .lg-kop-logo { width: 56px; height: 56px; }
+        .lg-kop-header { font-size: 0.9rem; }
         .lg-kop-meta { font-size: 0.72rem; }
         #lg-print-body table { font-size: 0.7rem !important; }
         #lg-print-body th, #lg-print-body td { padding: 4px 5px !important; font-size: 0.7rem !important; }
@@ -529,15 +520,12 @@ export function printLaporanGaji() {
       <!-- Kop Surat -->
       <div class="lg-kop">
         <img src="/apple-touch-icon.png" alt="Logo" class="lg-kop-logo" />
-        <div class="lg-kop-right">
-          <div class="lg-kop-brand">BAROTECH</div>
-          <div class="lg-kop-header">LAPORAN GAJI KARYAWAN</div>
-          <div class="lg-kop-meta">
-            <span>Periode &nbsp;: <strong>${esc(bulanLabel)}</strong></span>
-            <span>Karyawan : <strong>${esc(empName)}</strong></span>
-            <span>Proyek &nbsp;&nbsp;: <strong>${esc(projectName)}</strong></span>
-            <span style="color:#94a3b8;font-size:0.72rem;">Dicetak: ${printDate}</span>
-          </div>
+        <div class="lg-kop-header">LAPORAN GAJI KARYAWAN</div>
+        <div class="lg-kop-meta">
+          <span>Periode &nbsp;: <strong>${esc(bulanLabel)}</strong></span>
+          <span>Karyawan : <strong>${esc(empName)}</strong></span>
+          <span>Proyek &nbsp;&nbsp;: <strong>${esc(projectName)}</strong></span>
+          <span style="color:#94a3b8;font-size:0.72rem;">Dicetak: ${printDate}</span>
         </div>
       </div>
 
