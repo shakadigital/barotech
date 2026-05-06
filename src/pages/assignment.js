@@ -16,11 +16,15 @@ export function AssignmentPage(state) {
   return `
     <div class="fade-in">
 
-      <!-- Form Penugasan Baru -->
+      <!-- Form Penugasan Baru (Collapsible) -->
       <div class="card mb-24">
-        <div class="card-header">
-          <div class="card-title"><i class="fas fa-user-tag"></i> Tugaskan Karyawan ke Proyek</div>
+        <div class="card-header" style="cursor:pointer;" onclick="window.__toggleAssignForm()">
+          <div class="card-title">
+            <i class="fas fa-user-tag"></i> Tugaskan Karyawan ke Proyek
+          </div>
+          <i class="fas fa-chevron-down" id="assign-form-chevron" style="transition:transform 0.2s;"></i>
         </div>
+        <div id="assign-form-container" style="display:none;">
         <form id="assign-form" onsubmit="window.__app.handleAssignSubmit(event)">
           <div class="form-row mb-16">
             <div class="form-group">
@@ -121,6 +125,7 @@ export function AssignmentPage(state) {
             <i class="fas fa-save"></i> Simpan Penugasan
           </button>
         </form>
+        </div>
       </div>
 
       <!-- Daftar Penugasan Aktif -->
@@ -724,6 +729,15 @@ if (typeof window !== 'undefined') {
     const tj  = parseFloat(document.getElementById('asgn-tunjangan')?.value) || 0;
     const el  = document.getElementById('asgn-salary');
     if (el) el.value = um + tr + tj;
+  };
+
+  window.__toggleAssignForm = function () {
+    const container = document.getElementById('assign-form-container');
+    const chevron   = document.getElementById('assign-form-chevron');
+    if (!container) return;
+    const isHidden = container.style.display === 'none';
+    container.style.display = isHidden ? 'block' : 'none';
+    if (chevron) chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
   };
 
   window.__asgn_editCalc = function () {
