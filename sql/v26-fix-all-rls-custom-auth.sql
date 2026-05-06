@@ -38,6 +38,8 @@ $$;
 -- ── 1. profiles ─────────────────────────────────────────────────
 DROP POLICY IF EXISTS "profiles_select" ON profiles;
 DROP POLICY IF EXISTS "profiles_admin"  ON profiles;
+DROP POLICY IF EXISTS profiles_select   ON profiles;
+DROP POLICY IF EXISTS profiles_admin    ON profiles;
 
 CREATE POLICY "profiles_select" ON profiles FOR SELECT USING (true);
 CREATE POLICY "profiles_admin"  ON profiles FOR ALL
@@ -46,6 +48,8 @@ CREATE POLICY "profiles_admin"  ON profiles FOR ALL
 -- ── 2. projects ─────────────────────────────────────────────────
 DROP POLICY IF EXISTS "projects_select" ON projects;
 DROP POLICY IF EXISTS "projects_admin"  ON projects;
+DROP POLICY IF EXISTS projects_select   ON projects;
+DROP POLICY IF EXISTS projects_admin    ON projects;
 
 CREATE POLICY "projects_select" ON projects FOR SELECT USING (true);
 CREATE POLICY "projects_admin"  ON projects FOR ALL
@@ -61,6 +65,10 @@ DROP POLICY IF EXISTS "attendance_update"            ON attendance_logs;
 DROP POLICY IF EXISTS "attendance_delete"            ON attendance_logs;
 DROP POLICY IF EXISTS attendance_karyawan_insert     ON attendance_logs;
 DROP POLICY IF EXISTS attendance_karyawan_update     ON attendance_logs;
+DROP POLICY IF EXISTS attendance_select              ON attendance_logs;
+DROP POLICY IF EXISTS attendance_insert              ON attendance_logs;
+DROP POLICY IF EXISTS attendance_update              ON attendance_logs;
+DROP POLICY IF EXISTS attendance_delete              ON attendance_logs;
 
 -- SELECT: user lihat milik sendiri, admin lihat semua
 CREATE POLICY attendance_select ON attendance_logs FOR SELECT
@@ -99,6 +107,9 @@ CREATE POLICY attendance_delete ON attendance_logs FOR DELETE
 DROP POLICY IF EXISTS "updates_select" ON project_updates;
 DROP POLICY IF EXISTS "updates_insert" ON project_updates;
 DROP POLICY IF EXISTS "updates_admin"  ON project_updates;
+DROP POLICY IF EXISTS updates_select   ON project_updates;
+DROP POLICY IF EXISTS updates_insert   ON project_updates;
+DROP POLICY IF EXISTS updates_admin    ON project_updates;
 
 CREATE POLICY updates_select ON project_updates FOR SELECT USING (true);
 CREATE POLICY updates_insert ON project_updates FOR INSERT
@@ -114,6 +125,10 @@ DROP POLICY IF EXISTS "overtime_delete"         ON overtime_logs;
 DROP POLICY IF EXISTS overtime_karyawan_select  ON overtime_logs;
 DROP POLICY IF EXISTS overtime_karyawan_insert  ON overtime_logs;
 DROP POLICY IF EXISTS overtime_admin_update     ON overtime_logs;
+DROP POLICY IF EXISTS overtime_select           ON overtime_logs;
+DROP POLICY IF EXISTS overtime_insert           ON overtime_logs;
+DROP POLICY IF EXISTS overtime_update           ON overtime_logs;
+DROP POLICY IF EXISTS overtime_delete           ON overtime_logs;
 
 CREATE POLICY overtime_select ON overtime_logs FOR SELECT
   USING (
@@ -141,6 +156,9 @@ CREATE POLICY overtime_delete ON overtime_logs FOR DELETE
 DROP POLICY IF EXISTS "photos_select" ON project_photos;
 DROP POLICY IF EXISTS "photos_insert" ON project_photos;
 DROP POLICY IF EXISTS "photos_delete" ON project_photos;
+DROP POLICY IF EXISTS photos_select   ON project_photos;
+DROP POLICY IF EXISTS photos_insert   ON project_photos;
+DROP POLICY IF EXISTS photos_delete   ON project_photos;
 
 CREATE POLICY photos_select ON project_photos FOR SELECT USING (true);
 CREATE POLICY photos_insert ON project_photos FOR INSERT
@@ -153,6 +171,10 @@ DROP POLICY IF EXISTS "bon_select_own"      ON bon_transactions;
 DROP POLICY IF EXISTS "bon_admin"           ON bon_transactions;
 DROP POLICY IF EXISTS "bon_select"          ON bon_transactions;
 DROP POLICY IF EXISTS "bon_insert_update"   ON bon_transactions;
+DROP POLICY IF EXISTS bon_select            ON bon_transactions;
+DROP POLICY IF EXISTS bon_insert            ON bon_transactions;
+DROP POLICY IF EXISTS bon_update            ON bon_transactions;
+DROP POLICY IF EXISTS bon_delete            ON bon_transactions;
 
 CREATE POLICY bon_select ON bon_transactions FOR SELECT
   USING (
@@ -174,6 +196,10 @@ DROP POLICY IF EXISTS "assign_select" ON project_assignments;
 DROP POLICY IF EXISTS "assign_insert" ON project_assignments;
 DROP POLICY IF EXISTS "assign_update" ON project_assignments;
 DROP POLICY IF EXISTS "assign_delete" ON project_assignments;
+DROP POLICY IF EXISTS assign_select   ON project_assignments;
+DROP POLICY IF EXISTS assign_insert   ON project_assignments;
+DROP POLICY IF EXISTS assign_update   ON project_assignments;
+DROP POLICY IF EXISTS assign_delete   ON project_assignments;
 
 CREATE POLICY assign_select ON project_assignments FOR SELECT
   USING (
@@ -195,6 +221,10 @@ DROP POLICY IF EXISTS material_select ON material_orders;
 DROP POLICY IF EXISTS material_insert ON material_orders;
 DROP POLICY IF EXISTS material_update ON material_orders;
 DROP POLICY IF EXISTS material_delete ON material_orders;
+DROP POLICY IF EXISTS "material_select" ON material_orders;
+DROP POLICY IF EXISTS "material_insert" ON material_orders;
+DROP POLICY IF EXISTS "material_update" ON material_orders;
+DROP POLICY IF EXISTS "material_delete" ON material_orders;
 
 CREATE POLICY material_select ON material_orders FOR SELECT
   USING (get_my_role() IN ('superadmin','owner','admin','kepala_proyek','kepala_gudang','kepala_lapangan'));
@@ -209,9 +239,12 @@ CREATE POLICY material_delete ON material_orders FOR DELETE
   USING (get_my_role() IN ('superadmin','owner'));
 
 -- ── 10. material_photos ─────────────────────────────────────────
-DROP POLICY IF EXISTS mphoto_select ON material_photos;
-DROP POLICY IF EXISTS mphoto_insert ON material_photos;
-DROP POLICY IF EXISTS mphoto_delete ON material_photos;
+DROP POLICY IF EXISTS mphoto_select   ON material_photos;
+DROP POLICY IF EXISTS mphoto_insert   ON material_photos;
+DROP POLICY IF EXISTS mphoto_delete   ON material_photos;
+DROP POLICY IF EXISTS "mphoto_select" ON material_photos;
+DROP POLICY IF EXISTS "mphoto_insert" ON material_photos;
+DROP POLICY IF EXISTS "mphoto_delete" ON material_photos;
 
 CREATE POLICY mphoto_select ON material_photos FOR SELECT
   USING (get_my_role() IN ('superadmin','owner','admin','kepala_proyek','kepala_gudang','kepala_lapangan'));
@@ -223,10 +256,14 @@ CREATE POLICY mphoto_delete ON material_photos FOR DELETE
   USING (get_my_role() IN ('superadmin','owner','admin'));
 
 -- ── 11. project_expenses ────────────────────────────────────────
-DROP POLICY IF EXISTS expense_select ON project_expenses;
-DROP POLICY IF EXISTS expense_insert ON project_expenses;
-DROP POLICY IF EXISTS expense_update ON project_expenses;
-DROP POLICY IF EXISTS expense_delete ON project_expenses;
+DROP POLICY IF EXISTS expense_select   ON project_expenses;
+DROP POLICY IF EXISTS expense_insert   ON project_expenses;
+DROP POLICY IF EXISTS expense_update   ON project_expenses;
+DROP POLICY IF EXISTS expense_delete   ON project_expenses;
+DROP POLICY IF EXISTS "expense_select" ON project_expenses;
+DROP POLICY IF EXISTS "expense_insert" ON project_expenses;
+DROP POLICY IF EXISTS "expense_update" ON project_expenses;
+DROP POLICY IF EXISTS "expense_delete" ON project_expenses;
 
 CREATE POLICY expense_select ON project_expenses FOR SELECT
   USING (get_my_role() IN ('superadmin','owner','admin','kepala_proyek','kepala_lapangan'));
