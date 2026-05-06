@@ -1,6 +1,6 @@
 -- =============================================
 -- V29 — SALARY PAYMENT & PROJECT BUDGET
--- ⚠️ BELUM DIJALANKAN
+-- ✅ SUDAH DIJALANKAN
 -- =============================================
 -- Menambahkan:
 -- 1. Tabel salary_payments untuk history pembayaran gaji
