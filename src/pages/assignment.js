@@ -676,14 +676,31 @@ export async function handleAssignSubmit(e, state, refreshFn) {
     if (error) throw error;
 
     showToast('Penugasan berhasil disimpan!', 'success');
-    document.getElementById('assign-form').reset();
-    document.getElementById('asgn-start').value = new Date().toISOString().slice(0,10);
-    document.getElementById('asgn-uang-makan').value = '50000';
-    document.getElementById('asgn-transport').value = '50000';
-    document.getElementById('asgn-tunjangan').value = '50000';
-    document.getElementById('asgn-salary').value = '150000';
-    document.getElementById('asgn-current-info').style.display = 'none';
-    await refreshFn();
+
+    // Reset form ke nilai default (tanpa full page re-render)
+    document.getElementById('assign-form')?.reset();
+    const startEl = document.getElementById('asgn-start');
+    if (startEl) startEl.value = new Date().toISOString().slice(0,10);
+    const umEl = document.getElementById('asgn-uang-makan');
+    const trEl = document.getElementById('asgn-transport');
+    const tjEl = document.getElementById('asgn-tunjangan');
+    const slEl = document.getElementById('asgn-salary');
+    if (umEl) umEl.value = '50000';
+    if (trEl) trEl.value = '50000';
+    if (tjEl) tjEl.value = '50000';
+    if (slEl) slEl.value = '150000';
+    const infoEl = document.getElementById('asgn-current-info');
+    if (infoEl) infoEl.style.display = 'none';
+    const empInfoEl = document.getElementById('asgn-emp-info');
+    if (empInfoEl) empInfoEl.style.display = 'none';
+
+    // Collapse form kembali setelah simpan
+    const container = document.getElementById('assign-form-container');
+    const chevron   = document.getElementById('assign-form-chevron');
+    if (container) container.style.display = 'none';
+    if (chevron)   chevron.style.transform = 'rotate(0deg)';
+
+    // Refresh hanya daftar penugasan — tidak perlu full page re-render
     await loadAssignments(state);
   } catch (err) {
     showToast('Gagal: ' + err.message, 'error');
