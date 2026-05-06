@@ -40,9 +40,15 @@ export function DashboardPage(state) {
     l.created_at?.startsWith(todayStr) && visibleEmpIds.has(l.employee_id)
   );
   const hadirLogs  = todayLogs.filter(l => l.status === 'verified');
-  const absenLogs  = todayLogs.filter(l => l.status === 'absent');
   const hadirCount = hadirLogs.length;
-  const absenCount = absenLogs.length;
+
+  // Hitung yang BELUM absen (tidak ada record sama sekali) — dikurangi owner & superadmin
+  const sudahAbsenIds = new Set(todayLogs.map(l => l.employee_id));
+  const belumAbsenCount = visibleEmps.filter(e =>
+    !sudahAbsenIds.has(e.id) &&
+    e.role !== 'owner' &&
+    e.role !== 'superadmin'
+  ).length;
 
   // ── Karyawan: no quick action stats ──
   const isKaryawan = role === 'karyawan';
@@ -67,8 +73,8 @@ export function DashboardPage(state) {
       </div>
       <div class="stat-card" onclick="window.__app.switchDashboardView('absen')" id="stat-absen">
         <div class="stat-icon amber"><i class="fas fa-user-xmark"></i></div>
-        <div class="stat-value">${absenCount}</div>
-        <div class="stat-label">Tidak Hadir</div>
+        <div class="stat-value">${belumAbsenCount}</div>
+        <div class="stat-label">Belum Absen</div>
       </div>
     </div>`;
 
@@ -175,7 +181,55 @@ export function DashboardPage(state) {
   } else if (dashboardView === 'hadir') {
     detailHtml = attendanceTable(hadirLogs, 'Daftar Hadir Hari Ini', 'Belum ada yang hadir hari ini');
   } else if (dashboardView === 'absen') {
-    detailHtml = attendanceTable(absenLogs, 'Daftar Tidak Hadir Hari Ini', 'Belum ada yang tidak hadir hari ini');
+    // Tampilkan semua user yang BELUM absen hari ini (tidak ada record attendance)
+    // dikurangi role 'owner' dan 'superadmin'
+    const sudahAbsenIds = new Set(todayLogs.map(l => l.employee_id));
+    const belumAbsen = visibleEmps.filter(e =>
+      !sudahAbsenIds.has(e.id) &&
+      e.role !== 'owner' &&
+      e.role !== 'superadmin'
+    );
+
+    detailHtml = `
+      <div class="card slide-up">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-user-xmark"></i> Belum Absen Hari Ini</div>
+          <div class="flex gap-8 align-center">
+            <span class="badge badge-offline">${belumAbsen.length} orang</span>
+            <button class="btn btn-ghost btn-sm" onclick="window.__app.switchDashboardView(null)"><i class="fas fa-times"></i></button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width:40px;">No.</th>
+                <th>Nama</th>
+                <th>Role</th>
+                <th>Proyek</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${belumAbsen.length === 0
+                ? '<tr><td colspan="4" class="text-center text-muted">Semua sudah absen hari ini 🎉</td></tr>'
+                : belumAbsen.map((emp, idx) => {
+                    // Cari proyek aktif karyawan dari assignments
+                    const asgn = state.assignments?.find(a =>
+                      a.employee_id === emp.id && a.status === 'active'
+                    );
+                    const prj = asgn ? projects.find(p => p.id === asgn.project_id) : null;
+                    return `<tr>
+                      <td class="text-xs text-secondary">${idx + 1}</td>
+                      <td class="fw-bold">${esc(emp.full_name)}</td>
+                      <td><span class="badge badge-role">${esc(ROLE_LABELS[emp.role] || emp.role)}</span></td>
+                      <td class="text-xs text-secondary">${esc(prj?.name || '—')}</td>
+                    </tr>`;
+                  }).join('')
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>`;
   }
 
   // ── Default view: aktivitas hari ini ──
