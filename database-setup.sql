@@ -24,6 +24,7 @@
 -- │  sql/v8b-fix-generate-function.sql  ✅ SUDAH DIJALANKAN │
 -- │  sql/v9-material-expenses.sql       ✅ SUDAH DIJALANKAN │
 -- │  sql/v10-role-rename.sql            ✅ SUDAH DIJALANKAN │
+-- │  sql/v28-add-leave-status-and-activities.sql ⚠️ BELUM  │
 -- └───────────────────────────────────────────────────────┘
 --
 -- File berikutnya akan ditambahkan di sini saat ada

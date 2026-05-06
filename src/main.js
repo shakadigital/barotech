@@ -2,7 +2,7 @@ import './style.css';
 import { supabase, hasCredentials } from './lib/supabase.js';
 import { showToast, esc } from './lib/helpers.js';
 import { DashboardPage, loadBonNotifications, loadTodayExpenses } from './pages/dashboard.js';
-import { AttendancePage, verifyAttendance, deleteAttendance, saveWorkItems, generateDailyAttendance, openEditAttendance, saveEditAttendance, clockIn, clockOut, autoCheckoutStale } from './pages/attendance.js';
+import { AttendancePage, verifyAttendance, deleteAttendance, saveWorkItems, saveKegiatan, generateDailyAttendance, openEditAttendance, saveEditAttendance, clockIn, clockOut, autoCheckoutStale } from './pages/attendance.js';
 import { RiwayatPage } from './pages/riwayat.js';
 import { LaporanPage, previewPhoto, handleLaporanSubmit } from './pages/laporan.js';
 import { LaporanGajiPage, filterLaporanGaji, exportLaporanGajiToExcel, printLaporanGaji } from './pages/laporan-gaji.js';
@@ -422,6 +422,7 @@ window.__app = {
   verifyAttendance(id, result) { verifyAttendance(id, result, refreshAndRender); },
   deleteAttendance(id) { deleteAttendance(id, refreshAndRender); },
   saveWorkItems(id) { saveWorkItems(id, refreshAndRender); },
+  saveKegiatan(id) { saveKegiatan(id, refreshAndRender); },
   generateDailyAttendance() { generateDailyAttendance(refreshAndRender); },
   openEditAttendance(id) { openEditAttendance(id, state); },
   saveEditAttendance(id) { saveEditAttendance(id, refreshAndRender); },
