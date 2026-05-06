@@ -39,7 +39,14 @@ export function DashboardPage(state) {
   const todayLogs = attendanceLogs.filter(l =>
     l.created_at?.startsWith(todayStr) && visibleEmpIds.has(l.employee_id)
   );
-  const hadirLogs  = todayLogs.filter(l => l.status === 'verified');
+
+  // Hadir = verified ATAU sudah check_in (kepala_lapangan/kepala_proyek absen mandiri = draft)
+  const hadirLogs  = todayLogs.filter(l =>
+    l.status === 'verified' ||
+    (l.check_in && ['kepala_lapangan','kepala_proyek','kepala_gudang','admin'].includes(
+      employees.find(e => e.id === l.employee_id)?.role
+    ))
+  );
   const hadirCount = hadirLogs.length;
 
   // Hitung yang BELUM absen (tidak ada record sama sekali) — dikurangi owner & superadmin
@@ -84,7 +91,10 @@ export function DashboardPage(state) {
       <div class="card slide-up">
         <div class="card-header">
           <div class="card-title"><i class="fas fa-clipboard-list"></i> ${title}</div>
-          <button class="btn btn-ghost btn-sm" onclick="window.__app.switchDashboardView(null)"><i class="fas fa-times"></i></button>
+          <div class="flex gap-8 align-center">
+            <span class="badge badge-online">${logs.length} orang</span>
+            <button class="btn btn-ghost btn-sm" onclick="window.__app.switchDashboardView(null)"><i class="fas fa-times"></i></button>
+          </div>
         </div>
         <div class="table-wrapper">
           <table class="data-table">
@@ -94,7 +104,10 @@ export function DashboardPage(state) {
                 logs.map((l, idx) => {
                   const emp = employees.find(e => e.id === l.employee_id);
                   const prj = projects.find(p => p.id === l.project_id);
-                  const isHadir = l.status === 'verified';
+                  const empRole = emp?.role || '';
+                  const isNonKaryawan = ['kepala_lapangan','kepala_proyek','kepala_gudang','admin'].includes(empRole);
+                  // Non-karyawan yang sudah check_in dianggap hadir meski status masih draft
+                  const isHadir = l.status === 'verified' || (isNonKaryawan && l.check_in);
                   const statusBadge = isHadir
                     ? '<span class="badge badge-online">Hadir</span>'
                     : l.status === 'absent'
