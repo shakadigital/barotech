@@ -48,6 +48,61 @@ export function AttendancePage(state) {
     todayLogs = todayLogs.filter(l => adminIds.includes(l.employee_id) || !['admin', 'kepala_gudang', 'kepala_proyek', 'kepala_lapangan'].includes(employees.find(e => e.id === l.employee_id)?.role));
   }
 
+  // ── FITUR BARU: Untuk Admin/Owner/Superadmin, tampilkan SEMUA user (termasuk yang belum absen) ──
+  // Ini memudahkan admin untuk langsung tandai user yang belum absen sebagai Libur/Izin/Sakit
+  let allUsersWithAttendance = [];
+  if (isAdmin) {
+    // Get all visible employees
+    let visibleEmployees = employees.filter(e => {
+      // Exclude owner & superadmin dari daftar
+      if (['owner', 'superadmin'].includes(e.role)) return false;
+      // Admin tidak bisa lihat admin lain
+      if (role === 'admin' && e.role === 'admin') return false;
+      return true;
+    });
+
+    // Map setiap employee ke attendance log (atau buat placeholder jika belum ada)
+    allUsersWithAttendance = visibleEmployees.map(emp => {
+      const existingLog = todayLogs.find(l => l.employee_id === emp.id);
+      if (existingLog) {
+        return existingLog;
+      } else {
+        // Buat placeholder untuk user yang belum absen
+        return {
+          id: null, // null = belum ada di database
+          employee_id: emp.id,
+          project_id: null,
+          status: 'belum_absen', // status khusus untuk yang belum absen
+          check_in: null,
+          check_out: null,
+          notes: 'Belum Absen',
+          created_at: todayStr,
+          _isPlaceholder: true, // flag untuk identifikasi
+        };
+      }
+    });
+
+    // Sort: yang belum absen di atas, lalu yang pending, lalu yang sudah diverifikasi
+    allUsersWithAttendance.sort((a, b) => {
+      const statusOrder = {
+        'belum_absen': 0,
+        'pending': 1,
+        'draft': 1,
+        'hadir': 2,
+        'verified': 2,
+        'tidak_hadir': 3,
+        'absent': 3,
+        'libur': 4,
+        'izin': 5,
+        'sakit': 6,
+      };
+      return (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99);
+    });
+
+    // Replace todayLogs dengan allUsersWithAttendance untuk admin
+    todayLogs = allUsersWithAttendance;
+  }
+
   // ── Info banner ─────────────────────────────────────────────────────────
   function infoBanner() {
     let msg = '';
@@ -73,6 +128,7 @@ export function AttendancePage(state) {
     const isLibur    = l.status === 'libur';
     const isIzin     = l.status === 'izin';
     const isSakit    = l.status === 'sakit';
+    const isBelumAbsen = l.status === 'belum_absen' || l._isPlaceholder;
 
     // Deteksi "Pindah Tugas" dari notes
     const isPindah = l.notes?.startsWith('Pindah Tugas');
@@ -83,7 +139,9 @@ export function AttendancePage(state) {
 
     // Status badge
     let statusBadge = '';
-    if (isPindah && isDraft) {
+    if (isBelumAbsen) {
+      statusBadge = '<span class="badge" style="background:rgba(239,68,68,0.15);color:#dc2626;border:1px dashed #dc2626;">BELUM ABSEN</span>';
+    } else if (isPindah && isDraft) {
       statusBadge = '<span class="badge" style="background:rgba(245,158,11,0.2);color:var(--warning);">PINDAH TUGAS</span>';
     } else if (isVerified) {
       statusBadge = '<span class="badge badge-online">HADIR</span>';
@@ -117,7 +175,38 @@ export function AttendancePage(state) {
     const finalCanVerify = canVerifyThis || (isNonKaryawan && canVerifyNonKaryawan);
     let actions = '';
 
-    if (finalCanVerify && isDraft) {
+    // Khusus untuk user yang BELUM ABSEN (placeholder)
+    if (isBelumAbsen && isAdmin) {
+      actions = `
+        <div style="display:flex;flex-direction:column;gap:6px;min-width:240px;">
+          <div class="text-xs text-danger mb-4">
+            <i class="fas fa-exclamation-triangle"></i> User belum absen hari ini
+          </div>
+          
+          <!-- Tombol Status untuk Tandai Langsung -->
+          <div class="flex gap-4" style="flex-wrap:wrap;">
+            <button class="btn btn-sm" style="flex:1;background:rgba(59,130,246,0.1);color:#3b82f6;min-width:60px;"
+              onclick="window.__app.createAttendanceWithStatus('${l.employee_id}','libur')"
+              title="Tandai Libur">
+              <i class="fas fa-umbrella-beach"></i> Libur
+            </button>
+            <button class="btn btn-sm" style="flex:1;background:rgba(245,158,11,0.1);color:#f59e0b;min-width:60px;"
+              onclick="window.__app.createAttendanceWithStatus('${l.employee_id}','izin')"
+              title="Tandai Izin">
+              <i class="fas fa-file-signature"></i> Izin
+            </button>
+            <button class="btn btn-sm" style="flex:1;background:rgba(239,68,68,0.1);color:#ef4444;min-width:60px;"
+              onclick="window.__app.createAttendanceWithStatus('${l.employee_id}','sakit')"
+              title="Tandai Sakit">
+              <i class="fas fa-notes-medical"></i> Sakit
+            </button>
+          </div>
+          
+          <div class="text-xs text-secondary mt-4" style="font-style:italic;">
+            Atau tunggu user absen sendiri
+          </div>
+        </div>`;
+    } else if (finalCanVerify && isDraft) {
       actions = `
         <div style="display:flex;flex-direction:column;gap:6px;min-width:240px;">
           ${isPindah ? `<div class="text-xs text-warning mb-4"><i class="fas fa-info-circle"></i> ${esc(l.notes)}</div>` : ''}
@@ -1003,5 +1092,42 @@ export async function autoCheckoutStale() {
     }
   } catch (err) {
     console.log('auto_checkout_stale:', err.message);
+  }
+}
+
+/** Create attendance record dengan status langsung (untuk user yang belum absen) */
+export async function createAttendanceWithStatus(employeeId, status, refreshFn) {
+  try {
+    const statusMap = {
+      'libur': { status: 'libur', notes: 'Libur' },
+      'izin': { status: 'izin', notes: 'Izin' },
+      'sakit': { status: 'sakit', notes: 'Sakit' },
+    };
+
+    const { status: finalStatus, notes } = statusMap[status] || { status: 'pending', notes: '' };
+
+    // Insert attendance record baru
+    const { error } = await supabase.from('attendance_logs').insert({
+      employee_id: employeeId,
+      project_id: null,
+      check_in: null,
+      check_out: null,
+      status: finalStatus,
+      notes: notes,
+      created_at: new Date().toISOString(),
+    });
+
+    if (error) throw error;
+
+    const messages = {
+      'libur': 'Ditandai Libur ✓',
+      'izin': 'Ditandai Izin ✓',
+      'sakit': 'Ditandai Sakit ✓',
+    };
+
+    showToast(messages[status] || 'Tersimpan ✓', 'success');
+    await refreshFn?.();
+  } catch (err) {
+    showToast('Gagal: ' + err.message, 'error');
   }
 }
