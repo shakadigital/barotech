@@ -102,7 +102,7 @@ export function DashboardPage(state) {
                     <td>${statusBadge}</td>
                     <td>${l.check_in ? fmtTime(l.check_in) : '-'}</td>
                     <td>${l.check_out ? fmtTime(l.check_out) : '-'}</td>
-                    <td class="text-xs text-secondary">${esc(l.notes || '-')}</td>
+                    <td class="text-xs text-secondary">${esc(l.work_items || l.notes || '-')}</td>
                   </tr>`;
                 }).join('')}
             </tbody>
@@ -207,7 +207,7 @@ export function DashboardPage(state) {
                   <td>${statusBadge}</td>
                   <td>${l.check_in ? fmtTime(l.check_in) : '-'}</td>
                   <td>${l.check_out ? fmtTime(l.check_out) : '-'}</td>
-                  <td class="text-xs text-secondary">${esc(l.notes || '-')}</td>
+                  <td class="text-xs text-secondary">${esc(l.work_items || l.notes || '-')}</td>
                 </tr>`;
               }).join('')}
             </tbody>
