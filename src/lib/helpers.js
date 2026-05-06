@@ -6,9 +6,16 @@ export function fmtIdr(n) {
   return 'Rp ' + Number(n).toLocaleString('id-ID');
 }
 
-/** Format waktu HH:MM */
+/** Format waktu HH:MM — handle string TIME maupun TIMESTAMPTZ */
 export function fmtTime(t) {
   if (!t) return '-';
+  // Kalau berisi 'T' atau '+' → ini timestamp ISO, ambil bagian jam
+  if (t.includes('T') || t.includes('+') || t.length > 8) {
+    const d = new Date(t);
+    if (isNaN(d)) return '-';
+    return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+  // String TIME biasa: HH:MM:SS
   return t.slice(0, 5);
 }
 
@@ -106,4 +113,43 @@ export async function compressImage(file, maxWidth = 1024, quality = 0.7) {
     img.onerror = () => resolve(file); // Fallback kalau gagal
     img.src = URL.createObjectURL(file);
   });
+}
+
+/** Print preview — tampilkan konten dalam overlay fullscreen, ada tombol X dan Print */
+export function printPreview(contentSelector = '#laporan-container, #rp-container, #rg-container, #lb-container, #lk-container') {
+  // Cari container yang ada di DOM
+  let contentEl = null;
+  const selectors = contentSelector.split(',').map(s => s.trim());
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (el) { contentEl = el; break; }
+  }
+  if (!contentEl) {
+    // Fallback: ambil main-content
+    contentEl = document.querySelector('.main-content') || document.body;
+  }
+
+  // Buat overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'print-preview-overlay';
+  overlay.innerHTML = `
+    <div id="print-preview-toolbar">
+      <span style="font-weight:600;font-size:0.95rem;"><i class="fas fa-print"></i> Preview Cetak</span>
+      <div style="display:flex;gap:8px;">
+        <button id="btn-do-print" onclick="window.print()">
+          <i class="fas fa-print"></i> Cetak
+        </button>
+        <button id="btn-close-preview" onclick="document.getElementById('print-preview-overlay').remove()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
+    <div id="print-preview-body">
+      ${contentEl.innerHTML}
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  // Scroll ke atas
+  overlay.querySelector('#print-preview-body').scrollTop = 0;
 }
