@@ -1,6 +1,6 @@
 -- =============================================
 -- V28 — ADD LEAVE STATUS & ACTIVITIES COLUMN
--- ⚠️ BELUM DIJALANKAN
+-- ✅ SUDAH DIJALANKAN
 -- =============================================
 -- Menambahkan:
 -- 1. Status baru: 'libur', 'izin', 'sakit' untuk attendance_logs
