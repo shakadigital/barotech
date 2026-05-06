@@ -56,6 +56,35 @@ export function esc(str) {
   return d.innerHTML;
 }
 
+/**
+ * Kembalikan datetime lokal dalam format "YYYY-MM-DD HH:MM:SS+07:00"
+ * agar Supabase menyimpan waktu WIB dengan benar (bukan UTC).
+ *
+ * Masalah tanpa ini:
+ *   "2026-05-06 08:30:00" → Supabase anggap UTC → tersimpan sebagai 08:30 UTC
+ *   → saat dibaca browser (WIB) → tampil 15:30 WIB (selisih +7 jam)
+ *
+ * @param {Date} [date] - opsional, default = sekarang
+ * @returns {{ dateStr: string, timeStr: string, datetimeStr: string }}
+ *   dateStr     = "YYYY-MM-DD" (tanggal lokal)
+ *   timeStr     = "HH:MM:SS"   (jam lokal)
+ *   datetimeStr = "YYYY-MM-DD HH:MM:SS+07:00" (siap kirim ke Supabase)
+ */
+export function localNow(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const Y   = date.getFullYear();
+  const M   = pad(date.getMonth() + 1);
+  const D   = pad(date.getDate());
+  const h   = pad(date.getHours());
+  const m   = pad(date.getMinutes());
+  const s   = pad(date.getSeconds());
+  return {
+    dateStr:     `${Y}-${M}-${D}`,
+    timeStr:     `${h}:${m}:${s}`,
+    datetimeStr: `${Y}-${M}-${D} ${h}:${m}:${s}+07:00`,
+  };
+}
+
 /** Ambil lokasi GPS (Promise wrapper) */
 export function getGeoLocation() {
   return new Promise((resolve) => {

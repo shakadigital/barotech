@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase.js';
 import { fmtTime, fmtDate, fmtIdr, esc, showToast, getGeoLocation } from '../lib/helpers.js';
 import { canFinance, FINANCE_ROLES, canVerify, canDelete, canVerifyAll, canVerifyOwn } from '../lib/roles.js';
+import { localNow } from '../lib/helpers.js';
 
 const WORK_HOURS_STANDARD = 8; // jam kerja standar per hari
 
@@ -614,16 +615,16 @@ export async function clockIn(state, refreshFn) {
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> <span class="text-xs">Masuk...</span>'; }
 
   try {
-    const today = new Date().toISOString().slice(0, 10);
-    const now = new Date().toTimeString().slice(0, 8);
+    // Gunakan waktu lokal WIB agar tidak ada selisih +7 jam saat disimpan ke Supabase
+    const { dateStr: today, timeStr: now, datetimeStr: checkinDatetime } = localNow();
 
-    // Cek apakah sudah ada attendance hari ini
+    // Cek apakah sudah ada attendance hari ini (filter pakai tanggal lokal)
     const { data: existing } = await supabase
       .from('attendance_logs')
       .select('*')
       .eq('employee_id', state.user.id)
-      .gte('check_in', today + ' 00:00:00')
-      .lt('check_in', (new Date(Date.now() + 86400000)).toISOString().slice(0, 10) + ' 00:00:00')
+      .gte('check_in', today + ' 00:00:00+07:00')
+      .lt('check_in', today + ' 23:59:59+07:00')
       .maybeSingle();
 
     if (existing) {
@@ -649,11 +650,11 @@ export async function clockIn(state, refreshFn) {
     let geo = null;
     try { geo = await getGeoLocation(); } catch (_) {}
 
-    // Insert attendance baru
+    // Insert attendance baru — kirim dengan offset +07:00 agar Supabase simpan waktu WIB
     const { error } = await supabase.from('attendance_logs').insert({
       employee_id: state.user.id,
       project_id: null,
-      check_in: today + ' ' + now,
+      check_in: checkinDatetime,
       check_out: null,
       status: 'draft',
       hourly_rate: hourlyRate,
@@ -685,16 +686,16 @@ export async function clockOut(state, refreshFn) {
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> <span class="text-xs">Pulang...</span>'; }
 
   try {
-    const today = new Date().toISOString().slice(0, 10);
-    const now = new Date().toTimeString().slice(0, 8);
+    // Gunakan waktu lokal WIB agar tidak ada selisih +7 jam saat disimpan ke Supabase
+    const { dateStr: today, timeStr: now, datetimeStr: checkoutDatetime } = localNow();
 
-    // Cek attendance hari ini
+    // Cek attendance hari ini (filter pakai tanggal lokal)
     const { data: existing, error: fetchErr } = await supabase
       .from('attendance_logs')
       .select('*')
       .eq('employee_id', state.user.id)
-      .gte('check_in', today + ' 00:00:00')
-      .lt('check_in', (new Date(Date.now() + 86400000)).toISOString().slice(0, 10) + ' 00:00:00')
+      .gte('check_in', today + ' 00:00:00+07:00')
+      .lt('check_in', today + ' 23:59:59+07:00')
       .maybeSingle();
 
     if (fetchErr || !existing) {
@@ -709,11 +710,11 @@ export async function clockOut(state, refreshFn) {
     let geo = null;
     try { geo = await getGeoLocation(); } catch (_) {}
 
-    // Update check_out + location
+    // Update check_out + location — kirim dengan offset +07:00 agar Supabase simpan waktu WIB
     const { error } = await supabase
       .from('attendance_logs')
       .update({
-        check_out: today + ' ' + now,
+        check_out: checkoutDatetime,
         checkout_lat: geo?.lat || null,
         checkout_lng: geo?.lng || null,
       })
