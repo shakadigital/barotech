@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase.js';
-import { fmtIdr, fmtDate, showToast, esc } from '../lib/helpers.js';
+import { fmtIdr, fmtDate, showToast, esc, localNow } from '../lib/helpers.js';
 import { canFinance, FINANCE_ROLES } from '../lib/roles.js';
 
 /**
@@ -155,21 +155,62 @@ export async function loadAssignments(state) {
 
     const isDeleter = ['superadmin','owner'].includes(state.user.role);
 
-    // Check today's attendance for each active assignment
-    const todayStr = new Date().toISOString().slice(0, 10);
+    // ── Fix: query attendance hari ini pakai range check_in WIB ──────────
+    // Bug lama: .eq('created_at', todayStr) → tidak pernah match
+    // Fix baru: filter check_in antara 00:00 dan 23:59 WIB hari ini
+    const { dateStr: todayStr } = localNow();
     const { data: attData } = await supabase
       .from('attendance_logs')
-      .select('employee_id, status')
-      .eq('created_at', todayStr);
+      .select('employee_id, check_in, check_out, status')
+      .gte('check_in', todayStr + ' 00:00:00+07:00')
+      .lte('check_in', todayStr + ' 23:59:59+07:00');
 
+    // Map: employee_id → { status, check_in, check_out }
     const todayAttendance = new Map();
     if (attData) {
       attData.forEach(att => {
-        todayAttendance.set(att.employee_id, att.status);
+        todayAttendance.set(att.employee_id, {
+          status:    att.status,
+          check_in:  att.check_in,
+          check_out: att.check_out,
+        });
       });
     }
 
+    // ── Hitung ringkasan untuk banner ────────────────────────────────────
+    const activeAssignments = data.filter(a => a.status === 'active');
+    const sudahAbsen  = activeAssignments.filter(a => todayAttendance.has(a.employee_id)).length;
+    const belumAbsen  = activeAssignments.length - sudahAbsen;
+
     el.innerHTML = `
+      <!-- Ringkasan Status Absensi Hari Ini -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(16,185,129,0.1);border-radius:var(--radius);border:1px solid rgba(16,185,129,0.25);">
+          <i class="fas fa-check-circle" style="color:var(--success);"></i>
+          <div>
+            <div class="text-xs text-secondary">Sudah Absen</div>
+            <div class="fw-bold" style="font-size:1.2rem;color:var(--success);">${sudahAbsen}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(239,68,68,0.1);border-radius:var(--radius);border:1px solid rgba(239,68,68,0.25);">
+          <i class="fas fa-clock" style="color:var(--danger);"></i>
+          <div>
+            <div class="text-xs text-secondary">Belum Absen</div>
+            <div class="fw-bold" style="font-size:1.2rem;color:var(--danger);">${belumAbsen}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(25,210,193,0.08);border-radius:var(--radius);border:1px solid rgba(25,210,193,0.2);">
+          <i class="fas fa-users" style="color:var(--primary);"></i>
+          <div>
+            <div class="text-xs text-secondary">Total Aktif</div>
+            <div class="fw-bold" style="font-size:1.2rem;color:var(--primary);">${activeAssignments.length}</div>
+          </div>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;">
+          <span class="text-xs text-secondary"><i class="fas fa-calendar-day"></i> ${new Date().toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long'})}</span>
+        </div>
+      </div>
+
       <div class="table-wrapper">
         <table class="data-table" id="assign-table">
           <thead>
@@ -189,15 +230,32 @@ export async function loadAssignments(state) {
               const emp = state.employees.find(e => e.id === a.employee_id);
               const prj = state.projects.find(p => p.id === a.project_id);
               const isActive = a.status === 'active';
-              const attStatus = todayAttendance.get(a.employee_id);
-              const hasCheckedIn = attStatus !== undefined;
+              const attInfo = todayAttendance.get(a.employee_id);
+              const hasCheckedIn = !!attInfo;
+              const hasCheckedOut = !!attInfo?.check_out;
+
+              // Badge absensi hari ini
+              let absenBadge = '';
+              if (!isActive) {
+                absenBadge = '';
+              } else if (!hasCheckedIn) {
+                absenBadge = '<span class="badge badge-offline" style="font-size:0.65rem;">BELUM ABSEN</span>';
+              } else if (hasCheckedIn && !hasCheckedOut) {
+                absenBadge = '<span class="badge" style="background:rgba(245,158,11,0.2);color:var(--warning);font-size:0.65rem;">SUDAH MASUK</span>';
+              } else {
+                absenBadge = '<span class="badge badge-online" style="font-size:0.65rem;">SUDAH PULANG</span>';
+              }
+
               return `
               <tr class="assign-row" data-index="${idx}">
                 <td class="text-xs text-secondary">${idx + 1}</td>
                 <td style="width:30px;cursor:pointer;" onclick="window.__app.toggleAssignRow(${idx})">
                   <i class="fas fa-chevron-right text-secondary" id="assign-chevron-${idx}"></i>
                 </td>
-                <td class="fw-bold">${esc(emp?.full_name || '-')}</td>
+                <td>
+                  <div class="fw-bold">${esc(emp?.full_name || '-')}</div>
+                  <div class="mt-2">${absenBadge}</div>
+                </td>
                 <td class="text-xs">${esc(prj?.name || '-')}</td>
                 <td class="text-xs">${fmtIdr(a.basic_salary)}</td>
                 <td class="text-xs">${fmtDate(a.start_date)}</td>
@@ -243,6 +301,7 @@ export async function loadAssignments(state) {
                     <div><span class="text-secondary">Transport:</span> ${fmtIdr(a.transport||0)}</div>
                     <div><span class="text-secondary">Tunjangan:</span> ${fmtIdr(a.tunjangan_lain||0)}</div>
                     <div><span class="text-secondary">Selesai:</span> ${a.end_date ? fmtDate(a.end_date) : '<span class="text-secondary">s/d selesai</span>'}</div>
+                    ${attInfo ? `<div><span class="text-secondary">Check-in:</span> ${attInfo.check_in ? new Date(attInfo.check_in).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}) : '-'} | Check-out: ${attInfo.check_out ? new Date(attInfo.check_out).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}) : '-'}</div>` : ''}
                     <div style="grid-column:1/-1;"><span class="text-secondary">Keterangan:</span> ${esc(a.notes || '-')}</div>
                   </div>
                 </td>
@@ -533,13 +592,15 @@ export async function saveAdminCheckIn(e, assignmentId, state) {
       .maybeSingle();
     if (assignError || !a) throw assignError || new Error('Penugasan tidak ditemukan');
 
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const checkInTime = document.getElementById('admin-checkin-time').value;
+    // Gunakan waktu lokal WIB agar tidak ada selisih +7 jam
+    const { dateStr: todayStr } = localNow();
+    const checkInTime  = document.getElementById('admin-checkin-time').value;
     const checkOutTime = document.getElementById('admin-checkout-time').value;
     const notes = document.getElementById('admin-checkin-notes').value.trim() || 'Check-in oleh admin';
 
-    const checkInTs = `${todayStr}T${checkInTime}:00`;
-    const checkOutTs = checkOutTime ? `${todayStr}T${checkOutTime}:00` : null;
+    // Format dengan offset +07:00 agar Supabase simpan waktu WIB
+    const checkInTs  = `${todayStr} ${checkInTime}:00+07:00`;
+    const checkOutTs = checkOutTime ? `${todayStr} ${checkOutTime}:00+07:00` : null;
 
     const hourlyRate = Math.round(a.basic_salary / 8);
 
