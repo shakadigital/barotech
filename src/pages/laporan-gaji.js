@@ -33,7 +33,7 @@ export function LaporanGajiPage(state) {
           <button class="btn btn-success" onclick="window.__app.exportLaporanGajiToExcel()">
             <i class="fas fa-file-excel"></i> Download Excel
           </button>
-          <button class="btn btn-primary" onclick="window.print()">
+          <button class="btn btn-primary" onclick="window.__app.printLaporanGaji()">
             <i class="fas fa-print"></i> Cetak
           </button>
         </div>
@@ -333,4 +333,124 @@ export function exportLaporanGajiToExcel() {
     console.error('Export error:', err);
     showToast('Gagal export: ' + err.message, 'error');
   }
+}
+
+/** Print preview laporan gaji — fullscreen overlay dengan logo resmi */
+export function printLaporanGaji() {
+  const container = document.getElementById('laporan-container');
+  if (!container || container.querySelector('.empty-state')) {
+    showToast('Silakan muat data terlebih dahulu', 'error');
+    return;
+  }
+
+  // Ambil info filter yang aktif
+  const month      = document.getElementById('lg-month')?.value || '';
+  const empName    = document.getElementById('lg-employee')?.selectedOptions?.[0]?.text || 'Semua Karyawan';
+  const projectName = document.getElementById('lg-project')?.selectedOptions?.[0]?.text || 'Semua Proyek';
+
+  const bulanLabel = month
+    ? new Date(month + '-01').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+    : 'Semua Periode';
+
+  const printDate = new Date().toLocaleDateString('id-ID', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  });
+
+  // Hapus overlay lama jika ada
+  document.getElementById('lg-print-overlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'lg-print-overlay';
+  overlay.style.cssText = `
+    position: fixed; inset: 0; z-index: 9999;
+    background: #f8f9fa;
+    overflow-y: auto;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #1a1a1a;
+  `;
+
+  overlay.innerHTML = `
+    <!-- Toolbar (tidak ikut cetak) -->
+    <div id="lg-print-toolbar" style="
+      position: sticky; top: 0; z-index: 10;
+      background: #1a1a2e; color: white;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 16px; gap: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    ">
+      <span style="font-weight:600;font-size:0.9rem;">
+        <i class="fas fa-print"></i> Preview Cetak — Laporan Gaji ${esc(bulanLabel)}
+      </span>
+      <div style="display:flex;gap:8px;">
+        <button onclick="window.print()" style="
+          background:#19d2c1; color:#fff; border:none; border-radius:6px;
+          padding:7px 14px; font-size:0.85rem; cursor:pointer; font-weight:600;
+        ">
+          <i class="fas fa-print"></i> Cetak / Simpan PDF
+        </button>
+        <button onclick="document.getElementById('lg-print-overlay').remove()" style="
+          background:rgba(255,255,255,0.15); color:#fff; border:none; border-radius:6px;
+          padding:7px 12px; font-size:0.85rem; cursor:pointer;
+        ">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Konten yang akan dicetak -->
+    <div id="lg-print-content" style="
+      max-width: 900px; margin: 24px auto; padding: 32px;
+      background: white; border-radius: 8px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    ">
+      <!-- Kop Surat -->
+      <div style="display:flex;align-items:center;gap:16px;padding-bottom:16px;border-bottom:2px solid #19d2c1;margin-bottom:20px;">
+        <img src="/apple-touch-icon.png" alt="Logo Barotech"
+          style="width:60px;height:60px;border-radius:10px;object-fit:contain;flex-shrink:0;" />
+        <div style="flex:1;">
+          <div style="font-size:1.4rem;font-weight:800;color:#1a1a2e;letter-spacing:0.5px;">BAROTECH</div>
+          <div style="font-size:0.8rem;color:#555;margin-top:2px;">Sistem Manajemen Absensi & Proyek</div>
+        </div>
+        <div style="text-align:right;font-size:0.78rem;color:#555;line-height:1.6;">
+          <div style="font-weight:700;font-size:1rem;color:#1a1a2e;">LAPORAN GAJI KARYAWAN</div>
+          <div>Periode: <strong>${esc(bulanLabel)}</strong></div>
+          <div>Karyawan: <strong>${esc(empName)}</strong></div>
+          <div>Proyek: <strong>${esc(projectName)}</strong></div>
+          <div style="margin-top:4px;color:#888;">Dicetak: ${printDate}</div>
+        </div>
+      </div>
+
+      <!-- Isi Laporan -->
+      <div id="lg-print-body">
+        ${container.innerHTML}
+      </div>
+
+      <!-- Footer -->
+      <div style="margin-top:32px;padding-top:12px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;font-size:0.75rem;color:#888;">
+        <span>Barotech — Laporan Gaji ${esc(bulanLabel)}</span>
+        <span>Dicetak pada ${printDate}</span>
+      </div>
+    </div>
+
+    <style>
+      @media print {
+        #lg-print-toolbar { display: none !important; }
+        #lg-print-overlay {
+          position: absolute !important;
+          background: white !important;
+          overflow: visible !important;
+        }
+        #lg-print-content {
+          box-shadow: none !important;
+          border-radius: 0 !important;
+          margin: 0 !important;
+          max-width: 100% !important;
+        }
+        body > *:not(#lg-print-overlay) { display: none !important; }
+      }
+    </style>
+  `;
+
+  document.body.appendChild(overlay);
+  overlay.scrollTop = 0;
 }

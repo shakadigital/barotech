@@ -5,7 +5,7 @@ import { DashboardPage, loadBonNotifications, loadTodayExpenses } from './pages/
 import { AttendancePage, verifyAttendance, deleteAttendance, saveWorkItems, generateDailyAttendance, openEditAttendance, saveEditAttendance, clockIn, clockOut, autoCheckoutStale } from './pages/attendance.js';
 import { RiwayatPage } from './pages/riwayat.js';
 import { LaporanPage, previewPhoto, handleLaporanSubmit } from './pages/laporan.js';
-import { LaporanGajiPage, filterLaporanGaji, exportLaporanGajiToExcel } from './pages/laporan-gaji.js';
+import { LaporanGajiPage, filterLaporanGaji, exportLaporanGajiToExcel, printLaporanGaji } from './pages/laporan-gaji.js';
 import { RekapProyekPage, loadRekapProyek, exportRekapProyek } from './pages/rekap-proyek.js';
 import { LaporanRekapGajiPage, loadRekapGaji, exportRekapGaji } from './pages/laporan-rekap-gaji.js';
 import { LaporanBonPage, loadLaporanBon, loadDetailBon, exportLaporanBon } from './pages/laporan-bon.js';
@@ -431,6 +431,7 @@ window.__app = {
   autoCheckoutStale() { autoCheckoutStale(); },
   filterLaporanGaji() { filterLaporanGaji(state); },
   exportLaporanGajiToExcel() { exportLaporanGajiToExcel(); },
+  printLaporanGaji() { printLaporanGaji(); },
   loadRekapProyek() { loadRekapProyek(); },
   exportRekapProyek() { exportRekapProyek(); },
   loadRekapGaji() { loadRekapGaji(); },
