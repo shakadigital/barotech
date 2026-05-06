@@ -46,7 +46,6 @@ const MENUS = {
 // Sub-menu di bawah "Laporan" (hanya untuk admin/owner/superadmin)
 const LAPORAN_SUBMENU = [
   { key: 'lapor',          icon: 'fa-camera',              label: 'Laporan Progress' },
-  { key: 'laporan-gaji',   icon: 'fa-file-invoice-dollar', label: 'Laporan Gaji' },
   { key: 'rekap-gaji',     icon: 'fa-money-bill-wave',     label: 'Rekap Gaji Lengkap' },
   { key: 'rekap-proyek',   icon: 'fa-chart-pie',           label: 'Rekap Biaya Proyek' },
   { key: 'laporan-bon',    icon: 'fa-hand-holding-usd',    label: 'Laporan Bon' },
