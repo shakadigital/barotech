@@ -264,33 +264,31 @@ export async function loadAssignments(state) {
                     ${isActive ? 'AKTIF' : 'PAUSE'}
                   </span>
                 </td>
-                <td class="text-center" style="padding:4px 6px;">
-                  <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+                <td style="padding:4px 8px;white-space:nowrap;">
+                  <div style="display:flex;flex-direction:row;align-items:center;gap:4px;flex-wrap:nowrap;">
                     <button class="btn btn-ghost btn-sm" title="Edit Penugasan"
                       onclick="window.__app.openEditAssignment('${a.id}')">
-                      <i class="fas fa-edit" style="font-size:0.7rem;"></i>
+                      <i class="fas fa-edit" style="font-size:0.75rem;"></i>
                     </button>
-                    <div class="flex gap-4">
                     ${isActive && !hasCheckedIn ? `
                       <button class="btn btn-primary btn-sm" title="Check-In Karyawan"
                         onclick="window.__app.openAdminCheckIn('${a.id}')">
-                        <i class="fas fa-sign-in-alt"></i>
+                        <i class="fas fa-sign-in-alt" style="font-size:0.75rem;"></i>
                       </button>` : ''}
                     ${isActive ? `
-                      <button class="btn btn-danger btn-sm" title="Akhiri"
+                      <button class="btn btn-danger btn-sm" title="Akhiri Penugasan"
                         onclick="window.__app.endAssignment('${a.id}')">
-                        <i class="fas fa-stop"></i>
+                        <i class="fas fa-stop" style="font-size:0.75rem;"></i>
                       </button>` : `
-                      <button class="btn btn-success btn-sm" title="Aktifkan"
+                      <button class="btn btn-success btn-sm" title="Aktifkan Kembali"
                         onclick="window.__app.resumeAssignment('${a.id}')">
-                        <i class="fas fa-play"></i>
+                        <i class="fas fa-play" style="font-size:0.75rem;"></i>
                       </button>`}
                     ${isDeleter ? `
-                      <button class="btn btn-danger btn-sm" title="Hapus"
+                      <button class="btn btn-ghost btn-sm" title="Hapus Penugasan"
                         onclick="window.__app.deleteAssignment('${a.id}')">
-                        <i class="fas fa-trash" style="color:#ef4444"></i>
+                        <i class="fas fa-trash" style="font-size:0.75rem;color:#ef4444;"></i>
                       </button>` : ''}
-                    </div>
                   </div>
                 </td>
               </tr>
