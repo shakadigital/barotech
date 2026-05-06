@@ -40,9 +40,9 @@ export function DashboardPage(state) {
     l.created_at?.startsWith(todayStr) && visibleEmpIds.has(l.employee_id)
   );
 
-  // Hadir = verified ATAU sudah check_in (kepala_lapangan/kepala_proyek absen mandiri = draft)
+  // Hadir = hadir/verified ATAU sudah check_in (kepala_lapangan/kepala_proyek absen mandiri = draft)
   const hadirLogs  = todayLogs.filter(l =>
-    l.status === 'verified' ||
+    l.status === 'hadir' || l.status === 'verified' ||
     (l.check_in && ['kepala_lapangan','kepala_proyek','kepala_gudang','admin'].includes(
       employees.find(e => e.id === l.employee_id)?.role
     ))
@@ -107,12 +107,27 @@ export function DashboardPage(state) {
                   const empRole = emp?.role || '';
                   const isNonKaryawan = ['kepala_lapangan','kepala_proyek','kepala_gudang','admin'].includes(empRole);
                   // Non-karyawan yang sudah check_in dianggap hadir meski status masih draft
-                  const isHadir = l.status === 'verified' || (isNonKaryawan && l.check_in);
-                  const statusBadge = isHadir
-                    ? '<span class="badge badge-online">Hadir</span>'
-                    : l.status === 'absent'
-                      ? '<span class="badge badge-offline">Tidak Hadir</span>'
-                      : '<span class="badge" style="background:rgba(245,158,11,0.2);color:var(--warning);">Pending</span>';
+                  const isHadir = l.status === 'hadir' || l.status === 'verified' || (isNonKaryawan && l.check_in);
+                  const isLibur = l.status === 'libur';
+                  const isIzin = l.status === 'izin';
+                  const isSakit = l.status === 'sakit';
+                  const isTidakHadir = l.status === 'tidak_hadir' || l.status === 'absent';
+                  
+                  let statusBadge = '';
+                  if (isHadir) {
+                    statusBadge = '<span class="badge badge-online">Hadir</span>';
+                  } else if (isTidakHadir) {
+                    statusBadge = '<span class="badge badge-offline">Tidak Hadir</span>';
+                  } else if (isLibur) {
+                    statusBadge = '<span class="badge" style="background:rgba(59,130,246,0.2);color:#3b82f6;">Libur</span>';
+                  } else if (isIzin) {
+                    statusBadge = '<span class="badge" style="background:rgba(245,158,11,0.2);color:#f59e0b;">Izin</span>';
+                  } else if (isSakit) {
+                    statusBadge = '<span class="badge" style="background:rgba(239,68,68,0.2);color:#ef4444;">Sakit</span>';
+                  } else {
+                    statusBadge = '<span class="badge" style="background:rgba(245,158,11,0.2);color:var(--warning);">Pending</span>';
+                  }
+                  
                   return `<tr>
                     <td class="text-xs text-secondary">${idx + 1}</td>
                     <td class="fw-bold">${esc(emp?.full_name || '-')}</td>
@@ -260,12 +275,27 @@ export function DashboardPage(state) {
                 todayLogs.map((l, idx) => {
                 const emp = employees.find(e => e.id === l.employee_id);
                 const prj = projects.find(p => p.id === l.project_id);
-                const isHadir = l.status === 'verified';
-                const statusBadge = isHadir
-                  ? '<span class="badge badge-online">Hadir</span>'
-                  : l.status === 'absent'
-                    ? '<span class="badge badge-offline">Tidak Hadir</span>'
-                    : '<span class="badge" style="background:rgba(245,158,11,0.2);color:var(--warning);">Pending</span>';
+                const isHadir = l.status === 'hadir' || l.status === 'verified';
+                const isLibur = l.status === 'libur';
+                const isIzin = l.status === 'izin';
+                const isSakit = l.status === 'sakit';
+                const isTidakHadir = l.status === 'tidak_hadir' || l.status === 'absent';
+                
+                let statusBadge = '';
+                if (isHadir) {
+                  statusBadge = '<span class="badge badge-online">Hadir</span>';
+                } else if (isTidakHadir) {
+                  statusBadge = '<span class="badge badge-offline">Tidak Hadir</span>';
+                } else if (isLibur) {
+                  statusBadge = '<span class="badge" style="background:rgba(59,130,246,0.2);color:#3b82f6;">Libur</span>';
+                } else if (isIzin) {
+                  statusBadge = '<span class="badge" style="background:rgba(245,158,11,0.2);color:#f59e0b;">Izin</span>';
+                } else if (isSakit) {
+                  statusBadge = '<span class="badge" style="background:rgba(239,68,68,0.2);color:#ef4444;">Sakit</span>';
+                } else {
+                  statusBadge = '<span class="badge" style="background:rgba(245,158,11,0.2);color:var(--warning);">Pending</span>';
+                }
+                
                 return `<tr>
                   <td class="text-xs text-secondary">${idx + 1}</td>
                   <td class="fw-bold">${esc(emp?.full_name || '-')}</td>
