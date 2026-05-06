@@ -49,10 +49,18 @@ export function esc(str) {
 export function getGeoLocation() {
   return new Promise((resolve) => {
     if (!navigator.geolocation) { resolve(null); return; }
+    // Timeout diperpanjang ke 10 detik, fallback null agar tidak blokir proses lain
+    const timer = setTimeout(() => resolve(null), 10000);
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
-      () => resolve(null),
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+      (pos) => {
+        clearTimeout(timer);
+        resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(null);
+      },
+      { enableHighAccuracy: false, timeout: 9000, maximumAge: 60000 }
     );
   });
 }

@@ -633,8 +633,9 @@ export async function clockIn(state, refreshFn) {
 
     const hourlyRate = basicSalary / 8;
 
-    // Capture GPS location
-    const geo = await getGeoLocation();
+    // Capture GPS location — opsional, gagal tidak menghentikan absen
+    let geo = null;
+    try { geo = await getGeoLocation(); } catch (_) {}
 
     // Insert attendance baru
     const { error } = await supabase.from('attendance_logs').insert({
@@ -692,8 +693,9 @@ export async function clockOut(state, refreshFn) {
       throw new Error('Anda sudah absen pulang hari ini');
     }
 
-    // Capture GPS location
-    const geo = await getGeoLocation();
+    // Capture GPS location — opsional, gagal tidak menghentikan absen
+    let geo = null;
+    try { geo = await getGeoLocation(); } catch (_) {}
 
     // Update check_out + location
     const { error } = await supabase
