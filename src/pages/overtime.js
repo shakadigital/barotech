@@ -16,7 +16,7 @@ export function OvertimePage(state) {
   const activeProjects = projects.filter(p => p.status !== 'selesai');
   const karyawanList   = employees.filter(e => e.role === 'karyawan');
 
-  // Karyawan: form ajukan lembur (sederhana)
+  // Karyawan: form ajukan lembur (sederhana - hanya tanggal, proyek, keterangan)
   function karyawanRequestForm() {
     if (!isKaryawan) return '';
     return `
@@ -29,42 +29,23 @@ export function OvertimePage(state) {
         <form id="ot-request-form" onsubmit="window.__app.handleOvertimeRequest(event)">
           <div class="form-row mb-16">
             <div class="form-group">
+              <label class="form-label">Tanggal Lembur</label>
+              <input type="date" class="form-input" id="ot-req-date"
+                value="${new Date().toISOString().slice(0,10)}" required />
+            </div>
+            <div class="form-group">
               <label class="form-label">Proyek</label>
               <select class="form-select" id="ot-req-project" required>
                 <option value="">Pilih Proyek</option>
                 ${activeProjects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}
               </select>
             </div>
-            <div class="form-group">
-              <label class="form-label">Tanggal Lembur</label>
-              <input type="date" class="form-input" id="ot-req-date"
-                value="${new Date().toISOString().slice(0,10)}" required />
-            </div>
-          </div>
-
-          <div class="form-row mb-16">
-            <div class="form-group">
-              <label class="form-label">Jam Mulai</label>
-              <input type="time" class="form-input" id="ot-req-start" value="17:00"
-                oninput="window.__ot_reqCalcDuration()" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Jam Selesai</label>
-              <input type="time" class="form-input" id="ot-req-end" value="20:00"
-                oninput="window.__ot_reqCalcDuration()" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Durasi</label>
-              <input type="text" class="form-input" id="ot-req-duration-display" value="3 jam" readonly
-                style="background:var(--surface-2,#f3f4f6);cursor:default;" />
-              <input type="hidden" id="ot-req-duration" value="3" />
-            </div>
           </div>
 
           <div class="form-group mb-16">
-            <label class="form-label">Deskripsi Pekerjaan</label>
-            <textarea class="form-textarea" id="ot-req-desc" rows="2"
-              placeholder="Pekerjaan yang dilakukan saat lembur..."></textarea>
+            <label class="form-label">Keterangan Pekerjaan Lembur</label>
+            <textarea class="form-textarea" id="ot-req-desc" rows="3" required
+              placeholder="Jelaskan pekerjaan yang dilakukan saat lembur..."></textarea>
           </div>
 
           <div class="form-group mb-24">
@@ -82,7 +63,7 @@ export function OvertimePage(state) {
             <i class="fas fa-paper-plane"></i> Ajukan Lembur
           </button>
           <div class="text-xs text-secondary mt-8" style="text-align:center;">
-            Permintaan akan diverifikasi oleh Admin
+            Durasi dan biaya lembur akan diisi oleh Admin saat verifikasi
           </div>
         </form>
         </div>
@@ -312,10 +293,11 @@ export async function loadOvertimeList(state) {
                 <td class="fw-bold">${esc(emp?.full_name || '-')}</td>
                 <td class="text-xs text-secondary">${esc(prj?.name || '-')}</td>
                 <td class="text-xs">
-                  <div>${ot.start_time?.slice(0,5)||'-'} – ${ot.end_time?.slice(0,5)||'-'}</div>
-                  <div class="text-secondary">${ot.duration_hours} jam</div>
+                  ${ot.duration_hours > 0 
+                    ? `<div>${ot.start_time?.slice(0,5)||'-'} – ${ot.end_time?.slice(0,5)||'-'}</div><div class="text-secondary">${ot.duration_hours} jam</div>`
+                    : '<span class="text-muted">Belum diisi</span>'}
                 </td>
-                ${isFinance ? `<td class="text-right text-xs fw-bold text-success">${fmtIdr(ot.overtime_pay)}</td>` : ''}
+                ${isFinance ? `<td class="text-right text-xs fw-bold text-success">${ot.overtime_pay > 0 ? fmtIdr(ot.overtime_pay) : '<span class="text-muted">—</span>'}</td>` : ''}
                 <td>${statusBadge}</td>
                 <td class="text-xs text-secondary">${esc(ot.work_description || '-')}</td>
                 <td class="text-center">
@@ -334,7 +316,7 @@ export async function loadOvertimeList(state) {
   }
 }
 
-/** Submit lembur oleh karyawan (status: pending) */
+/** Submit lembur oleh karyawan (status: pending) - hanya tanggal, proyek, keterangan */
 export async function handleOvertimeRequest(e, state, refreshFn) {
   e.preventDefault();
   const btn = document.getElementById('ot-req-submit-btn');
@@ -342,10 +324,6 @@ export async function handleOvertimeRequest(e, state, refreshFn) {
   btn.innerHTML = '<span class="spinner"></span> Mengajukan...';
 
   try {
-    const startTime = document.getElementById('ot-req-start').value;
-    const endTime   = document.getElementById('ot-req-end').value;
-    const duration  = parseFloat(document.getElementById('ot-req-duration').value) || 0;
-
     // Upload foto jika ada
     let photoUrl = null;
     const photoInput = document.getElementById('ot-req-photo');
@@ -367,9 +345,9 @@ export async function handleOvertimeRequest(e, state, refreshFn) {
       project_id:       document.getElementById('ot-req-project').value,
       employee_id:      state.user.id,
       overtime_date:    document.getElementById('ot-req-date').value,
-      start_time:       startTime + ':00',
-      end_time:         endTime + ':00',
-      duration_hours:   duration,
+      start_time:       null,    // akan diisi admin saat approve
+      end_time:         null,    // akan diisi admin saat approve
+      duration_hours:   0,       // akan diisi admin saat approve
       overtime_rate:    0,       // akan diisi admin saat approve
       overtime_pay:     0,
       location_name:    geo ? `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}` : null,
@@ -383,10 +361,6 @@ export async function handleOvertimeRequest(e, state, refreshFn) {
     showToast('Permintaan lembur berhasil diajukan!', 'success');
     document.getElementById('ot-request-form').reset();
     document.getElementById('ot-req-date').value = new Date().toISOString().slice(0,10);
-    document.getElementById('ot-req-start').value = '17:00';
-    document.getElementById('ot-req-end').value = '20:00';
-    document.getElementById('ot-req-duration-display').value = '3 jam';
-    document.getElementById('ot-req-duration').value = '3';
     document.getElementById('ot-req-photo-preview')?.classList.add('hidden');
     await refreshFn();
     await loadOvertimeList(state);
@@ -398,7 +372,7 @@ export async function handleOvertimeRequest(e, state, refreshFn) {
   }
 }
 
-/** Approve lembur — admin set status + overtime_rate */
+/** Approve lembur — admin set durasi, status + overtime_rate */
 export async function approveOvertime(id, state, refreshFn) {
   // Get the overtime record + employee overtime_rate
   const { data: ot, error: fetchErr } = await supabase
@@ -411,17 +385,35 @@ export async function approveOvertime(id, state, refreshFn) {
   // Get employee's overtime_rate from profile
   const { data: profile } = await supabase
     .from('profiles')
-    .select('overtime_rate')
+    .select('overtime_rate, full_name')
     .eq('id', ot.employee_id)
     .maybeSingle();
 
   const rate = profile?.overtime_rate || 0;
-  const pay  = Math.round(ot.duration_hours * rate);
+  
+  // Prompt admin untuk input durasi lembur (dalam jam)
+  const durationInput = prompt(
+    `Approve lembur untuk ${profile?.full_name || 'karyawan'}\n\n` +
+    `Upah lembur: ${fmtIdr(rate)}/jam\n\n` +
+    `Masukkan durasi lembur (dalam jam):`,
+    '3'
+  );
+  
+  if (!durationInput) return; // User cancel
+  
+  const duration = parseFloat(durationInput);
+  if (isNaN(duration) || duration <= 0) {
+    showToast('Durasi tidak valid', 'error');
+    return;
+  }
+
+  const pay = Math.round(duration * rate);
 
   const { error } = await supabase
     .from('overtime_logs')
     .update({
       status: 'approved',
+      duration_hours: duration,
       overtime_rate: rate,
       overtime_pay: pay,
       verified_by: state.user.id,
@@ -429,7 +421,7 @@ export async function approveOvertime(id, state, refreshFn) {
     .eq('id', id);
 
   if (error) { showToast('Gagal approve: ' + error.message, 'error'); return; }
-  showToast(`Lembur approved — ${ot.duration_hours} jam × ${fmtIdr(rate)} = ${fmtIdr(pay)}`, 'success');
+  showToast(`Lembur approved — ${duration} jam × ${fmtIdr(rate)} = ${fmtIdr(pay)}`, 'success');
   await loadOvertimeList(state);
 }
 
@@ -530,22 +522,7 @@ export async function deleteOvertime(id, refreshFn) {
 
 /** Kalkulasi durasi & upah otomatis */
 if (typeof window !== 'undefined') {
-  // Karyawan request form helpers
-  window.__ot_reqCalcDuration = function () {
-    const start = document.getElementById('ot-req-start')?.value;
-    const end   = document.getElementById('ot-req-end')?.value;
-    if (!start || !end) return;
-    const [sh, sm] = start.split(':').map(Number);
-    const [eh, em] = end.split(':').map(Number);
-    let diff = (eh * 60 + em) - (sh * 60 + sm);
-    if (diff < 0) diff += 24 * 60;
-    const hours = Math.round(diff / 60 * 10) / 10;
-    const display = document.getElementById('ot-req-duration-display');
-    const hidden  = document.getElementById('ot-req-duration');
-    if (display) display.value = hours + ' jam';
-    if (hidden)  hidden.value  = hours;
-  };
-
+  // Karyawan request form helpers - hanya preview foto
   window.__ot_previewReqPhoto = function (input) {
     const preview = document.getElementById('ot-req-photo-preview');
     if (input.files?.[0] && preview) {
