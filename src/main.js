@@ -516,7 +516,7 @@ window.__app = {
     const projectId = document.getElementById('mat-filter-project')?.value;
     loadMaterialList(state, 'material-list', { month, projectId });
   },
-  handleExpenseSubmit(e) { handleExpenseSubmit(e); },
+  handleExpenseSubmit(e) { handleExpenseSubmit(e, state, refreshAndRender); },
   deleteExpense(id) { deleteExpense(id, refreshAndRender); },
   loadFilteredExpenses() {
     const month = document.getElementById('exp-filter-month')?.value;

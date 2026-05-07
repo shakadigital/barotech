@@ -203,26 +203,29 @@ export async function loadExpenseSummary(projects, containerId = 'expense-summar
 }
 
 /** Submit form pengeluaran */
-export async function handleExpenseSubmit(e) {
+export async function handleExpenseSubmit(e, state, refreshFn) {
   e.preventDefault();
   const btn = document.getElementById('exp-submit-btn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Menyimpan...';
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    if (!state || !state.user || !state.user.id) {
+      throw new Error('User tidak ditemukan. Silakan login kembali.');
+    }
+    
     const payload = {
       project_id:   document.getElementById('exp-project').value,
       expense_date: document.getElementById('exp-date').value,
       category:     document.getElementById('exp-category').value,
       amount:       Number(document.getElementById('exp-amount').value),
       description:  document.getElementById('exp-desc').value.trim(),
-      recorded_by:  user.id,
+      recorded_by:  state.user.id,
     };
     const { error } = await supabase.from('project_expenses').insert(payload);
     if (error) throw error;
     showToast('Pengeluaran tersimpan ✓', 'success');
     document.getElementById('expense-form').reset();
     document.getElementById('exp-date').value = new Date().toISOString().slice(0,10);
-    window.__app.refreshPage?.();
+    if (refreshFn) await refreshFn();
   } catch (err) {
     showToast('Gagal: ' + err.message, 'error');
   } finally {
@@ -231,13 +234,13 @@ export async function handleExpenseSubmit(e) {
 }
 
 /** Delete expense */
-export async function deleteExpense(id) {
+export async function deleteExpense(id, refreshFn) {
   if (!confirm('Yakin hapus pengeluaran ini?')) return;
   try {
     const { error } = await supabase.from('project_expenses').delete().eq('id', id);
     if (error) throw error;
     showToast('Pengeluaran dihapus ✓', 'success');
-    window.__app.refreshPage?.();
+    if (refreshFn) await refreshFn();
   } catch (e) {
     showToast('Gagal: ' + e.message, 'error');
   }
