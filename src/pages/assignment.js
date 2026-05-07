@@ -145,6 +145,15 @@ export async function loadAssignments(state) {
   const el = document.getElementById('penugasan-list');
   if (!el) return;
 
+  // Show skeleton loader
+  el.innerHTML = `
+    <div style="padding:16px;">
+      <div class="skeleton skeleton-row"></div>
+      <div class="skeleton skeleton-row"></div>
+      <div class="skeleton skeleton-row"></div>
+      <div class="skeleton skeleton-row"></div>
+    </div>`;
+
   try {
     const { data, error } = await supabase
       .from('project_assignments')
