@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase.js';
-import { fmtIdr, fmtDate, showToast, esc, localNow } from '../lib/helpers.js';
+import { fmtIdr, fmtDate, fmtTime, showToast, esc, localNow } from '../lib/helpers.js';
 import { canFinance, FINANCE_ROLES } from '../lib/roles.js';
 
 /**
@@ -304,7 +304,7 @@ export async function loadAssignments(state) {
                     <div><span class="text-secondary">Transport:</span> ${fmtIdr(a.transport||0)}</div>
                     <div><span class="text-secondary">Tunjangan:</span> ${fmtIdr(a.tunjangan_lain||0)}</div>
                     <div><span class="text-secondary">Selesai:</span> ${a.end_date ? fmtDate(a.end_date) : '<span class="text-secondary">s/d selesai</span>'}</div>
-                    ${attInfo ? `<div><span class="text-secondary">Check-in:</span> ${attInfo.check_in ? new Date(attInfo.check_in).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}) : '-'} | Check-out: ${attInfo.check_out ? new Date(attInfo.check_out).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}) : '-'}</div>` : ''}
+                    ${attInfo ? `<div><span class="text-secondary">Check-in:</span> ${fmtTime(attInfo.check_in)} | Check-out: ${fmtTime(attInfo.check_out)}</div>` : ''}
                     <div style="grid-column:1/-1;"><span class="text-secondary">Keterangan:</span> ${esc(a.notes || '-')}</div>
                   </div>
                 </td>
