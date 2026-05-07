@@ -1,22 +1,22 @@
-# 🏗️ Struktur Aplikasi Absensi Barotech (Lengkap)
+﻿# 🏗️ Struktur Aplikasi Barotech Management System
 
-> Dokumen ini mencakup fitur yang **sudah ada** dan yang **belum ada (target pengembangan)**.
+> **Last Updated**: 7 Mei 2026 (v33)  
+> Dokumen lengkap arsitektur, fitur, dan struktur kode aplikasi.
 
-## 📌 Legenda
+## 📌 Status Fitur
 
 | Simbol | Arti |
 |--------|------|
 | ✅ | Sudah selesai & berjalan |
-| 🔧 | Sudah ada tapi perlu perbaikan/tambahan |
+| 🔧 | Sudah ada tapi perlu perbaikan |
 | ❌ | Belum ada, perlu dibangun |
-| 🛠️ | Baru diperbaiki / dikoreksi |
 
 ---
 
 ## 📁 Struktur File
 
-```
-absensi-barotech/
+\\\
+barotech/
 │
 ├── 📄 index.html                       ✅ Entry point, layout sidebar & bottom nav
 ├── 📄 package.json                     ✅ Dependencies: vite, @supabase/supabase-js
@@ -24,645 +24,511 @@ absensi-barotech/
 ├── 📄 .env.example                     ✅ Template credentials
 ├── 📄 .gitignore                       ✅
 ├── 📄 database-setup.sql               ✅ Index file SQL migrations
+├── 📄 README.md                        ✅ Dokumentasi utama
+├── 📄 CHANGELOG.md                     ✅ Version history
+├── 📄 DATABASE-SCHEMA.md               ✅ Schema database lengkap
 ├── 📄 STRUKTUR-APLIKASI.md             ✅ File ini
+├── 📄 OVERTIME-WORKFLOW-UPDATE.md      ✅ Detail workflow lembur
 │
-├── 📁 sql/                             ✅ Migration files terpisah per versi
+├── 📁 sql/                             ✅ Migration files (v1-v33)
 │   ├── 📄 README.md                    ✅ Panduan urutan & status migration
 │   ├── 📄 v1-initial-setup.sql         ✅ Setup awal
-│   ├── 📄 v2-kepala-teknik-patch.sql   ✅ Patch RLS kepala teknik
-│   ├── 📄 v3-fase1-jabatan-bon.sql     ✅ Jabatan, bon_balance, bon_transactions
-│   ├── 📄 v4-role-restructure.sql      ✅ Role baru, RLS update, status proyek
-│   ├── 📄 v5-fase2-overtime-photos.sql ✅ SUDAH DIJALANKAN — overtime_logs, project_photos
-│   ├── 📄 v6-work-items.sql            ✅ SUDAH DIJALANKAN — kolom work_items di attendance_logs
-│   ├── 📄 v7-project-assignments.sql   ✅ SUDAH DIJALANKAN — tabel project_assignments
-│   ├── 📄 v7b-fix-assignment-trigger.sql ✅ SUDAH DIJALANKAN — fix trigger penugasan
-│   ├── 📄 v8-attendance-edit.sql         ✅ SUDAH DIJALANKAN — hourly_rate & edit absensi
-│   ├── 📄 v8b-fix-generate-function.sql  ✅ SUDAH DIJALANKAN — fix generate_daily_attendance
-│   ├── 📄 v9-material-expenses.sql       ✅ SUDAH DIJALANKAN — material_orders, material_photos, project_expenses
-│   └── 📄 v10-role-rename.sql            ✅ SUDAH — rename role: kepala_teknik→kepala_proyek, kepala_proyek→kepala_lapangan
+│   ├── ...                             ✅ v2-v27 (lihat DATABASE-SCHEMA.md)
+│   ├── 📄 v28-add-leave-status-and-activities.sql ✅ Status baru + kegiatan
+│   ├── 📄 v29-salary-payment-and-budget.sql ✅ Salary payments + budget
+│   ├── 📄 v30-fix-rekap-gaji-rpc.sql   ✅ Fix RPC rekap gaji
+│   ├── 📄 v31-fix-attendance-status-data.sql ✅ Fix data status
+│   ├── 📄 v32-fix-generate-attendance-status.sql ✅ Fix generate function
+│   └── 📄 v33-fix-auto-sync-attendance-status.sql ✅ Fix auto sync trigger
 │
 ├── 📁 src/
 │   ├── 📄 main.js                      ✅ Entry point app, state, routing
 │   ├── 📄 style.css                    ✅ Tema teal-green glassmorphism
-│   ├── 📄 style.css.backup             ✅ Backup tema lama (ungu)
 │   ├── 📁 lib/
-│   │   ├── 📄 supabase.js              ✅ Supabase client (anon + admin)
+│   │   ├── 📄 supabase.js              ✅ Supabase client
 │   │   ├── 📄 roles.js                 ✅ Konstanta & helper akses per role
-│   │   └── 📄 helpers.js               ✅ Helper format & toast (fmtIdr, fmtDate, showToast)
+│   │   ├── 📄 helpers.js               ✅ Helper format & toast
+│   │   ├── 📄 excel-export.js          ✅ Export Excel utility
+│   │   └── 📄 map-picker.js            ✅ Map picker utility
 │   └── 📁 pages/
-│       ├── 📄 dashboard.js             ✅ Beranda
+│       ├── 📄 dashboard.js             ✅ Beranda (role-based views)
 │       ├── 📄 attendance.js            ✅ Absensi (plotting + verifikasi + edit)
-│       ├── 📄 overtime.js              ✅ Lembur terpisah
+│       ├── 📄 attendance-patch.js      ✅ Patch attendance utility
+│       ├── 📄 overtime.js              ✅ Lembur (simplified workflow)
 │       ├── 📄 laporan.js               ✅ Laporan progress (multi-foto)
 │       ├── 📄 project.js               ✅ Kelola proyek + status
 │       ├── 📄 bon.js                   ✅ Bon / Kasbon
 │       ├── 📄 users.js                 ✅ Kelola user
 │       ├── 📄 riwayat.js               ✅ Riwayat absensi karyawan
-│       └── 📄 assignment.js            ✅ Penugasan karyawan ke proyek (gaji, tanggal, auto-pause)
+│       ├── 📄 assignment.js            ✅ Penugasan karyawan ke proyek
+│       ├── 📄 material.js              ✅ Material orders
+│       ├── 📄 expense.js               ✅ Pengeluaran proyek
+│       ├── 📄 salary-payment.js        ✅ Pembayaran gaji
+│       ├── 📄 laporan-gaji.js          ✅ Laporan gaji
+│       ├── 📄 laporan-bon.js           ✅ Laporan bon
+│       ├── 📄 laporan-kegiatan.js      ✅ Laporan kegiatan
+│       ├── 📄 laporan-rekap-gaji.js    ✅ Rekap gaji lengkap
+│       └── 📄 rekap-proyek.js          ✅ Rekap biaya proyek
 │
 └── 📁 public/
     ├── 🖼️ bg.png / splash.png          ✅ Background & splash
     ├── 🖼️ favicon.*                    ✅ Icon set
     ├── 📄 manifest.json                ✅ PWA manifest
     └── 📄 site.webmanifest             ✅ PWA webmanifest
-```
+\\\
 
 ---
 
-## 🗄️ Struktur Database
+## 🗄️ Database Schema (Ringkasan)
 
-### Tabel `profiles` — Data User
-```
-id                UUID PK     ✅ Sama dengan auth.users.id
-email             TEXT UNIQUE ✅ Saat ini: username@barotech.com (🔧 Rencana: input email sungguhan, opsional)
-username          TEXT UNIQUE ✅ Untuk login (bukan email)
-password_hash     TEXT        ✅ Password plain (custom auth)
-full_name         TEXT        ✅ Nama lengkap
-role              TEXT        ✅ 7 role (lihat daftar role)
-whatsapp_number   TEXT        ✅ Nomor WhatsApp
-jabatan           TEXT        ✅ Jabatan lapangan (Mandor, Tukang, Kenek, dll)
-bon_balance       NUMERIC     ✅ Saldo bon/kasbon saat ini (auto-update via trigger)
-created_at        TIMESTAMP   ✅ Auto
-```
+Lihat **DATABASE-SCHEMA.md** untuk detail lengkap. Berikut ringkasan tabel utama:
 
-**Role sistem (7 level):**
+| # | Tabel | Deskripsi | Status |
+|---|-------|-----------|--------|
+| 1 | \profiles\ | Data user / karyawan | ✅ |
+| 2 | \projects\ | Data proyek + budget | ✅ |
+| 3 | \ttendance_logs\ | Absensi harian + keuangan | ✅ |
+| 4 | \overtime_logs\ | Lembur terpisah (simplified workflow) | ✅ |
+| 5 | \project_updates\ | Laporan progress proyek | ✅ |
+| 6 | \project_photos\ | Foto progress (multi) | ✅ |
+| 7 | \project_assignments\ | Penugasan karyawan ke proyek | ✅ |
+| 8 | \on_transactions\ | Riwayat bon / kasbon | ✅ |
+| 9 | \material_orders\ | Order material | ✅ |
+| 10 | \material_photos\ | Foto nota material | ✅ |
+| 11 | \project_expenses\ | Pengeluaran proyek | ✅ |
+| 12 | \salary_payments\ | History pembayaran gaji | ✅ |
+| 13 | \daily_activities\ | Log kegiatan harian | ✅ |
+
+### Role Sistem (7 Level)
+
 | # | Role | Akses Keuangan | Delete | Keterangan |
 |---|------|:-:|:-:|---|
-| 1 | `superadmin` | ✅ | ✅ | Akses penuh |
-| 2 | `owner` | ✅ | ✅ | Akses penuh |
-| 3 | `admin` | ✅ | ❌ | CRUD kecuali delete, bisa update status proyek |
-| 4 | `kepala_proyek` | ❌ | ❌ | Verifikasi absensi semua proyek, lihat lembur |
-| 5 | `kepala_gudang` | ❌ | ❌ | Lihat absensi semua proyek (read-only) |
-| 6 | `kepala_lapangan` | ❌ | ❌ | Verifikasi absensi proyeknya sendiri, laporan |
-| 7 | `karyawan` | ❌ | ❌ | Hanya lihat riwayat absensi sendiri |
-
----
-
-### Tabel `projects` — Data Proyek
-```
-id                UUID PK     ✅
-name              TEXT        ✅ Nama proyek
-location_name     TEXT        ✅ Lokasi proyek
-lead_id           UUID FK     ✅ → profiles.id (kepala_proyek / kepala_lapangan)
-progress_pct      INTEGER     ✅ Progress 0–100%
-status            TEXT        ✅ "aktif" | "selesai" | "pending"
-created_at        TIMESTAMP   ✅ Auto
-
-── BELUM ADA (target) ───────────────────────
-total_expense     NUMERIC     ✅ Total pengeluaran proyek (computed via query project_expenses)
-```
-
----
-
-### Tabel `attendance_logs` — Absensi & Keuangan Harian
-```
-id                UUID PK     ✅
-employee_id       UUID FK     ✅ → profiles.id
-project_id        UUID FK     ✅ → projects.id
-status            TEXT        ✅ "draft" | "verified" | "absent"
-check_in          TIME        ✅ Jam masuk
-check_out         TIME        ✅ Jam keluar
-notes             TEXT        ✅ "Hadir" / "Tidak Hadir" / "Pending"
-basic_salary      NUMERIC     ✅ Gaji dasar (Rp)
-overtime_hours    NUMERIC     ✅ Jam lembur inline
-overtime_rate     NUMERIC     ✅ Upah lembur/jam inline (Rp)
-overtime_pay      NUMERIC     ✅ Total lembur inline
-misc_amount       NUMERIC     ✅ Tunjangan lain-lain (Rp)
-misc_description  TEXT        ✅ Keterangan lain-lain
-cash_advance      NUMERIC     ✅ Potongan kasbon (Rp)
-cash_payout       NUMERIC     ✅ Pinjam baru / uang keluar (Rp)
-jabatan_snapshot  TEXT        ✅ Jabatan saat absensi (snapshot)
-work_items        TEXT        ✅ Item pekerjaan yang dikerjakan (v6)
-hourly_rate       NUMERIC     ✅ Upah per jam (v8 — auto dari basic_salary÷8)
-created_at        TIMESTAMP   ✅ Auto
-```
-
----
-
-### Tabel `overtime_logs` — Lembur Terpisah ✅ BARU
-```
-id                UUID PK     ✅
-attendance_id     UUID FK     ✅ → attendance_logs.id (nullable)
-employee_id       UUID FK     ✅ → profiles.id
-project_id        UUID FK     ✅ → projects.id
-overtime_date     DATE        ✅ Tanggal lembur
-start_time        TIME        ✅ Jam mulai lembur
-end_time          TIME        ✅ Jam selesai lembur
-duration_hours    NUMERIC     ✅ Total jam lembur (auto-kalkulasi)
-overtime_rate     NUMERIC     ✅ Upah lembur/jam (Rp)
-overtime_pay      NUMERIC     ✅ Total upah lembur
-location_name     TEXT        ✅ Lokasi lembur
-work_description  TEXT        ✅ Pekerjaan yang dilakukan
-photo_url         TEXT        ✅ Foto bukti lembur
-created_by        UUID FK     ✅ → profiles.id
-created_at        TIMESTAMP   ✅ Auto
-```
-
----
-
-### Tabel `project_updates` — Laporan Progress
-```
-id                UUID PK     ✅
-project_id        UUID FK     ✅ → projects.id
-reported_by       UUID FK     ✅ → profiles.id
-percentage        INTEGER     ✅ Progress (0–100%)
-description       TEXT        ✅ Deskripsi laporan
-photo_url         TEXT        🔧 Legacy — digantikan project_photos
-created_at        TIMESTAMP   ✅ Auto
-```
-
----
-
-### Tabel `project_photos` — Multiple Foto Progress ✅ BARU
-```
-id                UUID PK     ✅
-project_id        UUID FK     ✅ → projects.id
-update_id         UUID FK     ✅ → project_updates.id
-uploaded_by       UUID FK     ✅ → profiles.id
-photo_url         TEXT        ✅ URL foto di Supabase Storage
-caption           TEXT        ✅ Keterangan foto
-photo_order       INTEGER     ✅ Urutan foto (1–4)
-taken_at          TIMESTAMP   ✅ Waktu foto diambil
-created_at        TIMESTAMP   ✅ Auto
-```
-
----
-
-### Tabel `project_assignments` — Penugasan Karyawan ke Proyek ✅ BARU (v7)
-```
-id                UUID PK     ✅
-employee_id       UUID FK     ✅ → profiles.id
-project_id        UUID FK     ✅ → projects.id
-basic_salary      NUMERIC     ✅ Gaji dasar per hari
-start_date        DATE        ✅ Tanggal mulai
-end_date          DATE        ✅ Tanggal selesai (NULL = sampai proyek selesai)
-status            TEXT        ✅ active | paused | ended
-notes             TEXT        ✅ Keterangan penugasan
-paused_by_id      UUID FK     ✅ Penugasan yang mem-pause ini (nullable)
-created_by        UUID FK     ✅ → profiles.id
-created_at        TIMESTAMP   ✅ Auto
-updated_at        TIMESTAMP   ✅ Auto
-```
-
-**Trigger:**
-- `auto_pause_previous_assignment` — pause penugasan lama saat karyawan ditugaskan ke proyek baru
-- `auto_resume_paused_assignment` — resume penugasan lama saat penugasan sementara berakhir
-- `end_project_assignments` — auto-end semua penugasan saat proyek ditandai selesai
-
-**Function:**
-- `generate_daily_attendance(p_date)` — auto-generate baris attendance_logs dari penugasan aktif hari itu
-
----
-
-### Tabel `bon_transactions` — Riwayat Bon/Kasbon ✅
-```
-id                UUID PK     ✅
-employee_id       UUID FK     ✅ → profiles.id
-project_id        UUID FK     ✅ → projects.id (nullable)
-type              TEXT        ✅ "pinjam" | "bayar"
-amount            NUMERIC     ✅ Jumlah transaksi (Rp)
-balance_after     NUMERIC     ✅ Saldo bon setelah transaksi (auto via trigger)
-description       TEXT        ✅ Keterangan
-attendance_id     UUID FK     ✅ → attendance_logs.id (nullable)
-created_by        UUID FK     ✅ → profiles.id
-created_at        TIMESTAMP   ✅ Auto
-```
-
----
-
-### Tabel `material_orders` — Order Material ✅ BARU (v9)
-```
-id              UUID PK     ✅
-project_id      UUID FK     ✅ → projects.id
-order_date      DATE        ✅ Tanggal order
-order_type      TEXT        ✅ gudang | customer | beli_lokasi
-material_name   TEXT        ✅ Nama material
-quantity        NUMERIC     ✅ Jumlah
-unit            TEXT        ✅ Satuan (kg, sak, meter, dll)
-unit_price      NUMERIC     ✅ Harga satuan (Rp)
-total_price     NUMERIC     ✅ Total harga (auto-calc qty × unit_price)
-supplier_name   TEXT        ✅ Nama supplier
-description     TEXT        ✅ Keterangan
-status          TEXT        ✅ pending | approved | rejected | completed
-ordered_by      UUID FK     ✅ → profiles.id
-created_at      TIMESTAMP   ✅ Auto
-```
-
----
-
-### Tabel `material_photos` — Foto Nota Material ✅ BARU (v9)
-```
-id                UUID PK     ✅
-material_order_id UUID FK     ✅ → material_orders.id
-project_id        UUID FK     ✅ → projects.id
-photo_url         TEXT        ✅ URL foto di Supabase Storage
-caption           TEXT        ✅ Keterangan foto
-photo_type        TEXT        ✅ nota | barang | lainnya
-uploaded_by       UUID FK     ✅ → profiles.id
-created_at        TIMESTAMP   ✅ Auto
-```
-
----
-
-### Tabel `project_expenses` — Pengeluaran Proyek ✅ BARU (v9)
-```
-id              UUID PK     ✅
-project_id      UUID FK     ✅ → projects.id
-expense_date    DATE        ✅ Tanggal pengeluaran
-category        TEXT        ✅ material | operasional | jasa | lainnya
-description     TEXT        ✅ Deskripsi pengeluaran
-amount          NUMERIC     ✅ Jumlah (Rp)
-prev_total      NUMERIC     ✅ Total sebelumnya
-running_total   NUMERIC     ✅ Total akumulasi (auto-calc)
-photo_url       TEXT        ✅ Foto nota (nullable)
-recorded_by     UUID FK     ✅ → profiles.id
-created_at      TIMESTAMP   ✅ Auto
-```
-
----
-
-## 📐 Relasi Antar Tabel
-
-```
-profiles ──────────────────────────────────────────────────┐
-  │                                                         │
-  ├──< attendance_logs >──────────< projects               │
-  │         │                          │                    │
-  │         └──< overtime_logs         ├──< project_updates │
-  │         │                          │         │          │
-  │         └──< bon_transactions      └──< project_photos  │
-  │                                                         │
-  ├──< material_orders >────< material_photos
-  │
-  └──< project_expenses
-```
+| 1 | \superadmin\ | ✅ | ✅ | Akses penuh |
+| 2 | \owner\ | ✅ | ✅ | Akses penuh |
+| 3 | \dmin\ | ✅ | ❌ | CRUD kecuali delete |
+| 4 | \kepala_proyek\ | ❌ | ❌ | Verifikasi absensi semua proyek |
+| 5 | \kepala_gudang\ | ❌ | ❌ | Lihat absensi semua proyek (read-only) |
+| 6 | \kepala_lapangan\ | ❌ | ❌ | Verifikasi absensi proyeknya sendiri |
+| 7 | \karyawan\ | ❌ | ❌ | Lihat riwayat sendiri, ajukan lembur |
 
 ---
 
 ## 📱 Halaman Aplikasi
 
 ### 🔐 Login
-```
-✅ Form username & password (bukan email untuk login)
+\\\
+✅ Form username & password (custom auth)
 ✅ Splash screen animasi dengan orbs warna teal-green
 ✅ Auto-login jika session masih aktif
-🔧 Rencana: email field terpisah (email sungguhan, opsional) — saat ini auto-generate username@barotech.com
-```
+✅ Password hashing dengan bcrypt
+\\\
 
----
-
-### 🏠 Beranda (semua role)
-```
+### 🏠 Beranda (Dashboard)
+\\\
 ✅ Greeting + role badge
 ✅ Status DATABASE ONLINE / OFFLINE
-✅ Statistik: jumlah karyawan & proyek aktif
-✅ Klik stat → tampilkan daftar karyawan / proyek
-✅ Aktivitas hari ini (ringkasan absensi)
-
-✅ Notifikasi bon mendekati batas (threshold Rp 500.000)
-✅ Ringkasan pengeluaran proyek hari ini
-```
-
----
+✅ Role-based views:
+   - Owner/Admin/Superadmin: semua karyawan + semua proyek
+   - Kepala Proyek/Gudang: karyawan s/d kepala_lapangan + semua proyek
+   - Kepala Lapangan: karyawan s/d kepala_lapangan + proyek sendiri
+   - Karyawan: karyawan s/d kepala_lapangan + tanpa quick action
+✅ Quick stats: Personil, Proyek Aktif, Hadir, Belum Absen
+✅ Klik stat → tampilkan detail list
+✅ Aktivitas hari ini (tabel absensi)
+✅ Notifikasi bon mendekati batas (role-specific):
+   - Owner/Admin/Superadmin: lihat semua karyawan
+   - User lain: hanya bon sendiri
+✅ Pengeluaran hari ini (owner/admin/superadmin only)
+\\\
 
 ### 📋 Absensi
+\\\
+✅ Admin: Plotting absensi lengkap (jam, gaji, lembur, kasbon)
+✅ Kepala Proyek: Verifikasi semua proyek
+✅ Kepala Lapangan: Verifikasi proyek sendiri + self check-in
+✅ Kepala Gudang: Read-only semua proyek
+✅ Generate attendance otomatis dari assignment
+✅ Edit jam & keuangan (modal inline)
+✅ Status: hadir, tidak_hadir, pending, libur, izin, sakit
+✅ Kolom kegiatan untuk log aktivitas
+✅ Auto-sync dengan assignment (triggers)
+\\\
 
-#### Admin / Owner / Superadmin — Plotting
-```
-✅ Pilih proyek (hanya proyek aktif) & karyawan
-✅ Auto-fill jabatan & saldo bon saat pilih karyawan
-✅ Jam masuk & keluar (time picker)
-✅ Gaji dasar (Rp)
-✅ Lembur inline: jam × upah, total otomatis
-✅ Tunjangan/lain-lain + keterangan
-✅ Kasbon: potongan + pinjam baru
-✅ Status awal: Draft / Langsung Verifikasi
-✅ Tabel hari ini + detail keuangan per baris
-✅ Form reset otomatis setelah submit
-✅ Item pekerjaan yang dikerjakan (work_items per baris)
-✅ Auto-update saldo bon via trigger bon_transactions
-✅ Dark mode / Light mode toggle (kanan atas header)
-✅ Preference tema disimpan di localStorage
-✅ Mobile-first untuk tenaga lapangan (kepala_lapangan/karyawan)
-✅ Touch target besar di mobile (44px+) untuk kemudahan tap
-✅ Bottom navigation prominent di mobile
-✅ Tabel scrollable horizontal di mobile
-```
-
-#### Kepala Teknik — Verifikasi Semua Proyek
-```
-✅ Lihat absensi semua proyek hari ini
-✅ Generate absensi harian otomatis dari penugasan aktif
-✅ Tombol Hadir / Tidak Hadir (tanpa data keuangan)
-✅ Input item pekerjaan per karyawan
-✅ Status badge: HADIR | TIDAK HADIR | BELUM DIVERIFIKASI
-✅ Info banner peran verifikasi
-✅ Edit jam & keuangan (admin+) — modal inline
-```
-
-#### Kepala Gudang — Read-Only Semua Proyek
-```
-✅ Lihat daftar kehadiran semua proyek (tanpa keuangan)
-✅ Tidak ada tombol aksi
-```
-
-#### Kepala Proyek — Verifikasi Proyeknya Sendiri
-```
-✅ Lihat & verifikasi absensi proyeknya sendiri
-✅ Generate absensi harian otomatis dari penugasan aktif
-✅ Tombol Hadir / Tidak Hadir (tanpa data keuangan)
-✅ Input item pekerjaan per karyawan
-```
-
----
-
-### ⏰ Lembur ✅ BARU
-```
-✅ Form input: proyek, karyawan, tanggal, lokasi
-✅ Jam mulai & selesai → durasi dihitung otomatis
-✅ Upah/jam → total upah dihitung otomatis
-✅ Deskripsi pekerjaan lembur
-✅ Upload foto bukti lembur
-✅ Tabel riwayat lembur (filter per role)
-✅ Kolom keuangan hanya tampil untuk admin+
-✅ Delete hanya superadmin & owner
-```
-
----
+### ⏰ Lembur (Simplified Workflow)
+\\\
+✅ Karyawan: Ajukan lembur (tanggal, proyek, keterangan, foto)
+✅ Admin: Approve dengan input durasi
+✅ Sistem auto-calc upah: durasi × overtime_rate
+✅ Admin: Edit durasi setelah approved
+✅ Status: pending → approved / rejected
+✅ Tombol edit & delete (role-based)
+✅ Riwayat lembur dengan filter per role
+\\\
 
 ### 📊 Riwayat Absensi (Karyawan)
-```
+\\\
 ✅ Tabel: Tanggal | Proyek | Status | Jam | Keuangan
-✅ Kolom keuangan: Gaji | Lembur | Lain-lain | Kasbon | Total Terima
+✅ Kolom keuangan: Gaji | Lembur | Lain-lain | Kasbon | Total
 ✅ Ringkasan total di atas tabel
 ✅ 3 lapisan keamanan: RLS + query filter + frontend guard
-✅ Jabatan snapshot per baris
+✅ Filter per bulan / per proyek
+\\\
 
-✅ Filter per bulan / per proyek (expense, material, bon)
-✅ Saldo bon berjalan (ditampilkan di riwayat bon per karyawan)
-```
-
----
-
-### 📸 Laporan Progress ✅ DIPERBARUI
-```
+### 📸 Laporan Progress
+\\\
 ✅ Pilih proyek (kepala_lapangan hanya proyeknya)
 ✅ Slider progress (%)
 ✅ Deskripsi laporan
 ✅ Multiple foto: maks 4 foto + caption per foto
 ✅ Galeri riwayat laporan per proyek
-✅ Foto lama (1 foto) tetap ditampilkan sebagai fallback
+✅ Geolocation capture otomatis
+✅ Lightbox / zoom foto
+\\\
 
-✅ Timestamp & lokasi otomatis (geolocation capture di overtime & laporan)
-✅ Lightbox / zoom foto (overlay modal global)
-```
-
----
-
-### 🏗️ Kelola Proyek (Admin / Owner / Superadmin + Kepala Proyek lihat)
-```
-✅ Buat proyek baru (nama, lokasi, penanggung jawab, status awal)
+### 🏗️ Kelola Proyek
+\\\
+✅ CRUD proyek (nama, lokasi, penanggung jawab, status)
+✅ Budget limit & alert threshold (v29)
 ✅ Penanggung jawab: kepala_proyek atau kepala_lapangan
-✅ Daftar proyek + progress % + status badge
-✅ Tombol Tandai Selesai / Aktifkan Kembali (admin+)
+✅ Status: aktif / selesai / pending
+✅ Tombol Tandai Selesai / Aktifkan Kembali
 ✅ Hapus proyek (superadmin & owner only)
-✅ Kepala proyek bisa lihat semua proyek (read-only)
+✅ Detail proyek: karyawan terlibat + pengeluaran
+✅ Auto-end assignments saat proyek selesai
+\\\
 
-✅ Detail proyek (modal: karyawan terlibat via penugasan + pengeluaran)
-✅ Timeline progress (visual timeline di modal detail proyek)
-```
-
----
-
-### 💰 Bon / Kasbon (Admin / Owner / Superadmin)
-```
-✅ Input pinjam baru + input pembayaran bon
+### 💰 Bon / Kasbon
+\\\
+✅ Input pinjam baru + pembayaran bon
 ✅ Daftar karyawan + saldo bon saat ini
-✅ Riwayat transaksi per karyawan (jumlah, saldo setelah, keterangan)
+✅ Riwayat transaksi per karyawan
 ✅ Validasi: bayar tidak boleh melebihi saldo
-✅ Trigger DB: saldo bon di profiles terupdate otomatis
-```
+✅ Trigger DB: saldo bon auto-update
+✅ Filter per bulan
+\\\
 
-### 📋 Penugasan Karyawan (Admin / Owner / Superadmin)
-```
+### 📋 Penugasan Karyawan
+\\\
 ✅ Tugaskan karyawan ke proyek aktif
-✅ Tentukan gaji dasar per hari per penugasan
-✅ Tanggal mulai & selesai (nullable = sampai proyek selesai)
-✅ Auto-pause penugasan lama saat karyawan dipindah proyek
-✅ Auto-resume penugasan sebelumnya saat penugasan sementara berakhir
-✅ Daftar penugasan aktif + status (active/paused/ended)
-✅ Edit gaji dasar penugasan yang sedang berjalan
-✅ End / resume penugasan manual
-✅ Delete penugasan (superadmin & owner only)
-✅ Auto-end penugasan saat proyek ditandai selesai
-✅ Generate absensi harian otomatis dari penugasan aktif
-```
+✅ Gaji breakdown: uang_makan, transport, tunjangan_lain
+✅ Auto-calc basic_salary dari komponen
+✅ Tanggal mulai & selesai (nullable)
+✅ Auto-pause penugasan lama saat pindah proyek
+✅ Auto-resume penugasan sebelumnya
+✅ Status: active / paused / ended
+✅ Edit gaji, end, resume, delete (role-based)
+✅ Auto-sync dengan attendance_logs (triggers)
+\\\
 
----
+### 📦 Material Orders
+\\\
+✅ Input order: proyek, jenis, material, qty, harga
+✅ Jenis: gudang / customer / beli_lokasi
+✅ Auto-calc total_price
+✅ Upload foto nota (multiple)
+✅ Status: pending → approved / rejected / completed
+✅ Update status langsung dari tabel
+✅ Delete (superadmin & owner only)
+\\\
 
-### 📦 Material Orders (Admin / Owner / Superadmin / Kepala Gudang / Kepala Lapangan)
-```
-✅ Input order material: proyek, jenis (gudang/customer/beli_lokasi)
-✅ Nama material, jumlah, satuan, harga satuan, total auto-calc
-✅ Nama supplier & keterangan
-✅ Status order: Pending → Disetujui / Ditolak / Selesai
-✅ Daftar semua order material per proyek
-✅ Update status langsung dari tabel (admin, kepala_gudang, kepala_lapangan)
-✅ Delete order (superadmin & owner)
-```
+### �� Pengeluaran Proyek
+\\\
+✅ Input pengeluaran: proyek, tanggal, kategori, jumlah
+✅ Kategori: material, operasional, jasa, lainnya
+✅ Running total akumulasi otomatis
+✅ Upload foto nota
+✅ Delete (superadmin & owner only)
+✅ Filter per bulan
+\\\
 
----
+### 💵 Pembayaran Gaji (v29)
+\\\
+✅ Rekap gaji karyawan per periode
+✅ Breakdown: gaji pokok, lembur, bonus, potongan
+✅ Tandai sudah dibayar (payment_id di attendance)
+✅ History pembayaran lengkap
+✅ Payment method: cash / transfer
+✅ Export slip gaji
+\\\
 
-### 📊 Pengeluaran Proyek (Admin / Owner / Superadmin)
-```
-✅ Input pengeluaran: proyek, tanggal, kategori, jumlah, deskripsi
-✅ Kategori: Material, Operasional, Jasa, Lainnya
-✅ Daftar pengeluaran per proyek dengan running_total akumulasi
-✅ Total akumulasi otomatis (prev_total + amount)
-✅ Delete pengeluaran (superadmin & owner)
-```
+### 📊 Laporan
+\\\
+✅ Laporan Gaji (per karyawan, per periode)
+✅ Laporan Bon (history bon karyawan)
+✅ Laporan Kegiatan (daily activities)
+✅ Rekap Gaji Lengkap (gaji + lembur - bon)
+✅ Rekap Biaya Proyek (semua pengeluaran)
+✅ Export Excel (semua laporan)
+✅ Filter per bulan / per proyek
+\\\
 
----
-
-### 👥 Kelola User (Admin / Owner / Superadmin)
-```
-✅ Form tambah user: nama, WA, role (7 pilihan), jabatan, username, password
-✅ Field jabatan hanya muncul jika role = karyawan
-🔧 Rencana: tambah input Email sungguhan (opsional), hapus auto-generate username@barotech.com
-   - Login tetap pakai username + password (tidak berubah)
-   - Email untuk keperluan notifikasi / reset password di masa depan
-   - Kolom email di DB sudah UNIQUE & mendukung NULL, tidak perlu ubah skema
-   - User lama yang sudah punya email @barotech.com bisa di-update saat mereka mengisi email asli
+### 👥 Kelola User
+\\\
+✅ Form tambah user: nama, WA, role, jabatan, username, password
 ✅ Auto-confirm (tidak perlu verifikasi email)
-✅ Daftar user: nama, email, role (label), jabatan, saldo bon
+✅ Daftar user: nama, email, role, jabatan, saldo bon
+✅ Edit user: nama, WA, role, password, jabatan, overtime_rate
 ✅ Delete user (superadmin & owner only)
-
-✅ Edit user (modal edit: nama, WA, role, password, jabatan)
-```
+✅ Field overtime_rate untuk perhitungan lembur
+\\\
 
 ---
 
 ## 🧭 Navigasi per Role
 
-| Menu                  | superadmin | owner | admin | kepala_proyek | kepala_gudang | kepala_lapangan | karyawan |
-|-----------------------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 🏠 Beranda            | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 📋 Penugasan          | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| 📋 Absensi (plotting) | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| 📋 Absensi (verifikasi)| ✅ | ✅ | ✅ | ✅ | 👁️ | ✅ | ❌ |
-| ⏰ Lembur             | ✅ | ✅ | ✅ | 👁️ | ❌ | 👁️ | ❌ |
-| 📊 Riwayat Absensi    | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| 📸 Laporan Progress   | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ❌ |
-| 🏗️ Proyek             | ✅ | ✅ | ✅ | 👁️ | ❌ | ❌ | ❌ |
-| � Material Orders    | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| �� Bon / Kasbon       | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| 📊 Pengeluaran Proyek | ✅ | ✅ | ✅ | �️ | ❌ | 👁️ | ❌ |
-| �� User               | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Menu | superadmin | owner | admin | kepala_proyek | kepala_gudang | kepala_lapangan | karyawan |
+|------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 🏠 Beranda | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 📋 Penugasan | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| 📋 Absensi | ✅ | ✅ | ✅ | ✅ | 👁️ | ✅ | ❌ |
+| ⏰ Lembur | ✅ | ✅ | ✅ | 👁️ | ❌ | 👁️ | ✅ |
+| 📊 Riwayat | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| 📸 Laporan | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ❌ |
+| 🏗️ Proyek | ✅ | ✅ | ✅ | 👁️ | ❌ | ❌ | ❌ |
+| 📦 Material | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| 💸 Pengeluaran | ✅ | ✅ | ✅ | 👁️ | ❌ | 👁️ | ❌ |
+| 💰 Bon | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| 💵 Gaji | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| 📊 Laporan | ✅ | ✅ | ✅ | 👁️ | ❌ | 👁️ | ❌ |
+| 👥 User | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
 
-> 👁️ = Read-only (lihat tanpa aksi)
+> 👁️ = Read-only (lihat tanpa aksi)  
+> ✅ = Full access (CRUD sesuai role)
 
 ---
 
 ## ⚙️ Arsitektur Kode
 
-```
-src/
-├── main.js                  ← State, routing, render, global API
-├── style.css                ← Tema teal-green glassmorphism + orbs background
-├── lib/
-│   ├── supabase.js          ← Client anon + admin
-│   ├── roles.js             ← Konstanta & helper: canFinance, canPlot, canDelete, dll
-│   └── helpers.js           ← fmtIdr, fmtDate, fmtTime, showToast, esc
-└── pages/
-    ├── dashboard.js         ← Beranda (stats, aktivitas hari ini)
-    ├── attendance.js        ← Absensi (plotting + verifikasi + edit jam/keuangan + generate)
-    ├── assignment.js        ← Penugasan karyawan ke proyek (auto-pause/resume)
-    ├── overtime.js          ← Lembur (form input + riwayat)
-    ├── laporan.js           ← Laporan progress (multi-foto + galeri)
-    ├── project.js           ← Proyek (CRUD + status selesai/aktif)
-    ├── bon.js               ← Bon/Kasbon (pinjam/bayar + riwayat)
-    ├── users.js             ← User management (7 role)
-    ├── riwayat.js           ← Riwayat absensi karyawan
-    ├── material.js          ← Material Orders (input + daftar + status)
-    └── expense.js           ← Pengeluaran Proyek (input + rekap akumulasi)
-```
+### State Management
+\\\javascript
+// Global state di main.js
+const state = {
+  user: null,              // Current logged-in user
+  employees: [],           // All employees
+  projects: [],            // All projects
+  attendanceLogs: [],      // Attendance logs
+  assignments: [],         // Project assignments
+  currentPage: 'home',     // Current active page
+  dashboardView: null,     // Dashboard detail view
+  dbConnected: true        // Database connection status
+};
+\\\
+
+### Routing
+\\\javascript
+// Simple hash-based routing
+window.addEventListener('hashchange', () => {
+  const page = window.location.hash.slice(1) || 'home';
+  state.currentPage = page;
+  render();
+});
+\\\
+
+### Helper Libraries
+\\\javascript
+// src/lib/helpers.js
+- fmtIdr(amount)           // Format currency
+- fmtDate(date)            // Format date
+- fmtTime(time)            // Format time
+- showToast(msg, type)     // Toast notification
+- esc(str)                 // HTML escape
+- getGeoLocation()         // Get GPS coordinates
+- compressImage(file)      // Compress image before upload
+
+// src/lib/roles.js
+- canFinance(role)         // Check financial access
+- canPlot(role)            // Check plotting access
+- canDelete(role)          // Check delete access
+- canApproveOvertime(role) // Check overtime approval
+- ROLE_LABELS              // Role display names
+- FINANCE_ROLES            // Roles with financial access
+
+// src/lib/excel-export.js
+- exportToExcel(data, filename) // Export data to Excel
+\\\
 
 ---
 
-## 🔐 RLS Policies Database
+## 🛡️ Security & RLS
 
-| Tabel              | karyawan | kepala_proyek | kepala_gudang | kepala_lapangan | admin | owner/superadmin |
-|--------------------|:---:|:---:|:---:|:---:|:---:|:---:|
-| `profiles`         | SELECT | SELECT | SELECT | SELECT | INSERT/UPDATE | ALL |
-| `projects`         | SELECT | SELECT | SELECT | SELECT | INSERT/UPDATE | ALL |
-| `attendance_logs`  | SELECT own | SELECT+UPDATE all | SELECT all | SELECT+UPDATE own | INSERT/UPDATE | ALL |
-| `overtime_logs`    | SELECT own | SELECT all | ❌ | SELECT own | INSERT/UPDATE | ALL |
-| `project_updates`  | SELECT | SELECT+INSERT | SELECT | SELECT+INSERT | ALL | ALL |
-| `project_photos`   | SELECT | SELECT+INSERT | SELECT | SELECT+INSERT | ALL | ALL |
-| `project_assignments`| SELECT own | SELECT all | SELECT own | SELECT own | ALL | ALL |
-| `bon_transactions` | SELECT own | ❌ | ❌ | ❌ | INSERT/UPDATE | ALL |
+### Authentication
+\\\
+✅ Custom auth (username + password_hash)
+✅ Password hashing dengan bcrypt
+✅ Session management dengan localStorage
+✅ Auto-logout on session expire
+✅ No Supabase Auth dependency
+\\\
+
+### Row Level Security (RLS)
+\\\
+✅ All tables have RLS enabled
+✅ Policies based on custom auth (profiles.id)
+✅ Role-based access control
+✅ Own data access for karyawan
+✅ Project-based access for kepala_lapangan
+✅ Full access for admin/owner/superadmin
+\\\
+
+### Frontend Guards
+\\\javascript
+// Triple-layer security
+1. RLS policies (database level)
+2. Query filters (application level)
+3. Frontend guards (UI level)
+
+// Example
+if (!canFinance(user.role)) {
+  // Hide financial columns
+  // Disable financial actions
+}
+\\\
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Komponen   | Teknologi |
-|------------|-----------|
-| Frontend   | Vanilla JavaScript (ES Modules) |
-| Build Tool | Vite 6 |
-| Backend    | Supabase (PostgreSQL) |
-| Auth       | Custom Auth (username + password di tabel profiles) |
-| Storage    | Supabase Storage (`project-photos` bucket) |
-| Styling    | Custom CSS — Dark/Light mode toggle, CSS variables, mobile-first (touch targets 44px+), tema teal-green glassmorphism |
-| Icons      | Font Awesome 6 |
-| PWA        | Web App Manifest |
+| Komponen | Teknologi | Version |
+|----------|-----------|---------|
+| Frontend | Vanilla JavaScript (ES Modules) | ES2020+ |
+| Build Tool | Vite | 6.x |
+| Backend | Supabase (PostgreSQL) | Latest |
+| Auth | Custom (bcrypt) | — |
+| Storage | Supabase Storage | — |
+| Styling | Custom CSS | — |
+| Icons | Font Awesome | 6.x |
+| PWA | Web App Manifest | — |
+
+### CSS Features
+\\\
+✅ Dark/Light mode toggle
+✅ CSS variables for theming
+✅ Mobile-first responsive design
+✅ Touch targets 44px+ for mobile
+✅ Glassmorphism effects
+✅ Animated orbs background
+✅ Smooth transitions
+✅ Bottom navigation for mobile
+\\\
+
+---
+
+## 🚀 Recent Updates (v28-v33 + Latest)
+
+### V28 - Leave Status & Activities
+\\\
+✅ Status baru: libur, izin, sakit
+✅ Kolom kegiatan untuk log aktivitas
+✅ Migrasi data lama ke status baru
+✅ Indexes untuk performa
+\\\
+
+### V29 - Salary Payment & Budget
+\\\
+✅ Tabel salary_payments
+✅ Kolom payment_id di attendance_logs
+✅ Budget limit & alert threshold di projects
+✅ RLS policies untuk salary_payments
+\\\
+
+### V30 - RPC Function Fix
+\\\
+✅ Fix get_rekap_gaji_lengkap()
+✅ Support status baru (hadir vs verified)
+✅ Backward compatibility
+\\\
+
+### V31-V33 - Attendance Status Fixes
+\\\
+✅ Fix data attendance status inconsistency
+✅ Fix generate attendance status function
+✅ Fix auto sync attendance status trigger
+\\\
+
+### Latest - Overtime Workflow Simplification (7 Mei 2026)
+\\\
+✅ Karyawan: input tanggal, proyek, keterangan, foto
+✅ Admin: approve dengan input durasi
+✅ Sistem auto-calc upah
+✅ Admin: edit durasi setelah approved
+✅ Status: pending → approved / rejected
+✅ Kolom verified_by untuk tracking
+\\\
+
+### Latest - Dashboard Access Control (7 Mei 2026)
+\\\
+✅ Notifikasi bon role-specific
+✅ Pengeluaran hari ini admin-only
+✅ Role-based views untuk stats
+\\\
+
+---
+
+## 📊 Progress Summary
+
+| Kategori | Fitur | Status |
+|----------|-------|--------|
+| **Auth & User** | 8 | ✅ 100% |
+| **Dashboard** | 6 | ✅ 100% |
+| **Absensi** | 12 | ✅ 100% |
+| **Lembur** | 8 | ✅ 100% |
+| **Penugasan** | 10 | ✅ 100% |
+| **Proyek** | 8 | ✅ 100% |
+| **Bon/Kasbon** | 6 | ✅ 100% |
+| **Material** | 7 | ✅ 100% |
+| **Pengeluaran** | 6 | ✅ 100% |
+| **Gaji** | 7 | ✅ 100% |
+| **Laporan** | 10 | ✅ 100% |
+| **TOTAL** | **88** | **✅ 100%** |
 
 ---
 
 ## 🌐 Environment Variables
 
-| Variable | Status | Keterangan |
-|---|---|---|
-| `VITE_SUPABASE_URL` | ✅ | URL project Supabase |
-| `VITE_SUPABASE_ANON_KEY` | ✅ | Anon key (operasi normal) |
-| `VITE_SUPABASE_SERVICE_KEY` | ✅ | Service role key (buat user baru) |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| \VITE_SUPABASE_URL\ | ✅ | Supabase project URL |
+| \VITE_SUPABASE_ANON_KEY\ | ✅ | Supabase anon key |
+| \VITE_SUPABASE_SERVICE_KEY\ | ✅ | Supabase service role key |
 
 ---
 
-## 🚀 Roadmap Pengembangan
+## 📚 Documentation
 
-### ✅ Fase 0 — Setup Awal (V1)
-- Login & session, CRUD user, absensi dasar, proyek, laporan 1 foto, riwayat karyawan, RLS
-
-### ✅ Patch — Koreksi & Lengkapi Absensi *(2 Mei 2026)*
-- Koreksi alur kepala teknik (verifikasi, bukan input)
-- Form absensi lengkap: jam, lembur, lain-lain, kasbon
-- Riwayat karyawan: kolom keuangan + ringkasan total
-- Keamanan 3 lapisan untuk data riwayat
-
-### ✅ Fase 1 — Jabatan & Bon/Kasbon *(2 Mei 2026)*
-- Kolom `jabatan` & `bon_balance` di profiles
-- Tabel `bon_transactions` + trigger auto-update saldo
-- Halaman Bon/Kasbon lengkap
-- Form user: field jabatan lapangan
-
-### ✅ Patch — Role Restructure *(2 Mei 2026)*
-- 7 role: superadmin, owner, admin, kepala_proyek, kepala_gudang, kepala_lapangan, karyawan
-- RLS diperbarui: admin tidak bisa delete, kepala_proyek akses semua proyek
-- Status proyek: aktif / selesai / pending
-- `src/lib/roles.js` — helper akses terpusat
-
-### ✅ Patch — Tema Warna Teal-Green *(2 Mei 2026)*
-- Palet: `#2AF598` → `#19D2C1` → `#08AEEA`
-- Orbs cahaya animasi di background
-- Backup tema lama di `style.css.backup`
-
-### ✅ Fase 2 — Lembur & Foto Multiple *(2 Mei 2026)*
-- Tabel `overtime_logs` + `project_photos` + RLS
-- Halaman Lembur: form input + kalkulasi otomatis + foto bukti + riwayat
-- Laporan progress: maks 4 foto + caption + galeri riwayat
-
-### ✅ Patch — Work Items & Helper Library *(2 Mei 2026)*
-- Kolom `work_items` di `attendance_logs`
-- Input pekerjaan per baris absensi (admin & kepala)
-- `src/lib/helpers.js` — fmtIdr, fmtDate, fmtTime, showToast, esc
-
-### ✅ Patch — Project Assignments *(2 Mei 2026)*
-- Tabel `project_assignments` + trigger auto-pause/resume
-- Halaman Penugasan: tugaskan karyawan ke proyek dengan gaji per hari
-- Generate absensi harian otomatis dari penugasan aktif
-- Auto-end penugasan saat proyek selesai
-
-### ✅ Patch — Edit Absensi & Hourly Rate *(2 Mei 2026)*
-- Kolom `hourly_rate` di `attendance_logs`
-- Modal edit absensi inline (jam masuk/keluar, upah/jam, lembur, lain-lain)
-- Recalculate basic_salary otomatis saat jam atau hourly_rate berubah
-- Function `calc_work_hours` & `recalc_attendance_salary`
-
-### ✅ Fase 3 — Material & Pengeluaran Proyek *(3 Mei 2026)*
-- Tabel `material_orders`, `material_photos`, `project_expenses` + RLS
-- Trigger auto-calc total_price di material_orders
-- Trigger auto-update running_total di project_expenses
-- Halaman Material Orders: input + daftar + update status
-- Halaman Pengeluaran Proyek: input + rekap akumulasi
-
-### 🔲 Fase 4 — Optimasi & Fitur Tambahan
-- Filter & pencarian di semua tabel
-- Export data (PDF / Excel)
-✅ Edit user (nama, WA, role, password, jabatan)
-✅ Notifikasi bon mendekati batas
-✅ Detail proyek (karyawan terlibat, timeline progress)
+- **README.md** - Main documentation & setup guide
+- **CHANGELOG.md** - Version history & changes
+- **DATABASE-SCHEMA.md** - Complete database schema (v30)
+- **STRUKTUR-APLIKASI.md** - This file (application structure)
+- **OVERTIME-WORKFLOW-UPDATE.md** - Overtime workflow details
 
 ---
 
-## 📊 Ringkasan Progress
+## 🎯 Future Enhancements
 
-| Kategori               | Selesai | Belum | Total |
-|------------------------|:-------:|:-----:|:-----:|
-| Auth & User            | 7       | 1     | 8     |
-| Absensi & Keuangan     | 16      | 1     | 17    |
-| Penugasan & Proyek      | 10      | 2     | 12    |
-| Lembur                 | 7       | 0     | 7     |
-| Bon / Kasbon           | 5       | 0     | 5     |
-| Material & Pengeluaran | 9       | 0     | 9     |
-| **TOTAL**              | **54**  | **7** | **61**|
+### Planned Features
+\\\
+🔲 Advanced analytics & charts
+🔲 Notification system (push notifications)
+🔲 Document management
+🔲 Inventory management
+🔲 Multi-project dashboard
+🔲 Mobile app (native)
+🔲 Offline mode (PWA improvements)
+🔲 Real-time updates (WebSocket)
+\\\
+
+### Optimization Opportunities
+\\\
+🔲 Code splitting for faster load
+🔲 Image lazy loading
+🔲 Service worker for offline
+🔲 Database query optimization
+🔲 Caching strategy
+\\\
+
+---
+
+> **Note**: Aplikasi ini production-ready dan aktif digunakan untuk manajemen proyek konstruksi.  
+> Untuk detail teknis schema database, lihat **DATABASE-SCHEMA.md**.  
+> Untuk setup & deployment, lihat **README.md**.
+
