@@ -6,7 +6,7 @@ import { AttendancePage, verifyAttendance, deleteAttendance, saveWorkItems, save
 import { RiwayatPage } from './pages/riwayat.js';
 import { LaporanPage, previewPhoto, handleLaporanSubmit } from './pages/laporan.js';
 import { LaporanGajiPage, filterLaporanGaji, exportLaporanGajiToExcel, printLaporanGaji } from './pages/laporan-gaji.js';
-import { RekapProyekPage, loadRekapProyek, exportRekapProyek } from './pages/rekap-proyek.js';
+import { RekapProyekPage, loadRekapProyek, togglePeriodType, toggleProjectBreakdown, exportRekapProyek } from './pages/rekap-proyek.js';
 import { LaporanRekapGajiPage, loadRekapGaji, exportRekapGaji } from './pages/laporan-rekap-gaji.js';
 import { LaporanBonPage, loadLaporanBon, loadDetailBon, exportLaporanBon } from './pages/laporan-bon.js';
 import { LaporanKegiatanPage, loadLaporanKegiatan, exportLaporanKegiatan } from './pages/laporan-kegiatan.js';
@@ -440,6 +440,8 @@ window.__app = {
   exportLaporanGajiToExcel() { exportLaporanGajiToExcel(); },
   printLaporanGaji() { printLaporanGaji(); },
   loadRekapProyek() { loadRekapProyek(); },
+  togglePeriodType() { togglePeriodType(); },
+  toggleProjectBreakdown(projectId) { toggleProjectBreakdown(projectId); },
   exportRekapProyek() { exportRekapProyek(); },
   loadRekapGaji() { loadRekapGaji(); },
   exportRekapGaji() { exportRekapGaji(); },
@@ -465,6 +467,7 @@ window.__app = {
     if (chevron) chevron.className = `fas fa-chevron-${isOpen ? 'down' : 'up'}`;
   },
   toggleAssignRow(idx) { toggleAssignRow(idx); },
+  handleAssignSubmit(e) { handleAssignSubmit(e, state, refreshAndRender); },
   openEditAssignment(id) { openEditAssignment(id, state); },
   saveEditAssignment(e, id) { saveEditAssignment(e, id, state, refreshAndRender); },
   editAssignmentSalary(id, salary) { editAssignmentSalary(id, salary, state, refreshAndRender); },
