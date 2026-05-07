@@ -141,15 +141,25 @@ export async function loadUnpaidSalaries() {
           role: att.profiles.role,
           days: 0,
           totalSalary: 0,
+          totalUangMakan: 0,
+          totalTransport: 0,
+          totalTunjangan: 0,
           totalOvertime: 0,
+          totalBonus: 0,
           totalDeductions: 0,
+          totalPayout: 0,
           attendances: []
         };
       }
       employeeMap[empId].days++;
       employeeMap[empId].totalSalary += (att.basic_salary || 0);
+      employeeMap[empId].totalUangMakan += (att.uang_makan || 0);
+      employeeMap[empId].totalTransport += (att.transport || 0);
+      employeeMap[empId].totalTunjangan += (att.tunjangan_lain || 0);
       employeeMap[empId].totalOvertime += (att.overtime_pay || 0);
+      employeeMap[empId].totalBonus += (att.misc_amount || 0);
       employeeMap[empId].totalDeductions += (att.cash_advance || 0);
+      employeeMap[empId].totalPayout += (att.cash_payout || 0);
       employeeMap[empId].attendances.push(att);
     });
 
@@ -165,7 +175,9 @@ export async function loadUnpaidSalaries() {
               <th>Nama Karyawan</th>
               <th>Hari Kerja</th>
               <th>Gaji Pokok</th>
+              <th>Tunjangan</th>
               <th>Lembur</th>
+              <th>Bonus</th>
               <th>Kasbon</th>
               <th>Total Terima</th>
               <th>Aksi</th>
@@ -173,15 +185,26 @@ export async function loadUnpaidSalaries() {
           </thead>
           <tbody>
             ${employees.map(emp => {
-              const netSalary = emp.totalSalary + emp.totalOvertime - emp.totalDeductions;
+              const totalTunjangan = emp.totalUangMakan + emp.totalTransport + emp.totalTunjangan;
+              const netSalary = emp.totalSalary + totalTunjangan + emp.totalOvertime + emp.totalBonus - emp.totalDeductions + emp.totalPayout;
               return `
                 <tr>
                   <td><input type="checkbox" class="salary-checkbox" data-employee-id="${emp.id}" /></td>
                   <td class="fw-bold">${esc(emp.name)}</td>
                   <td>${emp.days} hari</td>
                   <td>${fmtIdr(emp.totalSalary)}</td>
-                  <td>${fmtIdr(emp.totalOvertime)}</td>
-                  <td class="text-danger">${fmtIdr(emp.totalDeductions)}</td>
+                  <td>
+                    ${totalTunjangan > 0 ? `
+                    <div class="text-xs">
+                      ${emp.totalUangMakan > 0 ? `<div>Makan: ${fmtIdr(emp.totalUangMakan)}</div>` : ''}
+                      ${emp.totalTransport > 0 ? `<div>Transport: ${fmtIdr(emp.totalTransport)}</div>` : ''}
+                      ${emp.totalTunjangan > 0 ? `<div>Lain: ${fmtIdr(emp.totalTunjangan)}</div>` : ''}
+                      <div class="fw-bold">${fmtIdr(totalTunjangan)}</div>
+                    </div>` : '-'}
+                  </td>
+                  <td>${emp.totalOvertime > 0 ? fmtIdr(emp.totalOvertime) : '-'}</td>
+                  <td>${emp.totalBonus > 0 ? fmtIdr(emp.totalBonus) : '-'}</td>
+                  <td class="text-danger">${emp.totalDeductions > 0 ? fmtIdr(emp.totalDeductions) : '-'}</td>
                   <td class="fw-bold text-success">${fmtIdr(netSalary)}</td>
                   <td>
                     <button class="btn btn-primary btn-sm" 
@@ -229,10 +252,14 @@ export async function openPaymentModal(employeeId, startDate, endDate) {
     const employee = attendances[0].profiles;
     const days = attendances.length;
     const totalSalary = attendances.reduce((sum, a) => sum + (a.basic_salary || 0), 0);
+    const totalUangMakan = attendances.reduce((sum, a) => sum + (a.uang_makan || 0), 0);
+    const totalTransport = attendances.reduce((sum, a) => sum + (a.transport || 0), 0);
+    const totalTunjangan = attendances.reduce((sum, a) => sum + (a.tunjangan_lain || 0), 0);
     const totalOvertime = attendances.reduce((sum, a) => sum + (a.overtime_pay || 0), 0);
     const totalBonus = attendances.reduce((sum, a) => sum + (a.misc_amount || 0), 0);
     const totalDeductions = attendances.reduce((sum, a) => sum + (a.cash_advance || 0), 0);
-    const netSalary = totalSalary + totalOvertime + totalBonus - totalDeductions;
+    const totalPayout = attendances.reduce((sum, a) => sum + (a.cash_payout || 0), 0);
+    const netSalary = totalSalary + totalUangMakan + totalTransport + totalTunjangan + totalOvertime + totalBonus - totalDeductions + totalPayout;
 
     // Remove existing modal
     document.getElementById('payment-modal')?.remove();
@@ -261,18 +288,41 @@ export async function openPaymentModal(employeeId, startDate, endDate) {
             <span class="text-sm">Gaji Pokok (${days} hari)</span>
             <span class="fw-bold">${fmtIdr(totalSalary)}</span>
           </div>
+          ${totalUangMakan > 0 ? `
+          <div class="flex justify-between mb-4">
+            <span class="text-sm">Uang Makan</span>
+            <span class="fw-bold">${fmtIdr(totalUangMakan)}</span>
+          </div>` : ''}
+          ${totalTransport > 0 ? `
+          <div class="flex justify-between mb-4">
+            <span class="text-sm">Transport</span>
+            <span class="fw-bold">${fmtIdr(totalTransport)}</span>
+          </div>` : ''}
+          ${totalTunjangan > 0 ? `
+          <div class="flex justify-between mb-4">
+            <span class="text-sm">Tunjangan Lain</span>
+            <span class="fw-bold">${fmtIdr(totalTunjangan)}</span>
+          </div>` : ''}
+          ${totalOvertime > 0 ? `
           <div class="flex justify-between mb-4">
             <span class="text-sm">Lembur</span>
             <span class="fw-bold">${fmtIdr(totalOvertime)}</span>
-          </div>
+          </div>` : ''}
+          ${totalBonus > 0 ? `
           <div class="flex justify-between mb-4">
             <span class="text-sm">Bonus/Lain-lain</span>
             <span class="fw-bold">${fmtIdr(totalBonus)}</span>
-          </div>
+          </div>` : ''}
+          ${totalDeductions > 0 ? `
           <div class="flex justify-between mb-8" style="color:var(--danger);">
             <span class="text-sm">Kasbon (potongan)</span>
             <span class="fw-bold">-${fmtIdr(totalDeductions)}</span>
-          </div>
+          </div>` : ''}
+          ${totalPayout > 0 ? `
+          <div class="flex justify-between mb-8" style="color:var(--warning);">
+            <span class="text-sm">Pinjaman</span>
+            <span class="fw-bold">+${fmtIdr(totalPayout)}</span>
+          </div>` : ''}
           <div class="flex justify-between pt-8" style="border-top:2px solid var(--border);font-size:1.1rem;">
             <span class="fw-bold">Total Terima:</span>
             <span class="fw-bold text-success">${fmtIdr(netSalary)}</span>
@@ -396,13 +446,17 @@ export async function processPayment(employeeId, startDate, endDate) {
       throw new Error('Tidak ada data gaji untuk dibayar');
     }
 
-    // Calculate totals
+    // Calculate totals - include all salary components
     const days = attendances.length;
     const totalSalary = attendances.reduce((sum, a) => sum + (a.basic_salary || 0), 0);
+    const totalUangMakan = attendances.reduce((sum, a) => sum + (a.uang_makan || 0), 0);
+    const totalTransport = attendances.reduce((sum, a) => sum + (a.transport || 0), 0);
+    const totalTunjangan = attendances.reduce((sum, a) => sum + (a.tunjangan_lain || 0), 0);
     const totalOvertime = attendances.reduce((sum, a) => sum + (a.overtime_pay || 0), 0);
     const totalBonus = attendances.reduce((sum, a) => sum + (a.misc_amount || 0), 0);
     const totalDeductions = attendances.reduce((sum, a) => sum + (a.cash_advance || 0), 0);
-    const netSalary = totalSalary + totalOvertime + totalBonus - totalDeductions;
+    const totalPayout = attendances.reduce((sum, a) => sum + (a.cash_payout || 0), 0);
+    const netSalary = totalSalary + totalUangMakan + totalTransport + totalTunjangan + totalOvertime + totalBonus - totalDeductions + totalPayout;
 
     // Get current user ID
     const { data: { user } } = await supabase.auth.getUser();
@@ -545,6 +599,20 @@ export async function printSalarySlip(paymentId) {
     if (error) throw error;
     if (!payment) throw new Error('Data pembayaran tidak ditemukan');
 
+    // Query attendance logs untuk mendapatkan breakdown detail
+    const { data: attendances, error: attError } = await supabase
+      .from('attendance_logs')
+      .select('*')
+      .eq('payment_id', paymentId);
+
+    if (attError) throw attError;
+
+    // Calculate breakdown from attendance logs
+    const totalUangMakan = attendances?.reduce((sum, a) => sum + (a.uang_makan || 0), 0) || 0;
+    const totalTransport = attendances?.reduce((sum, a) => sum + (a.transport || 0), 0) || 0;
+    const totalTunjangan = attendances?.reduce((sum, a) => sum + (a.tunjangan_lain || 0), 0) || 0;
+    const totalPayout = attendances?.reduce((sum, a) => sum + (a.cash_payout || 0), 0) || 0;
+
     const employee = payment.profiles;
     
     // Create print window
@@ -587,17 +655,39 @@ export async function printSalarySlip(paymentId) {
               <td style="padding:8px 0;">Gaji Pokok (${payment.total_days_worked} hari)</td>
               <td style="text-align:right;padding:8px 0;">${fmtIdr(payment.total_salary)}</td>
             </tr>
+            ${totalUangMakan > 0 ? `
+            <tr>
+              <td style="padding:8px 0;">Uang Makan</td>
+              <td style="text-align:right;padding:8px 0;">${fmtIdr(totalUangMakan)}</td>
+            </tr>` : ''}
+            ${totalTransport > 0 ? `
+            <tr>
+              <td style="padding:8px 0;">Transport</td>
+              <td style="text-align:right;padding:8px 0;">${fmtIdr(totalTransport)}</td>
+            </tr>` : ''}
+            ${totalTunjangan > 0 ? `
+            <tr>
+              <td style="padding:8px 0;">Tunjangan Lain</td>
+              <td style="text-align:right;padding:8px 0;">${fmtIdr(totalTunjangan)}</td>
+            </tr>` : ''}
+            ${payment.total_overtime > 0 ? `
             <tr>
               <td style="padding:8px 0;">Lembur</td>
               <td style="text-align:right;padding:8px 0;">${fmtIdr(payment.total_overtime)}</td>
-            </tr>
+            </tr>` : ''}
+            ${payment.total_bonus > 0 ? `
             <tr>
               <td style="padding:8px 0;">Bonus/Tunjangan</td>
               <td style="text-align:right;padding:8px 0;">${fmtIdr(payment.total_bonus)}</td>
-            </tr>
+            </tr>` : ''}
+            ${totalPayout > 0 ? `
+            <tr>
+              <td style="padding:8px 0;">Pinjaman</td>
+              <td style="text-align:right;padding:8px 0;">${fmtIdr(totalPayout)}</td>
+            </tr>` : ''}
             <tr style="border-top:1px solid #ddd;">
               <td style="padding:8px 0;font-weight:bold;">Total Pendapatan</td>
-              <td style="text-align:right;padding:8px 0;font-weight:bold;">${fmtIdr(payment.total_salary + payment.total_overtime + payment.total_bonus)}</td>
+              <td style="text-align:right;padding:8px 0;font-weight:bold;">${fmtIdr(payment.total_salary + totalUangMakan + totalTransport + totalTunjangan + payment.total_overtime + payment.total_bonus + totalPayout)}</td>
             </tr>
           </table>
         </div>
