@@ -114,7 +114,7 @@ export async function filterLaporanGaji(state) {
     let query = supabase
       .from('attendance_logs')
       .select('id, employee_id, project_id, created_at, basic_salary, overtime_pay, cash_advance, uang_makan, transport, tunjangan_lain')
-      .eq('status', 'verified')
+      .eq('status', 'hadir')
       .limit(1000); // Limit to 1000 records max
 
     // Use date range filtering instead of .like() for better performance

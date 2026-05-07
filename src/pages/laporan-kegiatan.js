@@ -97,7 +97,7 @@ export async function loadLaporanKegiatan() {
     let attQuery = supabase
       .from('attendance_logs')
       .select('id, employee_id, project_id, created_at, status')
-      .eq('status', 'verified')
+      .eq('status', 'hadir')
       .order('created_at', { ascending: false })
       .limit(500);
 
