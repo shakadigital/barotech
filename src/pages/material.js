@@ -15,8 +15,10 @@ const STATUS_LABELS = {
 };
 
 /**
- * Halaman Material Orders — Admin / Owner / Superadmin / Kepala Gudang / Kepala Lapangan
- * Kepala Lapangan: bisa update status (opsional, tidak wajib)
+ * Halaman Material Orders
+ * - Kepala Gudang: Input order material
+ * - Admin/Owner/Superadmin: Verifikasi order dari Kepala Gudang, atau input langsung
+ * - Kepala Lapangan: Verifikasi tambahan untuk semua order
  */
 export function MaterialPage(state) {
   const { projects, user } = state;
@@ -24,12 +26,16 @@ export function MaterialPage(state) {
   const isAdmin = ['superadmin','owner','admin'].includes(role);
   const isGudang = role === 'kepala_gudang';
   const isLapangan = role === 'kepala_lapangan';
-  const canInput = isAdmin || isGudang;
+  const canInput = isAdmin || isGudang; // Kepala Gudang & Admin bisa input
 
   const activeProjects = projects.filter(p => p.status === 'aktif');
 
   return `
     <div class="fade-in">
+      ${isLapangan ? `
+      <div class="alert alert-info mb-24">
+        <i class="fas fa-info-circle"></i> <strong>Workflow Material:</strong> Kepala Gudang input order → Admin verifikasi → Anda (Kepala Lapangan) verifikasi tambahan
+      </div>` : ''}
       ${canInput ? `
       <!-- Form Order Material -->
       <div class="card mb-24">
@@ -38,6 +44,12 @@ export function MaterialPage(state) {
           <i id="material-form-chevron" class="fas fa-chevron-down" style="transition:transform 0.2s ease;"></i>
         </div>
         <div id="material-form-body" style="display:none;">
+        ${isGudang ? `<div class="alert alert-info mb-16" style="margin:16px 16px 0;">
+          <i class="fas fa-info-circle"></i> Order yang Anda buat akan diverifikasi oleh Admin, kemudian Kepala Lapangan.
+        </div>` : ''}
+        ${isAdmin ? `<div class="alert alert-info mb-16" style="margin:16px 16px 0;">
+          <i class="fas fa-info-circle"></i> Order yang Anda buat akan diverifikasi oleh Kepala Lapangan.
+        </div>` : ''}
         <form id="material-form" onsubmit="window.__app.handleMaterialSubmit(event)">
           <div class="form-row mb-16">
             <div class="form-group">
@@ -150,6 +162,11 @@ export async function loadMaterialList(state, containerId = 'material-list', opt
     }
     const isDeleter = ['superadmin','owner'].includes(state.user.role);
     const isAdmin = ['superadmin','owner','admin'].includes(state.user.role);
+    const isLapangan = state.user.role === 'kepala_lapangan';
+    const isGudang = state.user.role === 'kepala_gudang';
+    
+    // Kepala Gudang hanya bisa lihat, Admin bisa approve/reject, Kepala Lapangan bisa verifikasi tambahan
+    const canUpdateStatus = isAdmin || isLapangan;
 
     el.innerHTML = `
       <div class="table-wrapper">
@@ -164,12 +181,15 @@ export async function loadMaterialList(state, containerId = 'material-list', opt
               <th>Jumlah</th>
               <th>Total</th>
               <th>Status</th>
-              ${(isAdmin || isLapangan) ? '<th class="text-center">Aksi</th>' : ''}
+              <th>Dibuat Oleh</th>
+              ${canUpdateStatus ? '<th class="text-center">Aksi</th>' : ''}
             </tr>
           </thead>
           <tbody>
             ${data.map((m, idx) => {
               const st = STATUS_LABELS[m.status] || STATUS_LABELS.pending;
+              const creatorName = m.profiles?.full_name || 'Unknown';
+              
               return `<tr>
                 <td class="text-xs text-secondary">${idx + 1}</td>
                 <td class="text-xs">${fmtDate(m.order_date)}</td>
@@ -179,7 +199,8 @@ export async function loadMaterialList(state, containerId = 'material-list', opt
                 <td class="text-xs">${m.quantity} ${esc(m.unit)}</td>
                 <td class="fw-bold">${fmtIdr(m.total_price)}</td>
                 <td><span class="badge ${st.cls}">${st.text}</span></td>
-                ${(isAdmin || isLapangan) ? `<td class="text-center">
+                <td class="text-xs">${esc(creatorName)}</td>
+                ${canUpdateStatus ? `<td class="text-center">
                   <select class="form-select form-select-sm" style="min-width:110px"
                     onchange="window.__app.updateMaterialStatus('${m.id}', this.value)">
                     <option value="pending" ${m.status==='pending'?'selected':''}>Pending</option>
