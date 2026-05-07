@@ -10,7 +10,7 @@ import { RekapProyekPage, loadRekapProyek, exportRekapProyek } from './pages/rek
 import { LaporanRekapGajiPage, loadRekapGaji, exportRekapGaji } from './pages/laporan-rekap-gaji.js';
 import { LaporanBonPage, loadLaporanBon, loadDetailBon, exportLaporanBon } from './pages/laporan-bon.js';
 import { LaporanKegiatanPage, loadLaporanKegiatan, exportLaporanKegiatan } from './pages/laporan-kegiatan.js';
-import { SalaryPaymentPage, loadUnpaidSalaries, openPaymentModal, paySelectedSalaries, toggleSelectAllSalary, loadPaymentHistory, printSalarySlip } from './pages/salary-payment.js';
+import { SalaryPaymentPage, loadUnpaidSalaries, openPaymentModal, paySelectedSalaries, processPayment, toggleSelectAllSalary, loadPaymentHistory, printSalarySlip } from './pages/salary-payment.js';
 import { ProjectPage, handleProjectSubmit, deleteProject, updateProjectStatus, openProjectDetail } from './pages/project.js';
 import { UsersPage, handleUserSubmit, deleteUser, openEditUser, saveEditUser } from './pages/users.js';
 import { BonPage, handleBonSubmit, showBonHistory } from './pages/bon.js';
@@ -451,6 +451,7 @@ window.__app = {
   loadUnpaidSalaries() { loadUnpaidSalaries(); },
   openPaymentModal(employeeId, startDate, endDate) { openPaymentModal(employeeId, startDate, endDate); },
   paySelectedSalaries(startDate, endDate) { paySelectedSalaries(startDate, endDate); },
+  processPayment(employeeId, startDate, endDate) { processPayment(employeeId, startDate, endDate); },
   toggleSelectAllSalary(checked) { toggleSelectAllSalary(checked); },
   loadPaymentHistory() { loadPaymentHistory(); },
   printSalarySlip(paymentId) { printSalarySlip(paymentId); },
