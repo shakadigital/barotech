@@ -138,6 +138,14 @@ export function MaterialPage(state) {
 export async function loadMaterialList(state, containerId = 'material-list', opts = {}) {
   const el = document.getElementById(containerId);
   if (!el) return;
+  
+  // Debug: pastikan state.user ada
+  if (!state || !state.user) {
+    console.error('State atau user tidak tersedia:', state);
+    el.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Error: User tidak ditemukan. Silakan refresh halaman.</p></div>';
+    return;
+  }
+  
   try {
     let q = supabase
       .from('material_orders')
@@ -160,10 +168,12 @@ export async function loadMaterialList(state, containerId = 'material-list', opt
       el.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>Belum ada order material.</p></div>';
       return;
     }
-    const isDeleter = ['superadmin','owner'].includes(state.user.role);
-    const isAdmin = ['superadmin','owner','admin'].includes(state.user.role);
-    const isLapangan = state.user.role === 'kepala_lapangan';
-    const isGudang = state.user.role === 'kepala_gudang';
+    
+    const userRole = state.user.role || '';
+    const isDeleter = ['superadmin','owner'].includes(userRole);
+    const isAdmin = ['superadmin','owner','admin'].includes(userRole);
+    const isLapangan = userRole === 'kepala_lapangan';
+    const isGudang = userRole === 'kepala_gudang';
     
     // Kepala Gudang hanya bisa lihat, Admin bisa approve/reject, Kepala Lapangan bisa verifikasi tambahan
     const canUpdateStatus = isAdmin || isLapangan;
