@@ -267,7 +267,7 @@ export async function loadOvertimeList(state) {
               } else {
                 statusBadge = '<span class="badge badge-offline">DITOLAK</span>';
               }
-              // Admin actions: approve/reject for pending, delete for all
+              // Admin actions: approve/reject for pending, edit for approved/rejected, delete only for superadmin/owner
               let adminActions = '';
               if (isFinance) {
                 if (otStatus === 'pending') {
@@ -280,11 +280,18 @@ export async function loadOvertimeList(state) {
                         <i class="fas fa-times"></i>
                       </button>
                     </div>`;
-                } else if (['superadmin','owner'].includes(state.user.role)) {
+                } else {
+                  // Approved atau rejected: admin bisa edit, superadmin/owner bisa edit & delete
+                  const canDelete = ['superadmin','owner'].includes(state.user.role);
                   adminActions = `
-                    <button class="btn btn-danger btn-sm" onclick="window.__app.deleteOvertime('${ot.id}')">
-                      <i class="fas fa-trash"></i>
-                    </button>`;
+                    <div class="flex gap-4 justify-center">
+                      <button class="btn btn-primary btn-sm" onclick="window.__app.editOvertime('${ot.id}')" title="Edit">
+                        <i class="fas fa-edit"></i>
+                      </button>
+                      ${canDelete ? `<button class="btn btn-danger btn-sm" onclick="window.__app.deleteOvertime('${ot.id}')" title="Hapus">
+                        <i class="fas fa-trash"></i>
+                      </button>` : ''}
+                    </div>`;
                 }
               }
               return `<tr>
@@ -515,6 +522,63 @@ export async function deleteOvertime(id, refreshFn) {
     if (error) throw error;
     showToast('Data lembur dihapus', 'success');
     refreshFn?.();
+  } catch (err) {
+    showToast('Gagal: ' + err.message, 'error');
+  }
+}
+
+/** Edit lembur — admin dapat edit durasi dan upah */
+export async function editOvertime(id, state, refreshFn) {
+  try {
+    // Get the overtime record
+    const { data: ot, error: fetchErr } = await supabase
+      .from('overtime_logs')
+      .select('*, employee_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (fetchErr || !ot) { showToast('Data tidak ditemukan', 'error'); return; }
+
+    // Get employee's overtime_rate from profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('overtime_rate, full_name')
+      .eq('id', ot.employee_id)
+      .maybeSingle();
+
+    const rate = profile?.overtime_rate || 0;
+    const currentDuration = ot.duration_hours || 0;
+    
+    // Prompt admin untuk edit durasi lembur
+    const durationInput = prompt(
+      `Edit lembur untuk ${profile?.full_name || 'karyawan'}\n\n` +
+      `Upah lembur: ${fmtIdr(rate)}/jam\n` +
+      `Durasi saat ini: ${currentDuration} jam\n\n` +
+      `Masukkan durasi lembur baru (dalam jam):`,
+      currentDuration.toString()
+    );
+    
+    if (!durationInput) return; // User cancel
+    
+    const duration = parseFloat(durationInput);
+    if (isNaN(duration) || duration < 0) {
+      showToast('Durasi tidak valid', 'error');
+      return;
+    }
+
+    const pay = Math.round(duration * rate);
+
+    const { error } = await supabase
+      .from('overtime_logs')
+      .update({
+        duration_hours: duration,
+        overtime_rate: rate,
+        overtime_pay: pay,
+      })
+      .eq('id', id);
+
+    if (error) { showToast('Gagal update: ' + error.message, 'error'); return; }
+    showToast(`Lembur diupdate — ${duration} jam × ${fmtIdr(rate)} = ${fmtIdr(pay)}`, 'success');
+    await loadOvertimeList(state);
   } catch (err) {
     showToast('Gagal: ' + err.message, 'error');
   }

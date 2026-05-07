@@ -15,7 +15,7 @@ import { ProjectPage, handleProjectSubmit, deleteProject, updateProjectStatus, o
 import { UsersPage, handleUserSubmit, deleteUser, openEditUser, saveEditUser } from './pages/users.js';
 import { BonPage, handleBonSubmit, showBonHistory } from './pages/bon.js';
 import { AssignmentPage, loadAssignments, handleAssignSubmit, toggleAssignRow, openEditAssignment, saveEditAssignment, editAssignmentSalary, endAssignment, resumeAssignment, deleteAssignment, openAdminCheckIn, saveAdminCheckIn } from './pages/assignment.js';
-import { OvertimePage, handleOvertimeSubmit, handleOvertimeRequest, loadOvertimeList, approveOvertime, rejectOvertime, deleteOvertime } from './pages/overtime.js';
+import { OvertimePage, handleOvertimeSubmit, handleOvertimeRequest, loadOvertimeList, approveOvertime, rejectOvertime, deleteOvertime, editOvertime } from './pages/overtime.js';
 import { MaterialPage, handleMaterialSubmit, loadMaterialList, updateMaterialStatus, deleteMaterial } from './pages/material.js';
 import { ExpensePage, handleExpenseSubmit, loadExpenseList, deleteExpense } from './pages/expense.js';
 import { loadProjectUpdates } from './pages/laporan.js';
@@ -507,6 +507,7 @@ window.__app = {
   handleOvertimeRequest(e) { handleOvertimeRequest(e, state, refreshAndRender); },
   approveOvertime(id) { approveOvertime(id, state, refreshAndRender); },
   rejectOvertime(id) { rejectOvertime(id, state, refreshAndRender); },
+  editOvertime(id) { editOvertime(id, state, refreshAndRender); },
   deleteOvertime(id) { deleteOvertime(id, state, refreshAndRender); },
   handleMaterialSubmit(e) { handleMaterialSubmit(e, state, refreshAndRender); },
   updateMaterialStatus(id, status) { updateMaterialStatus(id, status, refreshAndRender); },
