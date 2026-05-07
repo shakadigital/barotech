@@ -843,13 +843,17 @@ export async function clockIn(state, refreshFn) {
     let geo = null;
     try { geo = await getGeoLocation(); } catch (_) {}
 
+    // Owner/Admin/Superadmin langsung 'hadir', role lain 'pending'
+    const autoVerifyRoles = ['owner', 'admin', 'superadmin'];
+    const initialStatus = autoVerifyRoles.includes(state.user.role) ? 'hadir' : 'pending';
+
     // Insert attendance baru — kirim dengan offset +07:00 agar Supabase simpan waktu WIB
     const { error } = await supabase.from('attendance_logs').insert({
       employee_id: state.user.id,
       project_id: null,
       check_in: checkinDatetime,
       check_out: null,
-      status: 'draft',
+      status: initialStatus,
       hourly_rate: hourlyRate,
       basic_salary: basicSalary,
       notes: 'Absensi Mandiri',
@@ -903,14 +907,25 @@ export async function clockOut(state, refreshFn) {
     let geo = null;
     try { geo = await getGeoLocation(); } catch (_) {}
 
+    // Owner/Admin/Superadmin langsung 'hadir' saat check-out, role lain tetap status awal
+    const autoVerifyRoles = ['owner', 'admin', 'superadmin'];
+    const shouldAutoVerify = autoVerifyRoles.includes(state.user.role);
+    
+    const updateData = {
+      check_out: checkoutDatetime,
+      checkout_lat: geo?.lat || null,
+      checkout_lng: geo?.lng || null,
+    };
+    
+    // Jika auto-verify dan status masih pending, ubah ke hadir
+    if (shouldAutoVerify && existing.status === 'pending') {
+      updateData.status = 'hadir';
+    }
+
     // Update check_out + location — kirim dengan offset +07:00 agar Supabase simpan waktu WIB
     const { error } = await supabase
       .from('attendance_logs')
-      .update({
-        check_out: checkoutDatetime,
-        checkout_lat: geo?.lat || null,
-        checkout_lng: geo?.lng || null,
-      })
+      .update(updateData)
       .eq('id', existing.id);
 
     if (error) throw error;

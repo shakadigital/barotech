@@ -613,7 +613,7 @@ export async function saveAdminCheckIn(e, assignmentId, state) {
       project_id: a.project_id,
       check_in: checkInTs,
       check_out: checkOutTs,
-      status: 'verified', // Admin check-in = auto verified
+      status: 'hadir', // Admin check-in = auto verified
       hourly_rate: hourlyRate,
       basic_salary: a.basic_salary,
       uang_makan: a.uang_makan,
