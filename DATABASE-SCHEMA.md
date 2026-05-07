@@ -1,6 +1,7 @@
 # 📊 Ringkasan Schema Database — Barotech
 
-> Dokumen referensi lengkap semua tabel, kolom, tipe data, constraint, dan relasi di database PostgreSQL (Supabase).
+> Dokumen referensi lengkap semua tabel, kolom, tipe data, constraint, dan relasi di database PostgreSQL (Supabase).  
+> **Last Updated**: 7 Mei 2026 (v30)
 
 ---
 
@@ -19,6 +20,8 @@
 | 9 | `material_orders` | Order material | ~300 |
 | 10 | `material_photos` | Foto nota / barang material | ~600 |
 | 11 | `project_expenses` | Pengeluaran proyek | ~500 |
+| 12 | `salary_payments` | History pembayaran gaji | ~200 |
+| 13 | `daily_activities` | Log kegiatan harian karyawan | ~1.000+/bln |
 
 ---
 
@@ -56,13 +59,15 @@ CREATE TABLE profiles (
 
 ```sql
 CREATE TABLE projects (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name          TEXT NOT NULL,
-  location_name TEXT,
-  lead_id       UUID REFERENCES profiles(id),
-  progress_pct  INTEGER DEFAULT 0 CHECK (progress_pct BETWEEN 0 AND 100),
-  status        TEXT DEFAULT 'aktif',
-  created_at    TIMESTAMPTZ DEFAULT NOW()
+  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name                    TEXT NOT NULL,
+  location_name           TEXT,
+  lead_id                 UUID REFERENCES profiles(id),
+  progress_pct            INTEGER DEFAULT 0 CHECK (progress_pct BETWEEN 0 AND 100),
+  status                  TEXT DEFAULT 'aktif',
+  budget_limit            NUMERIC DEFAULT 0,           -- Budget total proyek (v29)
+  budget_alert_threshold  NUMERIC DEFAULT 0.8,         -- Alert threshold 80% (v29)
+  created_at              TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
@@ -85,8 +90,8 @@ CREATE TABLE attendance_logs (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   employee_id       UUID REFERENCES profiles(id),
   project_id        UUID REFERENCES projects(id),
-  status            TEXT DEFAULT 'draft',     -- draft | verified | absent
-  check_in          TIMESTAMPTZ,               -- Jam masuk (dulu TIME, sekarang TIMESTAMPTZ)
+  status            TEXT DEFAULT 'pending',    -- hadir | tidak_hadir | pending | libur | izin | sakit (v28)
+  check_in          TIMESTAMPTZ,               -- Jam masuk
   check_out         TIMESTAMPTZ,               -- Jam keluar
   notes             TEXT DEFAULT 'Hadir',
   basic_salary      NUMERIC DEFAULT 0,         -- Gaji dasar / HARI (total dari komponen)
@@ -103,12 +108,19 @@ CREATE TABLE attendance_logs (
   cash_payout       NUMERIC DEFAULT 0,         -- Pinjam baru
   jabatan_snapshot  TEXT,                      -- Jabatan saat absensi
   work_items        TEXT,                      -- Item pekerjaan
+  kegiatan          TEXT,                      -- Deskripsi kegiatan (v28)
+  payment_id        UUID REFERENCES salary_payments(id),  -- ID pembayaran gaji (v29)
   created_at        TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
 **Check Constraint:**
-- `status` ∈ (`draft`, `verified`, `absent`)
+- `status` ∈ (`hadir`, `tidak_hadir`, `pending`, `libur`, `izin`, `sakit`)
+
+**Indexes:**
+- `idx_attendance_status` (status)
+- `idx_attendance_employee_date` (employee_id, created_at)
+- `idx_attendance_payment` (payment_id)
 
 **Trigger:**
 - `recalc_attendance_salary` — saat `check_in`/`check_out`/`hourly_rate` berubah, auto-recalc `basic_salary` dari durasi kerja
@@ -116,6 +128,7 @@ CREATE TABLE attendance_logs (
 **Relasi:**
 - `employee_id` → `profiles.id`
 - `project_id` → `projects.id` (nullable — untuk non-karyawan office)
+- `payment_id` → `salary_payments.id` (nullable — tandai sudah dibayar)
 
 ---
 
@@ -128,24 +141,35 @@ CREATE TABLE overtime_logs (
   employee_id      UUID REFERENCES profiles(id) ON DELETE CASCADE,
   project_id       UUID REFERENCES projects(id) ON DELETE SET NULL,
   overtime_date    DATE NOT NULL DEFAULT CURRENT_DATE,
-  start_time       TIME,
-  end_time         TIME,
-  duration_hours   NUMERIC DEFAULT 0,
-  overtime_rate    NUMERIC DEFAULT 0,
-  overtime_pay     NUMERIC DEFAULT 0,
+  start_time       TIME,                      -- Nullable (diisi admin saat approve)
+  end_time         TIME,                      -- Nullable (diisi admin saat approve)
+  duration_hours   NUMERIC DEFAULT 0,         -- Diisi admin saat approve
+  overtime_rate    NUMERIC DEFAULT 0,         -- Diisi admin saat approve
+  overtime_pay     NUMERIC DEFAULT 0,         -- Auto-calc: duration × rate
   location_name    TEXT,
   work_description TEXT,
   photo_url        TEXT,
+  status           TEXT DEFAULT 'pending',    -- pending | approved | rejected
+  verified_by      UUID REFERENCES profiles(id),
   created_by       UUID REFERENCES profiles(id),
   created_at       TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
+**Check Constraint:**
+- `status` ∈ (`pending`, `approved`, `rejected`)
+
 **Relasi:**
 - `attendance_id` → `attendance_logs.id` (nullable — lembur bisa tanpa absensi harian)
 - `employee_id` → `profiles.id`
 - `project_id` → `projects.id`
+- `verified_by` → `profiles.id` (admin yang approve/reject)
 - `created_by` → `profiles.id`
+
+**Workflow:**
+- Karyawan submit: tanggal, proyek, keterangan, foto (status: pending)
+- Admin approve: input durasi → sistem calc upah (status: approved)
+- Admin bisa edit durasi setelah approved
 
 ---
 
@@ -370,6 +394,94 @@ CREATE TABLE project_expenses (
 
 ---
 
+## 12. `salary_payments` — History Pembayaran Gaji (v29)
+
+```sql
+CREATE TABLE salary_payments (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id         UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  period_start        DATE NOT NULL,
+  period_end          DATE NOT NULL,
+  
+  -- Breakdown gaji
+  total_days_worked   INTEGER DEFAULT 0,
+  total_salary        NUMERIC DEFAULT 0,
+  total_overtime      NUMERIC DEFAULT 0,
+  total_bonus         NUMERIC DEFAULT 0,
+  total_deductions    NUMERIC DEFAULT 0,
+  net_salary          NUMERIC DEFAULT 0,
+  
+  -- Payment info
+  payment_method      TEXT CHECK (payment_method IN ('cash', 'transfer')),
+  payment_date        DATE DEFAULT CURRENT_DATE,
+  bank_name           TEXT,
+  account_number      TEXT,
+  notes               TEXT,
+  
+  -- Audit
+  paid_by             UUID REFERENCES profiles(id),
+  created_at          TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**Check Constraint:**
+- `payment_method` ∈ (`cash`, `transfer`)
+
+**Indexes:**
+- `idx_salary_payments_employee` (employee_id)
+- `idx_salary_payments_period` (period_start, period_end)
+- `idx_salary_payments_date` (payment_date)
+
+**Relasi:**
+- `employee_id` → `profiles.id`
+- `paid_by` → `profiles.id` (admin yang melakukan pembayaran)
+- Direferensi oleh: `attendance_logs.payment_id`
+
+**Fungsi:**
+- Menyimpan history pembayaran gaji karyawan
+- Breakdown lengkap: gaji pokok, lembur, bonus, potongan
+- Support cash dan transfer
+- Attendance yang sudah dibayar ditandai dengan `payment_id`
+
+---
+
+## 13. `daily_activities` — Log Kegiatan Harian (v28)
+
+```sql
+CREATE TABLE daily_activities (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id   UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  project_id    UUID REFERENCES projects(id) ON DELETE SET NULL,
+  activity_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  activity_type TEXT NOT NULL DEFAULT 'kerja',  -- kerja | meeting | training | lainnya
+  description   TEXT NOT NULL,
+  duration_hours NUMERIC DEFAULT 0,
+  location      TEXT,
+  photo_url     TEXT,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**Check Constraint:**
+- `activity_type` ∈ (`kerja`, `meeting`, `training`, `lainnya`)
+
+**Indexes:**
+- `idx_daily_activities_employee` (employee_id)
+- `idx_daily_activities_date` (activity_date)
+- `idx_daily_activities_project` (project_id)
+
+**Relasi:**
+- `employee_id` → `profiles.id`
+- `project_id` → `projects.id` (nullable)
+
+**Fungsi:**
+- Log kegiatan harian karyawan
+- Bisa terkait dengan proyek atau tidak
+- Support foto bukti kegiatan
+- Untuk laporan kegiatan dan evaluasi kinerja
+
+---
+
 ## 🔗 Relasi Antar Tabel (Diagram Tekstual)
 
 ```
@@ -381,26 +493,27 @@ CREATE TABLE project_expenses (
 └────────┬────────────────────────────────────────────────────────────────┘
          │ 1:N
          │
-         ├───────────────┬───────────────┬───────────────┬──────────────────┐
-         ▼               ▼               ▼               ▼                  ▼
-   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐         ┌──────────┐
-   │ projects │   │attendance│   │ overtime │   │  bon_    │   ...   │ material │
-   │ (lead_id)│   │  _logs   │   │  _logs   │   │transactns│         │  orders  │
-   └────┬─────┘   └────┬─────┘   └────┬─────┘   └────┬─────┘         └────┬─────┘
-        │              │              │              │                    │
-        │              │              │              │                    │
-        │              │              │              │                    ▼
-        │              │              │              │              ┌──────────┐
-        │              │              │              │              │ material │
-        │              │              │              │              │  photos  │
-        │              │              │              │              └──────────┘
-        │              │              │              │
-        │              │              │              │
+         ├───────────────┬───────────────┬───────────────┬──────────────────┬──────────────┐
+         ▼               ▼               ▼               ▼                  ▼              ▼
+   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐         ┌──────────┐  ┌──────────┐
+   │ projects │   │attendance│   │ overtime │   │  bon_    │   ...   │ material │  │  salary  │
+   │ (lead_id)│   │  _logs   │   │  _logs   │   │transactns│         │  orders  │  │ payments │
+   └────┬─────┘   └────┬─────┘   └────┬─────┘   └────┬─────┘         └────┬─────┘  └────┬─────┘
+        │              │              │              │                    │              │
+        │              │              │              │                    │              │
+        │              │              │              │                    ▼              │
+        │              │              │              │              ┌──────────┐         │
+        │              │              │              │              │ material │         │
+        │              │              │              │              │  photos  │         │
+        │              │              │              │              └──────────┘         │
+        │              │              │              │                                   │
+        │              ├──────────────┼──────────────┼───────────────────────────────────┘
+        │              │ payment_id   │              │
         ▼              ▼              ▼              ▼
-   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
-   │ project_ │   │ project_ │   │ project_ │   │ project_ │
-   │ updates  │   │  photos  │   │ expenses │   │assignmnts│
-   └──────────┘   └──────────┘   └──────────┘   └──────────┘
+   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
+   │ project_ │   │ project_ │   │ project_ │   │ project_ │   │  daily_  │
+   │ updates  │   │  photos  │   │ expenses │   │assignmnts│   │activities│
+   └──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘
 ```
 
 ### Foreign Key Summary
@@ -410,9 +523,11 @@ CREATE TABLE project_expenses (
 | `projects` | `lead_id` | `profiles.id` | SET NULL |
 | `attendance_logs` | `employee_id` | `profiles.id` | — |
 | `attendance_logs` | `project_id` | `projects.id` | — |
+| `attendance_logs` | `payment_id` | `salary_payments.id` | — |
 | `overtime_logs` | `attendance_id` | `attendance_logs.id` | SET NULL |
 | `overtime_logs` | `employee_id` | `profiles.id` | CASCADE |
 | `overtime_logs` | `project_id` | `projects.id` | SET NULL |
+| `overtime_logs` | `verified_by` | `profiles.id` | — |
 | `overtime_logs` | `created_by` | `profiles.id` | — |
 | `project_updates` | `project_id` | `projects.id` | — |
 | `project_updates` | `reported_by` | `profiles.id` | — |
@@ -434,6 +549,10 @@ CREATE TABLE project_expenses (
 | `material_photos` | `uploaded_by` | `profiles.id` | — |
 | `project_expenses` | `project_id` | `projects.id` | CASCADE |
 | `project_expenses` | `recorded_by` | `profiles.id` | — |
+| `salary_payments` | `employee_id` | `profiles.id` | CASCADE |
+| `salary_payments` | `paid_by` | `profiles.id` | — |
+| `daily_activities` | `employee_id` | `profiles.id` | CASCADE |
+| `daily_activities` | `project_id` | `projects.id` | SET NULL |
 
 ---
 
@@ -508,7 +627,55 @@ CREATE TABLE project_expenses (
 | `v16-breakdown-keuangan.sql` | V16 | uang_makan, transport, tunjangan_lain + fix TIME→TIMESTAMPTZ |
 | `v17-fix-timestamp-cast.sql` | V17 | Fix explicit timestamp cast di functions |
 | `v18-add-overtime-rate-profiles.sql` | V18 | Tambah overtime_rate di profiles |
+| `v19-self-checkin-overtime-request.sql` | V19 | Self check-in & overtime request workflow |
+| `v20-daily-activities.sql` | V20 | Tabel daily_activities untuk log kegiatan |
+| `v21-performance-optimization.sql` | V21 | Indexes untuk performa query |
+| `v22-check-indexes.sql` | V22 | Verifikasi indexes |
+| `v23-rekap-biaya-proyek-rpc.sql` | V23 | RPC function rekap biaya proyek |
+| `v24-rekap-gaji-bon-rpc.sql` | V24 | RPC function rekap gaji & bon |
+| `v25-fix-daily-activities-rls.sql` | V25 | Fix RLS daily_activities |
+| `v26-fix-all-rls-custom-auth.sql` | V26 | Fix semua RLS untuk custom auth |
+| `v27-fix-rls-custom-auth-no-jwt.sql` | V27 | Fix RLS tanpa JWT (pure custom auth) |
+| `v28-add-leave-status-and-activities.sql` | V28 | Status baru: libur, izin, sakit + kolom kegiatan |
+| `v29-salary-payment-and-budget.sql` | V29 | Tabel salary_payments + budget limit proyek |
+| `v30-fix-rekap-gaji-rpc.sql` | V30 | Fix RPC rekap gaji (support status baru) |
+| `v31-fix-attendance-status-data.sql` | V31 | Fix data attendance status |
+| `v32-fix-generate-attendance-status.sql` | V32 | Fix generate attendance status function |
+| `v33-fix-auto-sync-attendance-status.sql` | V33 | Fix auto sync attendance status trigger |
 
 ---
 
-> **Catatan:** Dokumen ini disusun dari hasil agregasi semua file migrasi SQL (`sql/v1` sampai `sql/v18`). Jika ada perubahan schema baru, update file ini.
+> **Catatan:** Dokumen ini disusun dari hasil agregasi semua file migrasi SQL (`sql/v1` sampai `sql/v33`). Jika ada perubahan schema baru, update file ini.
+
+---
+
+## 📊 Summary Perubahan Terbaru
+
+### V28 - Leave Status & Activities
+- ✅ Status baru: `libur`, `izin`, `sakit` untuk attendance
+- ✅ Kolom `kegiatan` untuk log aktivitas user
+- ✅ Migrasi data lama: `verified`→`hadir`, `absent`→`tidak_hadir`, `draft`→`pending`
+
+### V29 - Salary Payment & Budget
+- ✅ Tabel `salary_payments` untuk history pembayaran gaji
+- ✅ Kolom `payment_id` di attendance_logs (tandai sudah dibayar)
+- ✅ Kolom `budget_limit` & `budget_alert_threshold` di projects
+
+### V30 - RPC Function Fix
+- ✅ Fix `get_rekap_gaji_lengkap()` support status baru
+- ✅ Backward compatibility dengan status lama
+
+### V31-V33 - Attendance Status Fixes
+- ✅ Fix data attendance status inconsistency
+- ✅ Fix generate attendance status function
+- ✅ Fix auto sync attendance status trigger
+
+### Latest - Overtime Workflow Simplification (7 Mei 2026)
+- ✅ Karyawan hanya input: tanggal, proyek, keterangan, foto
+- ✅ Admin input durasi saat approve
+- ✅ Sistem auto-calc upah: durasi × overtime_rate
+- ✅ Admin bisa edit durasi setelah approved
+- ✅ Status: `pending` → `approved` / `rejected`
+- ✅ Kolom `verified_by` untuk tracking admin approval
+
+---
