@@ -324,6 +324,11 @@ function render() {
     </aside>
     <div class="app-shell">
       <main class="main-content">
+        <!-- Pull to Refresh Indicator (Mobile Only) -->
+        <div id="pull-refresh-indicator" class="pull-to-refresh" style="transform:translateY(-60px);opacity:0;">
+          <i class="fas fa-arrow-down"></i> Tarik untuk refresh
+        </div>
+        
         <div class="header-bar">
           <div class="header-left">
             <button class="menu-toggle" id="menu-toggle"><i class="fas fa-bars"></i></button>
@@ -503,7 +508,7 @@ window.__app = {
   approveOvertime(id) { approveOvertime(id, state, refreshAndRender); },
   rejectOvertime(id) { rejectOvertime(id, state, refreshAndRender); },
   deleteOvertime(id) { deleteOvertime(id, state, refreshAndRender); },
-  handleMaterialSubmit(e) { handleMaterialSubmit(e); },
+  handleMaterialSubmit(e) { handleMaterialSubmit(e, state, refreshAndRender); },
   updateMaterialStatus(id, status) { updateMaterialStatus(id, status, refreshAndRender); },
   deleteMaterial(id) { deleteMaterial(id, refreshAndRender); },
   loadFilteredMaterials() {
@@ -519,6 +524,20 @@ window.__app = {
     loadExpenseList(state, 'expense-list', { month, projectId });
   },
   loadProjectUpdates(projectId) { loadProjectUpdates(projectId, state); },
+  // Helper: Set button loading state
+  setButtonLoading(btnId, isLoading, loadingText = 'Memproses...', originalText = null) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    
+    if (isLoading) {
+      btn.dataset.originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<span class="spinner"></span> ${loadingText}`;
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = originalText || btn.dataset.originalText || btn.innerHTML;
+    }
+  },
 };
 
 // ========== THEME TOGGLE ==========
@@ -538,6 +557,123 @@ function toggleTheme() {
   localStorage.setItem('theme', next);
   const icon = document.getElementById('theme-icon');
   if (icon) icon.className = next === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+}
+
+// ========== KEYBOARD SHORTCUTS ==========
+function initKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    // Ignore if user is typing in input/textarea
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+    
+    // Ctrl/Cmd + K: Focus search (if exists)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      const searchInput = document.querySelector('input[type="search"], input[placeholder*="Cari"]');
+      searchInput?.focus();
+    }
+    
+    // Ctrl/Cmd + R: Refresh data
+    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+      e.preventDefault();
+      refreshAndRender();
+      showToast('Data diperbarui!', 'info');
+    }
+    
+    // Escape: Close modals
+    if (e.key === 'Escape') {
+      const modals = document.querySelectorAll('.modal-overlay');
+      modals.forEach(modal => modal.remove());
+    }
+    
+    // Number keys 1-9: Quick navigation (only for admin+)
+    if (state.isLoggedIn && ['superadmin', 'owner', 'admin'].includes(state.user.role)) {
+      const navMap = {
+        '1': 'home',
+        '2': 'assignment',
+        '3': 'absensi',
+        '4': 'overtime',
+        '5': 'laporan',
+        '6': 'project',
+        '7': 'material',
+        '8': 'expense',
+        '9': 'bon',
+      };
+      
+      if (navMap[e.key]) {
+        e.preventDefault();
+        navigate(navMap[e.key]);
+      }
+    }
+  });
+}
+
+// ========== PULL TO REFRESH ==========
+let pullStartY = 0;
+let pullCurrentY = 0;
+let isPulling = false;
+
+function initPullToRefresh() {
+  const mainContent = document.querySelector('.main-content');
+  if (!mainContent) return;
+
+  mainContent.addEventListener('touchstart', (e) => {
+    if (mainContent.scrollTop === 0) {
+      pullStartY = e.touches[0].clientY;
+      isPulling = true;
+    }
+  }, { passive: true });
+
+  mainContent.addEventListener('touchmove', (e) => {
+    if (!isPulling) return;
+    pullCurrentY = e.touches[0].clientY;
+    const pullDistance = pullCurrentY - pullStartY;
+    
+    if (pullDistance > 0 && pullDistance < 100) {
+      // Show pull indicator
+      const indicator = document.getElementById('pull-refresh-indicator');
+      if (indicator) {
+        indicator.style.transform = `translateY(${pullDistance}px)`;
+        indicator.style.opacity = pullDistance / 100;
+      }
+    }
+  }, { passive: true });
+
+  mainContent.addEventListener('touchend', async () => {
+    if (!isPulling) return;
+    const pullDistance = pullCurrentY - pullStartY;
+    
+    if (pullDistance > 80) {
+      // Trigger refresh
+      const indicator = document.getElementById('pull-refresh-indicator');
+      if (indicator) {
+        indicator.classList.add('pulling');
+        indicator.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memuat...';
+      }
+      
+      await refreshAndRender();
+      showToast('Data diperbarui!', 'success');
+      
+      if (indicator) {
+        indicator.classList.remove('pulling');
+        indicator.style.transform = 'translateY(-60px)';
+        indicator.style.opacity = '0';
+        setTimeout(() => {
+          indicator.innerHTML = '<i class="fas fa-arrow-down"></i> Tarik untuk refresh';
+        }, 300);
+      }
+    } else {
+      // Reset indicator
+      const indicator = document.getElementById('pull-refresh-indicator');
+      if (indicator) {
+        indicator.style.transform = 'translateY(-60px)';
+        indicator.style.opacity = '0';
+      }
+    }
+    
+    isPulling = false;
+    pullStartY = 0;
+    pullCurrentY = 0;
+  });
 }
 
 // ========== INIT ==========
@@ -567,12 +703,17 @@ async function init() {
 
   render(); // render full app
   applyTheme();
+  initKeyboardShortcuts();
   document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
 
   // Hide splash after 3 seconds
   setTimeout(() => {
     state.showSplash = false;
     render();
+    // Initialize pull-to-refresh after splash
+    if (window.innerWidth <= 768) {
+      initPullToRefresh();
+    }
   }, 3000);
 }
 

@@ -234,14 +234,12 @@ export async function loadMaterialList(state, containerId = 'material-list', opt
 }
 
 /** Submit form material */
-export async function handleMaterialSubmit(e) {
+export async function handleMaterialSubmit(e, state, refreshFn) {
   e.preventDefault();
   const btn = document.getElementById('mat-submit-btn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Menyimpan...';
   try {
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
+    if (!state || !state.user || !state.user.id) {
       throw new Error('User tidak ditemukan. Silakan login kembali.');
     }
     
@@ -254,13 +252,13 @@ export async function handleMaterialSubmit(e) {
       unit:          document.getElementById('mat-unit').value.trim(),
       unit_price:    Number(document.getElementById('mat-unit-price').value),
       description:   document.getElementById('mat-desc').value.trim() || null,
-      ordered_by:    user.id,
+      ordered_by:    state.user.id,
     };
     const { error } = await supabase.from('material_orders').insert(payload);
     if (error) throw error;
     showToast('Order material tersimpan ✓', 'success');
     document.getElementById('material-form').reset();
-    window.__app.refreshPage?.();
+    if (refreshFn) await refreshFn();
   } catch (err) {
     showToast('Gagal: ' + err.message, 'error');
   } finally {
@@ -269,25 +267,25 @@ export async function handleMaterialSubmit(e) {
 }
 
 /** Update status material */
-export async function updateMaterialStatus(id, status) {
+export async function updateMaterialStatus(id, status, refreshFn) {
   try {
     const { error } = await supabase.from('material_orders').update({ status }).eq('id', id);
     if (error) throw error;
     showToast('Status diperbarui ✓', 'success');
-    window.__app.refreshPage?.();
+    if (refreshFn) await refreshFn();
   } catch (e) {
     showToast('Gagal: ' + e.message, 'error');
   }
 }
 
 /** Delete material order */
-export async function deleteMaterial(id) {
+export async function deleteMaterial(id, refreshFn) {
   if (!confirm('Yakin hapus order material ini?')) return;
   try {
     const { error } = await supabase.from('material_orders').delete().eq('id', id);
     if (error) throw error;
     showToast('Order dihapus ✓', 'success');
-    window.__app.refreshPage?.();
+    if (refreshFn) await refreshFn();
   } catch (e) {
     showToast('Gagal: ' + e.message, 'error');
   }
