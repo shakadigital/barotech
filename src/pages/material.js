@@ -239,7 +239,12 @@ export async function handleMaterialSubmit(e) {
   const btn = document.getElementById('mat-submit-btn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Menyimpan...';
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      throw new Error('User tidak ditemukan. Silakan login kembali.');
+    }
+    
     const payload = {
       project_id:    document.getElementById('mat-project').value,
       order_type:    document.getElementById('mat-type').value,
