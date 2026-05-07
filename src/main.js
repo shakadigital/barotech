@@ -283,7 +283,7 @@ function render() {
       <div class="login-container">
         <div class="login-card">
           <img src="/favicon.svg" alt="Logo" class="login-logo" />
-          <h1 class="login-title">Absensi Barotech</h1>
+          <h1 class="login-title">Absensi</h1>
           <p class="login-subtitle">Masuk dengan username</p>
           <form id="login-form">
             <div class="form-group">

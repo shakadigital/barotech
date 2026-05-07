@@ -147,7 +147,27 @@ img { max-width: 100%; display: block; }
   box-shadow: var(--glass-shadow);
   animation: fadeSlideUp 0.6s ease;
 }
-.login-logo { width: 80px; height: 80px; margin: 0 auto 16px; }
+.login-logo { 
+  width: 140px; 
+  height: 140px; 
+  margin: 0 auto 24px; 
+  display: block;
+  filter: drop-shadow(0 0 20px rgba(25, 210, 193, 0.5)) 
+          drop-shadow(0 0 40px rgba(25, 210, 193, 0.3));
+  animation: logoGlow 3s ease-in-out infinite;
+}
+@keyframes logoGlow {
+  0%, 100% { 
+    filter: drop-shadow(0 0 20px rgba(25, 210, 193, 0.5)) 
+            drop-shadow(0 0 40px rgba(25, 210, 193, 0.3));
+    transform: scale(1);
+  }
+  50% { 
+    filter: drop-shadow(0 0 30px rgba(25, 210, 193, 0.7)) 
+            drop-shadow(0 0 60px rgba(25, 210, 193, 0.5));
+    transform: scale(1.05);
+  }
+}
 .login-title { text-align: center; font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
 .login-subtitle { text-align: center; color: var(--text-secondary); margin-bottom: 32px; font-size: 0.85rem; }
 
