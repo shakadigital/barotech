@@ -120,3 +120,119 @@ BEGIN
   RETURN;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- =============================================
+-- V33 — FIX AUTO-SYNC ATTENDANCE STATUS
+-- =============================================
+
+CREATE OR REPLACE FUNCTION fn_sync_attendance_on_assign_insert()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_hourly NUMERIC;
+BEGIN
+  IF NEW.status = 'active'
+     AND NEW.start_date <= CURRENT_DATE
+     AND (NEW.end_date IS NULL OR NEW.end_date >= CURRENT_DATE) THEN
+    
+    v_hourly := COALESCE(NEW.basic_salary / 8, 0);
+
+    INSERT INTO attendance_logs (
+      employee_id, project_id, check_in, check_out,
+      status, hourly_rate, basic_salary, notes,
+      uang_makan, transport, tunjangan_lain
+    ) VALUES (
+      NEW.employee_id, NEW.project_id,
+      (CURRENT_DATE::TIMESTAMP + '08:00:00'::TIME)::TIMESTAMPTZ,
+      (CURRENT_DATE::TIMESTAMP + '17:00:00'::TIME)::TIMESTAMPTZ,
+      'pending', v_hourly, NEW.basic_salary, NEW.notes,
+      COALESCE(NEW.uang_makan, 0), COALESCE(NEW.transport, 0), COALESCE(NEW.tunjangan_lain, 0)
+    )
+    ON CONFLICT DO NOTHING;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION fn_sync_attendance_on_assign_update()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_hourly NUMERIC;
+BEGIN
+  IF NEW.status = 'active'
+     AND NEW.start_date <= CURRENT_DATE
+     AND (NEW.end_date IS NULL OR NEW.end_date >= CURRENT_DATE) THEN
+    
+    v_hourly := COALESCE(NEW.basic_salary / 8, 0);
+
+    UPDATE attendance_logs
+    SET 
+      project_id     = NEW.project_id,
+      basic_salary   = NEW.basic_salary,
+      hourly_rate    = v_hourly,
+      notes          = NEW.notes,
+      uang_makan     = COALESCE(NEW.uang_makan, 0),
+      transport      = COALESCE(NEW.transport, 0),
+      tunjangan_lain = COALESCE(NEW.tunjangan_lain, 0)
+    WHERE employee_id = NEW.employee_id
+      AND DATE(check_in) = CURRENT_DATE
+      AND status = 'pending';
+  END IF;
+
+  IF NEW.status IN ('ended','paused') AND OLD.status = 'active' THEN
+    DELETE FROM attendance_logs
+    WHERE employee_id = NEW.employee_id
+      AND project_id  = NEW.project_id
+      AND DATE(check_in) = CURRENT_DATE
+      AND status = 'pending';
+  END IF;
+
+  IF NEW.status = 'active' AND OLD.status = 'paused' THEN
+    v_hourly := COALESCE(NEW.basic_salary / 8, 0);
+
+    INSERT INTO attendance_logs (
+      employee_id, project_id, check_in, check_out,
+      status, hourly_rate, basic_salary, notes,
+      uang_makan, transport, tunjangan_lain
+    ) VALUES (
+      NEW.employee_id, NEW.project_id,
+      (CURRENT_DATE::TIMESTAMP + '08:00:00'::TIME)::TIMESTAMPTZ,
+      (CURRENT_DATE::TIMESTAMP + '17:00:00'::TIME)::TIMESTAMPTZ,
+      'pending', v_hourly, NEW.basic_salary, NEW.notes,
+      COALESCE(NEW.uang_makan, 0), COALESCE(NEW.transport, 0), COALESCE(NEW.tunjangan_lain, 0)
+    )
+    ON CONFLICT DO NOTHING;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION fn_sync_attendance_on_assign_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  DELETE FROM attendance_logs
+  WHERE employee_id = OLD.employee_id
+    AND project_id  = OLD.project_id
+    AND DATE(check_in) = CURRENT_DATE
+    AND status = 'pending';
+
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_sync_attendance_insert ON project_assignments;
+CREATE TRIGGER trg_sync_attendance_insert
+  AFTER INSERT ON project_assignments
+  FOR EACH ROW EXECUTE FUNCTION fn_sync_attendance_on_assign_insert();
+
+DROP TRIGGER IF EXISTS trg_sync_attendance_update ON project_assignments;
+CREATE TRIGGER trg_sync_attendance_update
+  AFTER UPDATE ON project_assignments
+  FOR EACH ROW EXECUTE FUNCTION fn_sync_attendance_on_assign_update();
+
+DROP TRIGGER IF EXISTS trg_sync_attendance_delete ON project_assignments;
+CREATE TRIGGER trg_sync_attendance_delete
+  AFTER DELETE ON project_assignments
+  FOR EACH ROW EXECUTE FUNCTION fn_sync_attendance_on_assign_delete();
