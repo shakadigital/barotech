@@ -420,8 +420,8 @@ function render() {
     loadPaymentHistory();
   }
   if (state.currentPage === 'home') {
-    loadBonNotifications(state.employees);
-    loadTodayExpenses(state.projects);
+    loadBonNotifications(state.employees, state.user);
+    loadTodayExpenses(state.projects, state.user);
   }
 }
 

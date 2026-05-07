@@ -334,11 +334,21 @@ export function DashboardPage(state) {
 }
 
 /** Load notifikasi bon: tampilkan warning jika ada karyawan dengan bon tinggi */
-export async function loadBonNotifications(employees) {
+export async function loadBonNotifications(employees, currentUser) {
   const container = document.getElementById('bon-notifications');
   if (!container) return;
 
-  const flagged = employees.filter(e => (e.bon_balance || 0) >= BON_WARNING_THRESHOLD);
+  // Cek apakah user memiliki akses untuk melihat notifikasi bon
+  const hasFullAccess = ['owner', 'admin', 'superadmin'].includes(currentUser?.role);
+  
+  // Filter karyawan dengan bon tinggi
+  let flagged = employees.filter(e => (e.bon_balance || 0) >= BON_WARNING_THRESHOLD);
+  
+  // Jika bukan owner/admin/superadmin, hanya tampilkan bon user sendiri
+  if (!hasFullAccess) {
+    flagged = flagged.filter(e => e.id === currentUser?.id);
+  }
+  
   if (flagged.length === 0) { container.innerHTML = ''; return; }
 
   const list = flagged.map(e =>
@@ -358,9 +368,16 @@ export async function loadBonNotifications(employees) {
 }
 
 /** Load ringkasan pengeluaran proyek hari ini */
-export async function loadTodayExpenses(projects) {
+export async function loadTodayExpenses(projects, currentUser) {
   const container = document.getElementById('today-expenses');
   if (!container) return;
+
+  // Hanya tampilkan untuk owner, admin, dan superadmin
+  const hasAccess = ['owner', 'admin', 'superadmin'].includes(currentUser?.role);
+  if (!hasAccess) {
+    container.innerHTML = '';
+    return;
+  }
 
   try {
     const today = new Date().toISOString().slice(0, 10);
