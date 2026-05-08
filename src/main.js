@@ -73,15 +73,13 @@ const MENU_META = {
 async function fetchData() {
   try {
     const role = state.user.role;
-    const today = new Date().toISOString().slice(0, 10);
     // karyawan fetch absensi milik sendiri + kolom keuangan (untuk halaman Riwayat)
     const attQuery = role === 'karyawan'
       ? supabase.from('attendance_logs')
           .select('id, employee_id, project_id, status, check_in, check_out, notes, overtime_hours, overtime_rate, overtime_pay, jabatan_snapshot, work_items, basic_salary, hourly_rate, uang_makan, transport, tunjangan_lain, misc_amount, misc_description, cash_advance, cash_payout, checkin_lat, checkin_lng, checkout_lat, checkout_lng, created_at')
           .eq('employee_id', state.user.id)
-          .gte('created_at', today + ' 00:00:00')
           .order('created_at', { ascending: false })
-      : supabase.from('attendance_logs').select('*').gte('created_at', today + ' 00:00:00').order('created_at', { ascending: false });
+      : supabase.from('attendance_logs').select('*').order('created_at', { ascending: false });
 
     const [empRes, prjRes, attRes, asgnRes, actRes] = await Promise.all([
       supabase.from('profiles').select('*').order('full_name'),
