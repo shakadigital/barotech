@@ -20,6 +20,44 @@ import { OvertimePage, handleOvertimeSubmit, handleOvertimeRequest, loadOvertime
 import { MaterialPage, handleMaterialSubmit, loadMaterialList, updateMaterialStatus, deleteMaterial } from './pages/material.js';
 import { ExpensePage, handleExpenseSubmit, loadExpenseList, deleteExpense } from './pages/expense.js';
 import { loadProjectUpdates } from './pages/laporan.js';
+
+// ========== UPDATE CHECKER ==========
+const APP_VERSION = '2.1.2';
+
+function checkForUpdate() {
+  // Cek versi yang tersimpan di localStorage
+  const savedVersion = localStorage.getItem('app_version');
+  if (savedVersion && savedVersion !== APP_VERSION) {
+    // Ada versi baru — tampilkan banner
+    showUpdateBanner(savedVersion, APP_VERSION);
+  }
+  // Simpan versi saat ini
+  localStorage.setItem('app_version', APP_VERSION);
+}
+
+function showUpdateBanner(oldVer, newVer) {
+  // Hapus banner lama jika ada
+  document.getElementById('update-banner')?.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'update-banner';
+  banner.innerHTML = `
+    <i class="fas fa-rocket" style="color:var(--primary);"></i>
+    <span>Aplikasi diperbarui ke <strong>v${newVer}</strong></span>
+    <button onclick="location.reload(true)" style="
+      background:var(--primary);color:#fff;border:none;border-radius:6px;
+      padding:4px 12px;font-size:0.78rem;font-weight:600;cursor:pointer;margin-left:8px;">
+      Muat Ulang
+    </button>
+    <button onclick="document.getElementById('update-banner').remove()" style="
+      background:none;border:none;color:var(--text-secondary);cursor:pointer;
+      font-size:1rem;margin-left:4px;padding:0 4px;">✕</button>
+  `;
+  document.body.appendChild(banner);
+}
+
+// Jalankan saat halaman dimuat
+checkForUpdate();
 const state = {
   isLoggedIn: false,
   showSplash: true,
