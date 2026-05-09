@@ -25,6 +25,9 @@ export function SalaryPaymentPage(state) {
 
   return `
     <div class="fade-in">
+      <button class="btn btn-ghost btn-sm mb-16" onclick="window.__app.navigateTo('laporan')" style="padding:6px 12px;">
+        <i class="fas fa-arrow-left"></i> Laporan
+      </button>
       <div class="card mb-16">
         <div class="card-header">
           <div class="card-title"><i class="fas fa-money-bill-wave"></i> Pembayaran Gaji Karyawan</div>
@@ -236,7 +239,7 @@ export async function openPaymentModal(employeeId, startDate, endDate) {
     // Query attendance yang belum dibayar untuk karyawan ini
     const { data: attendances, error } = await supabase
       .from('attendance_logs')
-      .select('*, profiles!inner(id, full_name, role, jabatan)')
+      .select('*, profiles!inner(id, full_name, role, jabatan, bon_balance)')
       .is('payment_id', null)
       .eq('employee_id', employeeId)
       .gte('created_at', startDate)
@@ -259,6 +262,7 @@ export async function openPaymentModal(employeeId, startDate, endDate) {
     const totalBonus = attendances.reduce((sum, a) => sum + (a.misc_amount || 0), 0);
     const totalDeductions = attendances.reduce((sum, a) => sum + (a.cash_advance || 0), 0);
     const totalPayout = attendances.reduce((sum, a) => sum + (a.cash_payout || 0), 0);
+    const bonBalance = employee.bon_balance || 0;
     const netSalary = totalSalary + totalUangMakan + totalTransport + totalTunjangan + totalOvertime + totalBonus - totalDeductions + totalPayout;
 
     // Remove existing modal
@@ -325,9 +329,41 @@ export async function openPaymentModal(employeeId, startDate, endDate) {
           </div>` : ''}
           <div class="flex justify-between pt-8" style="border-top:2px solid var(--border);font-size:1.1rem;">
             <span class="fw-bold">Total Terima:</span>
-            <span class="fw-bold text-success">${fmtIdr(netSalary)}</span>
+            <span class="fw-bold text-success" id="display-net-salary">${fmtIdr(netSalary)}</span>
           </div>
         </div>
+
+        <!-- Potong Bon (Angsuran) -->
+        ${bonBalance > 0 ? `
+        <div class="mb-16" style="background:var(--bg-secondary,#fff3cd);border:1px solid var(--warning,#ffc107);border-radius:var(--radius);padding:12px;">
+          <div class="flex align-center gap-8 mb-8">
+            <input type="checkbox" id="potong-bon-checkbox" 
+              onchange="window.__togglePotongBon(this.checked, ${bonBalance}, ${netSalary})" />
+            <label for="potong-bon-checkbox" class="fw-bold" style="cursor:pointer;">
+              <i class="fas fa-cut"></i> Potong Bon (Angsuran)
+            </label>
+          </div>
+          <div class="text-xs text-secondary mb-8">
+            Saldo hutang bon saat ini: <strong class="text-danger">${fmtIdr(bonBalance)}</strong>
+          </div>
+          <div id="potong-bon-fields" style="display:none;">
+            <div class="form-group mb-8">
+              <label class="form-label text-sm">Jumlah Angsuran (Rp)</label>
+              <input type="number" class="form-input" id="potong-bon-amount" 
+                min="0" max="${Math.min(bonBalance, netSalary)}" step="1000"
+                placeholder="Masukkan jumlah angsuran"
+                oninput="window.__updateNetSalary(${netSalary})" />
+              <div class="text-xs text-secondary mt-4">
+                Maksimal: ${fmtIdr(Math.min(bonBalance, netSalary))} 
+                (${bonBalance > netSalary ? 'sesuai gaji' : 'sesuai saldo bon'})
+              </div>
+            </div>
+            <div class="alert alert-info" style="padding:8px 10px;font-size:0.85rem;">
+              <i class="fas fa-info-circle"></i>
+              Angsuran akan otomatis dicatat sebagai transaksi bon "BAYAR" dan mengurangi saldo hutang karyawan.
+            </div>
+          </div>
+        </div>` : ''}
 
         <div class="form-group mb-16">
           <label class="form-label">Metode Pembayaran</label>
@@ -382,6 +418,36 @@ export async function openPaymentModal(employeeId, startDate, endDate) {
       if (bankFields) bankFields.style.display = show ? 'block' : 'none';
     };
 
+    // Helper function untuk toggle potong bon
+    window.__togglePotongBon = (checked, bonBalance, originalNetSalary) => {
+      const fields = document.getElementById('potong-bon-fields');
+      const amountInput = document.getElementById('potong-bon-amount');
+      if (fields) fields.style.display = checked ? 'block' : 'none';
+      if (!checked && amountInput) {
+        amountInput.value = '';
+        window.__updateNetSalary(originalNetSalary);
+      }
+    };
+
+    // Helper function untuk update net salary display
+    window.__updateNetSalary = (originalNetSalary) => {
+      const potongBonCheckbox = document.getElementById('potong-bon-checkbox');
+      const potongBonAmount = parseFloat(document.getElementById('potong-bon-amount')?.value) || 0;
+      const displayNetSalary = document.getElementById('display-net-salary');
+      
+      if (potongBonCheckbox?.checked && potongBonAmount > 0) {
+        const newNetSalary = originalNetSalary - potongBonAmount;
+        if (displayNetSalary) {
+          displayNetSalary.innerHTML = `
+            <div style="text-decoration:line-through;font-size:0.9rem;color:var(--text-secondary);">${fmtIdr(originalNetSalary)}</div>
+            <div>${fmtIdr(newNetSalary)}</div>
+          `;
+        }
+      } else {
+        if (displayNetSalary) displayNetSalary.textContent = fmtIdr(originalNetSalary);
+      }
+    };
+
   } catch (err) {
     showToast('Gagal: ' + err.message, 'error');
   }
@@ -421,6 +487,11 @@ export async function processPayment(employeeId, startDate, endDate) {
     const bankName = document.getElementById('payment-bank')?.value || null;
     const accountNumber = document.getElementById('payment-account')?.value || null;
     const notes = document.getElementById('payment-notes')?.value || null;
+    
+    // Get potong bon values
+    const potongBonCheckbox = document.getElementById('potong-bon-checkbox');
+    const potongBonEnabled = potongBonCheckbox?.checked || false;
+    const potongBonAmount = potongBonEnabled ? (parseFloat(document.getElementById('potong-bon-amount')?.value) || 0) : 0;
 
     // Validate transfer fields
     if (paymentMethod === 'transfer' && (!bankName || !accountNumber)) {
@@ -432,10 +503,20 @@ export async function processPayment(employeeId, startDate, endDate) {
       return;
     }
 
+    // Validate potong bon amount
+    if (potongBonEnabled && potongBonAmount <= 0) {
+      showToast('Jumlah angsuran bon harus lebih dari 0', 'warning');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check"></i> Bayar & Cetak Slip';
+      }
+      return;
+    }
+
     // Query attendance yang belum dibayar
     const { data: attendances, error: attError } = await supabase
       .from('attendance_logs')
-      .select('*')
+      .select('*, profiles!inner(bon_balance)')
       .is('payment_id', null)
       .eq('employee_id', employeeId)
       .gte('created_at', startDate)
@@ -444,6 +525,12 @@ export async function processPayment(employeeId, startDate, endDate) {
     if (attError) throw attError;
     if (!attendances || attendances.length === 0) {
       throw new Error('Tidak ada data gaji untuk dibayar');
+    }
+
+    // Validate potong bon tidak melebihi saldo
+    const bonBalance = attendances[0].profiles.bon_balance || 0;
+    if (potongBonEnabled && potongBonAmount > bonBalance) {
+      throw new Error(`Angsuran (${fmtIdr(potongBonAmount)}) melebihi saldo bon (${fmtIdr(bonBalance)})`);
     }
 
     // Calculate totals - include all salary components
@@ -456,7 +543,15 @@ export async function processPayment(employeeId, startDate, endDate) {
     const totalBonus = attendances.reduce((sum, a) => sum + (a.misc_amount || 0), 0);
     const totalDeductions = attendances.reduce((sum, a) => sum + (a.cash_advance || 0), 0);
     const totalPayout = attendances.reduce((sum, a) => sum + (a.cash_payout || 0), 0);
-    const netSalary = totalSalary + totalUangMakan + totalTransport + totalTunjangan + totalOvertime + totalBonus - totalDeductions + totalPayout;
+    
+    // Add potong bon to total deductions
+    const finalTotalDeductions = totalDeductions + potongBonAmount;
+    const netSalary = totalSalary + totalUangMakan + totalTransport + totalTunjangan + totalOvertime + totalBonus - finalTotalDeductions + totalPayout;
+
+    // Validate net salary tidak negatif
+    if (netSalary < 0) {
+      throw new Error('Total gaji tidak mencukupi untuk potongan yang diinput');
+    }
 
     // Get current user ID
     const { data: { user } } = await supabase.auth.getUser();
@@ -473,7 +568,7 @@ export async function processPayment(employeeId, startDate, endDate) {
         total_salary: totalSalary,
         total_overtime: totalOvertime,
         total_bonus: totalBonus,
-        total_deductions: totalDeductions,
+        total_deductions: finalTotalDeductions,
         net_salary: netSalary,
         payment_method: paymentMethod,
         bank_name: bankName,
@@ -495,11 +590,29 @@ export async function processPayment(employeeId, startDate, endDate) {
 
     if (updateError) throw updateError;
 
+    // Insert bon transaction jika potong bon enabled
+    if (potongBonEnabled && potongBonAmount > 0) {
+      const { error: bonError } = await supabase
+        .from('bon_transactions')
+        .insert({
+          employee_id: employeeId,
+          type: 'bayar',
+          amount: potongBonAmount,
+          description: `Potong gaji periode ${fmtDate(startDate)} - ${fmtDate(endDate)}`,
+          created_by: user.id,
+        });
+
+      if (bonError) throw bonError;
+    }
+
     // Close modal
     document.getElementById('payment-modal')?.remove();
 
     // Show success & print slip
-    showToast('Pembayaran berhasil! Mencetak slip...', 'success');
+    showToast(potongBonEnabled ? 
+      `Pembayaran berhasil! Bon dipotong ${fmtIdr(potongBonAmount)}. Mencetak slip...` : 
+      'Pembayaran berhasil! Mencetak slip...', 
+      'success');
     
     // Reload data
     await loadUnpaidSalaries();
@@ -612,6 +725,19 @@ export async function printSalarySlip(paymentId) {
     const totalTransport = attendances?.reduce((sum, a) => sum + (a.transport || 0), 0) || 0;
     const totalTunjangan = attendances?.reduce((sum, a) => sum + (a.tunjangan_lain || 0), 0) || 0;
     const totalPayout = attendances?.reduce((sum, a) => sum + (a.cash_payout || 0), 0) || 0;
+    const totalKasbon = attendances?.reduce((sum, a) => sum + (a.cash_advance || 0), 0) || 0;
+
+    // Query bon transaction untuk periode ini (untuk melihat potong bon)
+    const { data: bonTransactions } = await supabase
+      .from('bon_transactions')
+      .select('*')
+      .eq('employee_id', payment.employee_id)
+      .eq('type', 'bayar')
+      .gte('created_at', payment.period_start)
+      .lte('created_at', payment.period_end + ' 23:59:59')
+      .ilike('description', '%Potong gaji%');
+    
+    const totalPotongBon = bonTransactions?.reduce((sum, b) => sum + (b.amount || 0), 0) || 0;
 
     const employee = payment.profiles;
     
@@ -696,10 +822,21 @@ export async function printSalarySlip(paymentId) {
         <div style="margin-bottom:20px;">
           <div style="background:#f0f0f0;padding:8px;font-weight:bold;border-bottom:2px solid #333;">POTONGAN</div>
           <table style="width:100%;font-size:14px;">
+            ${totalKasbon > 0 ? `
             <tr>
               <td style="padding:8px 0;">Kasbon</td>
-              <td style="text-align:right;padding:8px 0;">${fmtIdr(payment.total_deductions)}</td>
-            </tr>
+              <td style="text-align:right;padding:8px 0;">${fmtIdr(totalKasbon)}</td>
+            </tr>` : ''}
+            ${totalPotongBon > 0 ? `
+            <tr>
+              <td style="padding:8px 0;">Angsuran Bon</td>
+              <td style="text-align:right;padding:8px 0;">${fmtIdr(totalPotongBon)}</td>
+            </tr>` : ''}
+            ${payment.total_deductions === 0 ? `
+            <tr>
+              <td style="padding:8px 0;font-style:italic;color:#999;">Tidak ada potongan</td>
+              <td style="text-align:right;padding:8px 0;">Rp 0</td>
+            </tr>` : ''}
             <tr style="border-top:1px solid #ddd;">
               <td style="padding:8px 0;font-weight:bold;">Total Potongan</td>
               <td style="text-align:right;padding:8px 0;font-weight:bold;">${fmtIdr(payment.total_deductions)}</td>

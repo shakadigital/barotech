@@ -22,6 +22,9 @@ export function LaporanRekapGajiPage(state) {
     <div class="fade-in" style="padding:20px;max-width:1200px;margin:0 auto;">
       <div class="mb-16" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <div>
+          <button class="btn btn-ghost btn-sm mb-8" onclick="window.__app.navigateTo('laporan')" style="padding:6px 12px;">
+            <i class="fas fa-arrow-left"></i> Laporan
+          </button>
           <h1 class="fw-bold" style="font-size:1.5rem;margin:0;">
             <i class="fas fa-money-bill-wave"></i> Rekap Gaji Lengkap
           </h1>

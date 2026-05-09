@@ -2,9 +2,10 @@ import './style.css';
 import { supabase, hasCredentials } from './lib/supabase.js';
 import { showToast, esc } from './lib/helpers.js';
 import { DashboardPage, loadBonNotifications, loadTodayExpenses } from './pages/dashboard.js';
-import { AttendancePage, verifyAttendance, deleteAttendance, saveWorkItems, saveKegiatan, generateDailyAttendance, openEditAttendance, saveEditAttendance, clockIn, clockOut, autoCheckoutStale, createAttendanceWithStatus } from './pages/attendance.js';
+import { AttendancePage, verifyAttendance, deleteAttendance, saveWorkItems, saveKegiatan, addAdminActivity, generateDailyAttendance, openEditAttendance, saveEditAttendance, clockIn, clockOut, autoCheckoutStale, createAttendanceWithStatus } from './pages/attendance.js';
 import { RiwayatPage } from './pages/riwayat.js';
-import { LaporanPage, previewPhoto, handleLaporanSubmit } from './pages/laporan.js';
+import { LaporanPage, previewPhoto, handleLaporanSubmit, editProjectUpdate, saveProjectUpdate, deleteProjectUpdate } from './pages/laporan.js';
+import { LaporanIndexPage } from './pages/laporan-index.js';
 import { LaporanGajiPage, filterLaporanGaji, exportLaporanGajiToExcel, printLaporanGaji } from './pages/laporan-gaji.js';
 import { RekapProyekPage, loadRekapProyek, togglePeriodType, toggleProjectBreakdown, exportRekapProyek } from './pages/rekap-proyek.js';
 import { LaporanRekapGajiPage, loadRekapGaji, exportRekapGaji } from './pages/laporan-rekap-gaji.js';
@@ -14,7 +15,7 @@ import { SalaryPaymentPage, loadUnpaidSalaries, openPaymentModal, paySelectedSal
 import { ProjectPage, handleProjectSubmit, deleteProject, updateProjectStatus, openProjectDetail } from './pages/project.js';
 import { UsersPage, handleUserSubmit, deleteUser, openEditUser, saveEditUser } from './pages/users.js';
 import { BonPage, handleBonSubmit, showBonHistory } from './pages/bon.js';
-import { AssignmentPage, loadAssignments, handleAssignSubmit, toggleAssignRow, openEditAssignment, saveEditAssignment, editAssignmentSalary, endAssignment, resumeAssignment, deleteAssignment, openAdminCheckIn, saveAdminCheckIn } from './pages/assignment.js';
+import { AssignmentPage, loadAssignments, loadUnassignedEmployees, handleAssignSubmit, toggleAssignRow, openEditAssignment, saveEditAssignment, editAssignmentSalary, endAssignment, resumeAssignment, deleteAssignment, openAdminCheckIn, saveAdminCheckIn } from './pages/assignment.js';
 import { OvertimePage, handleOvertimeSubmit, handleOvertimeRequest, loadOvertimeList, approveOvertime, rejectOvertime, deleteOvertime, editOvertime } from './pages/overtime.js';
 import { MaterialPage, handleMaterialSubmit, loadMaterialList, updateMaterialStatus, deleteMaterial } from './pages/material.js';
 import { ExpensePage, handleExpenseSubmit, loadExpenseList, deleteExpense } from './pages/expense.js';
@@ -76,7 +77,7 @@ async function fetchData() {
     // karyawan fetch absensi milik sendiri + kolom keuangan (untuk halaman Riwayat)
     const attQuery = role === 'karyawan'
       ? supabase.from('attendance_logs')
-          .select('id, employee_id, project_id, status, check_in, check_out, notes, overtime_hours, overtime_rate, overtime_pay, jabatan_snapshot, work_items, basic_salary, hourly_rate, uang_makan, transport, tunjangan_lain, misc_amount, misc_description, cash_advance, cash_payout, checkin_lat, checkin_lng, checkout_lat, checkout_lng, created_at')
+          .select('id, employee_id, project_id, status, check_in, check_out, notes, kegiatan, overtime_hours, overtime_rate, overtime_pay, jabatan_snapshot, work_items, basic_salary, hourly_rate, uang_makan, transport, tunjangan_lain, misc_amount, misc_description, cash_advance, cash_payout, checkin_lat, checkin_lng, checkout_lat, checkout_lng, created_at')
           .eq('employee_id', state.user.id)
           .order('created_at', { ascending: false })
       : supabase.from('attendance_logs').select('*').order('created_at', { ascending: false });
@@ -166,7 +167,7 @@ function navigate(page) {
 
 // ========== RENDER ==========
 // Halaman yang termasuk grup "laporan"
-const LAPORAN_PAGES = new Set(['lapor','laporan-gaji','rekap-gaji','rekap-proyek','laporan-bon','laporan-kegiatan','salary-payment']);
+const LAPORAN_PAGES = new Set(['laporan','lapor','laporan-gaji','rekap-gaji','rekap-proyek','laporan-bon','laporan-kegiatan','salary-payment']);
 
 function renderSidebar() {
   const menus = MENUS[state.user.role] || ['home'];
@@ -174,14 +175,14 @@ function renderSidebar() {
 
   return menus.map(key => {
     if (key === 'laporan') {
-      // Parent dengan sub-menu collapsible
+      // Parent navigasi ke index, sub-menu tetap tersedia di sidebar
       const subOpen = isLaporanActive;
       return `
-        <button class="nav-item ${isLaporanActive ? 'active' : ''}"
-          onclick="window.__app.toggleLaporanMenu()" id="nav-laporan-parent">
+        <button class="nav-item ${state.currentPage === 'laporan' ? 'active' : (isLaporanActive ? 'active' : '')}"
+          data-page="laporan" id="nav-laporan-parent">
           <i class="fas fa-chart-bar"></i> Laporan
           <i class="fas fa-chevron-${subOpen ? 'up' : 'down'}"
-            style="margin-left:auto;font-size:0.7rem;" id="laporan-chevron"></i>
+            style="margin-left:auto;font-size:0.7rem;pointer-events:none;" id="laporan-chevron"></i>
         </button>
         <div id="laporan-submenu" style="display:${subOpen ? 'block' : 'none'};">
           ${LAPORAN_SUBMENU.map(s => `
@@ -206,7 +207,7 @@ function renderBottomNav() {
   return menus.map(key => {
     if (key === 'laporan') {
       return `<button class="bottom-nav-item ${isLaporanActive ? 'active' : ''}"
-        onclick="window.__app.navigateTo('laporan-gaji')">
+        onclick="window.__app.navigateTo('laporan')">
         <i class="fas fa-chart-bar"></i><span>Laporan</span>
       </button>`;
     }
@@ -225,6 +226,7 @@ function renderPage() {
     case 'overtime':   return OvertimePage(state);
     case 'riwayat':  return RiwayatPage(state);
     case 'lapor':      return LaporanPage(state);
+    case 'laporan':      return LaporanIndexPage(state);
     case 'laporan-gaji': return LaporanGajiPage(state);
     case 'rekap-gaji':   return LaporanRekapGajiPage(state);
     case 'rekap-proyek': return RekapProyekPage(state);
@@ -282,9 +284,9 @@ function render() {
     app.innerHTML = `
       <div class="login-container">
         <div class="login-card">
-          <img src="/favicon.svg" alt="Logo" class="login-logo" />
+          <img src="/icon-pwa.png" alt="Logo" class="login-logo" />
           <h1 class="login-title">Absensi</h1>
-          <p class="login-subtitle">Masuk dengan username</p>
+          <p class="login-subtitle">Manajemen Proyek & Karyawan</p>
           <form id="login-form">
             <div class="form-group">
               <label class="form-label">Username</label>
@@ -299,6 +301,10 @@ function render() {
             </button>
           </form>
         </div>
+      </div>
+      <div class="login-app-info">
+        <span class="login-app-info-name"><i class="fas fa-hard-hat"></i> Barotech ERP</span>
+        <span class="login-app-info-version">v2.1.2</span>
       </div>`;
     document.getElementById('login-form').addEventListener('submit', handleLogin);
     return;
@@ -309,7 +315,7 @@ function render() {
     <div class="sidebar-overlay" id="sidebar-overlay"></div>
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <img src="/favicon.svg" alt="Logo" class="sidebar-logo" />
+        <img src="/icon-pwa.png" alt="Logo" class="sidebar-logo" />
         <span class="sidebar-brand">Barotech</span>
       </div>
       <nav class="sidebar-nav">
@@ -317,6 +323,13 @@ function render() {
         ${renderSidebar()}
       </nav>
       <div class="sidebar-footer">
+        <div class="sidebar-app-info">
+          <div class="sidebar-app-info-name">
+            <i class="fas fa-hard-hat"></i> Barotech ERP
+          </div>
+          <div class="sidebar-app-info-desc">Manajemen Proyek & Karyawan</div>
+          <div class="sidebar-app-info-version">v2.1.2</div>
+        </div>
         <button class="nav-item" id="btn-logout">
           <i class="fas fa-sign-out-alt"></i> Keluar
         </button>
@@ -383,15 +396,25 @@ function render() {
     setTimeout(() => {
       window.__loadSelfActivities?.('self-activities-list', false);
       window.__loadSelfActivities?.('self-activities-list-done', true);
+
+      // Load kegiatan untuk setiap baris admin (admin-activities-{id})
+      document.querySelectorAll('[id^="admin-activities-"]').forEach(el => {
+        const attId = el.id.replace('admin-activities-', '');
+        if (attId) window.__loadAdminActivities?.(attId);
+      });
     }, 100);
   }
   if (state.currentPage === 'overtime') {
     loadOvertimeList(state);
+    window.__ot_supabase = supabase; // expose untuk __ot_loadEmployeeRate
   }
   if (state.currentPage === 'assignment') {
     loadAssignments(state);
+    loadUnassignedEmployees(state);
   }
   if (state.currentPage === 'lapor') {
+    // Load riwayat semua proyek langsung saat halaman dibuka
+    loadProjectUpdates(null, state);
     if (typeof window.__lap_resetPhotoSlots === 'function') {
       window.__lap_resetPhotoSlots();
     }
@@ -434,6 +457,7 @@ window.__app = {
   deleteAttendance(id) { deleteAttendance(id, refreshAndRender); },
   saveWorkItems(id) { saveWorkItems(id, refreshAndRender); },
   saveKegiatan(id) { saveKegiatan(id, refreshAndRender); },
+  addAdminActivity(id) { addAdminActivity(id, refreshAndRender); },
   generateDailyAttendance() { generateDailyAttendance(refreshAndRender); },
   openEditAttendance(id) { openEditAttendance(id, state); },
   saveEditAttendance(id) { saveEditAttendance(id, refreshAndRender); },
@@ -481,6 +505,23 @@ window.__app = {
   deleteAssignment(id) { deleteAssignment(id, state, refreshAndRender); },
   openAdminCheckIn(id) { openAdminCheckIn(id, state); },
   saveAdminCheckIn(e, id) { saveAdminCheckIn(e, id, state); },
+  prefillAssignEmployee(empId) {
+    // Buka form penugasan dan pre-select karyawan
+    const container = document.getElementById('assign-form-container');
+    const chevron   = document.getElementById('assign-form-chevron');
+    if (container && container.style.display === 'none') {
+      container.style.display = 'block';
+      if (chevron) chevron.style.transform = 'rotate(180deg)';
+    }
+    const empSelect = document.getElementById('asgn-employee');
+    if (empSelect) {
+      empSelect.value = empId;
+      empSelect.dispatchEvent(new Event('change'));
+      window.__asgn_onEmployeeChange(empId);
+    }
+    // Scroll ke form
+    container?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  },
   handleLaporanSubmit(e) { handleLaporanSubmit(e, state, refreshAndRender); },
   previewPhoto,
   handleProjectSubmit(e) { handleProjectSubmit(e, refreshAndRender); },
@@ -525,6 +566,9 @@ window.__app = {
     loadExpenseList(state, 'expense-list', { month, projectId });
   },
   loadProjectUpdates(projectId) { loadProjectUpdates(projectId, state); },
+  editProjectUpdate(id, pid, pct, desc) { editProjectUpdate(id, pid, pct, desc, state); },
+  saveProjectUpdate(id, pid) { saveProjectUpdate(id, pid, state, refreshAndRender); },
+  deleteProjectUpdate(id, pid) { deleteProjectUpdate(id, pid, state, refreshAndRender); },
   // Helper: Set button loading state
   setButtonLoading(btnId, isLoading, loadingText = 'Memproses...', originalText = null) {
     const btn = document.getElementById(btnId);

@@ -1,6 +1,6 @@
-import { fmtIdr, fmtDate, showToast, esc, getGeoLocation, fmtGeoNote, compressImage } from '../lib/helpers.js';
+import { fmtIdr, fmtDate, showToast, esc, getGeoLocation, fmtGeoNote, compressImage, validateImageFile } from '../lib/helpers.js';
 import { supabase } from '../lib/supabase.js';
-import { canFinance, FINANCE_ROLES, canApproveOvertime } from '../lib/roles.js';
+import { canFinance, FINANCE_ROLES } from '../lib/roles.js';
 
 /**
  * Halaman Lembur
@@ -42,21 +42,10 @@ export function OvertimePage(state) {
             </div>
           </div>
 
-          <div class="form-group mb-16">
+          <div class="form-group mb-24">
             <label class="form-label">Keterangan Pekerjaan Lembur</label>
             <textarea class="form-textarea" id="ot-req-desc" rows="3" required
               placeholder="Jelaskan pekerjaan yang dilakukan saat lembur..."></textarea>
-          </div>
-
-          <div class="form-group mb-24">
-            <label class="form-label">Foto Bukti Lembur</label>
-            <div class="file-upload" onclick="document.getElementById('ot-req-photo').click()">
-              <i class="fas fa-camera"></i>
-              <p>Klik untuk upload foto bukti</p>
-              <input type="file" id="ot-req-photo" accept="image/*" capture="environment"
-                onchange="window.__ot_previewReqPhoto(this)" />
-            </div>
-            <img id="ot-req-photo-preview" class="preview-img hidden" alt="Preview" />
           </div>
 
           <button type="submit" class="btn btn-primary btn-block" id="ot-req-submit-btn">
@@ -92,7 +81,8 @@ export function OvertimePage(state) {
             </div>
             <div class="form-group">
               <label class="form-label">Karyawan</label>
-              <select class="form-select" id="ot-employee" required>
+              <select class="form-select" id="ot-employee" required
+                onchange="window.__ot_loadEmployeeRate(this.value)">
                 <option value="">Pilih Karyawan</option>
                 ${karyawanList.map(e => `<option value="${e.id}">${esc(e.full_name)}</option>`).join('')}
               </select>
@@ -113,24 +103,10 @@ export function OvertimePage(state) {
 
           <div class="form-row mb-16">
             <div class="form-group">
-              <label class="form-label">Jam Mulai</label>
-              <input type="time" class="form-input" id="ot-start" value="17:00"
-                oninput="window.__ot_calcDuration()" />
+              <label class="form-label">Jumlah Jam Lembur</label>
+              <input type="number" class="form-input" id="ot-duration" value="3" min="0.5" step="0.5"
+                oninput="window.__ot_calcPay()" required />
             </div>
-            <div class="form-group">
-              <label class="form-label">Jam Selesai</label>
-              <input type="time" class="form-input" id="ot-end" value="20:00"
-                oninput="window.__ot_calcDuration()" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Durasi</label>
-              <input type="text" class="form-input" id="ot-duration-display" value="3 jam" readonly
-                style="background:var(--surface-2,#f3f4f6);cursor:default;" />
-              <input type="hidden" id="ot-duration" value="3" />
-            </div>
-          </div>
-
-          <div class="form-row mb-16">
             <div class="form-group">
               <label class="form-label">Upah Lembur / Jam (Rp)</label>
               <input type="number" class="form-input" id="ot-rate" value="0" min="0"
@@ -331,18 +307,8 @@ export async function handleOvertimeRequest(e, state, refreshFn) {
   btn.innerHTML = '<span class="spinner"></span> Mengajukan...';
 
   try {
-    // Upload foto jika ada
+    // Karyawan tidak upload foto — foto diisi admin saat approve
     let photoUrl = null;
-    const photoInput = document.getElementById('ot-req-photo');
-    if (photoInput.files?.[0]) {
-      const file     = photoInput.files[0];
-      const compressedFile = await compressImage(file, 1024, 0.7);
-      const fileName = `overtime/${Date.now()}_${compressedFile.name}`;
-      const { error: ue } = await supabase.storage.from('project-photos').upload(fileName, compressedFile);
-      if (ue) throw ue;
-      const { data: ud } = supabase.storage.from('project-photos').getPublicUrl(fileName);
-      photoUrl = ud.publicUrl;
-    }
 
     // Ambil lokasi otomatis
     const geo = await getGeoLocation();
@@ -368,7 +334,6 @@ export async function handleOvertimeRequest(e, state, refreshFn) {
     showToast('Permintaan lembur berhasil diajukan!', 'success');
     document.getElementById('ot-request-form').reset();
     document.getElementById('ot-req-date').value = new Date().toISOString().slice(0,10);
-    document.getElementById('ot-req-photo-preview')?.classList.add('hidden');
     await refreshFn();
     await loadOvertimeList(state);
   } catch (err) {
@@ -455,8 +420,6 @@ export async function handleOvertimeSubmit(e, state, refreshFn) {
   btn.innerHTML = '<span class="spinner"></span> Menyimpan...';
 
   try {
-    const startTime = document.getElementById('ot-start').value;
-    const endTime   = document.getElementById('ot-end').value;
     const duration  = parseFloat(document.getElementById('ot-duration').value) || 0;
     const rate      = parseFloat(document.getElementById('ot-rate').value) || 0;
 
@@ -464,9 +427,12 @@ export async function handleOvertimeSubmit(e, state, refreshFn) {
     let photoUrl = null;
     const photoInput = document.getElementById('ot-photo');
     if (photoInput.files?.[0]) {
-      const file     = photoInput.files[0];
+      const file = photoInput.files[0];
+      validateImageFile(file);
       const compressedFile = await compressImage(file, 1024, 0.7);
-      const fileName = `overtime/${Date.now()}_${compressedFile.name}`;
+      // Sanitasi nama file — hapus spasi dan karakter khusus
+      const safeName = compressedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileName = `overtime/${Date.now()}_${safeName}`;
       const { error: ue } = await supabase.storage.from('project-photos').upload(fileName, compressedFile);
       if (ue) throw ue;
       const { data: ud } = supabase.storage.from('project-photos').getPublicUrl(fileName);
@@ -482,24 +448,22 @@ export async function handleOvertimeSubmit(e, state, refreshFn) {
       project_id:       document.getElementById('ot-project').value,
       employee_id:      document.getElementById('ot-employee').value,
       overtime_date:    document.getElementById('ot-date').value,
-      start_time:       startTime + ':00',
-      end_time:         endTime + ':00',
+      start_time:       null,
+      end_time:         null,
       duration_hours:   duration,
       overtime_rate:    rate,
-      overtime_pay:     duration * rate,
+      overtime_pay:     Math.round(duration * rate),
       location_name:    locInput || (geo ? `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}` : null),
       work_description: descInput + fmtGeoNote(geo, descInput ? ' \n' : ''),
       photo_url:        photoUrl,
       created_by:       state.user.id,
+      status:           'approved',
     });
     if (error) throw error;
 
     showToast('Data lembur berhasil disimpan!', 'success');
     document.getElementById('overtime-form').reset();
     document.getElementById('ot-date').value = new Date().toISOString().slice(0,10);
-    document.getElementById('ot-start').value = '17:00';
-    document.getElementById('ot-end').value = '20:00';
-    document.getElementById('ot-duration-display').value = '3 jam';
     document.getElementById('ot-duration').value = '3';
     document.getElementById('ot-pay-display').value = 'Rp 0';
     document.getElementById('ot-pay').value = '0';
@@ -586,37 +550,29 @@ export async function editOvertime(id, state, refreshFn) {
 
 /** Kalkulasi durasi & upah otomatis */
 if (typeof window !== 'undefined') {
-  // Karyawan request form helpers - hanya preview foto
-  window.__ot_previewReqPhoto = function (input) {
-    const preview = document.getElementById('ot-req-photo-preview');
-    if (input.files?.[0] && preview) {
-      const r = new FileReader();
-      r.onload = (e) => { preview.src = e.target.result; preview.classList.remove('hidden'); };
-      r.readAsDataURL(input.files[0]);
-    }
-  };
+  // Auto-fetch overtime_rate dari profiles saat karyawan dipilih
+  window.__ot_loadEmployeeRate = async function (employeeId) {
+    if (!employeeId || !window.__ot_supabase) return;
+    try {
+      const { data } = await window.__ot_supabase
+        .from('profiles')
+        .select('overtime_rate')
+        .eq('id', employeeId)
+        .maybeSingle();
 
-  // Admin form helpers
-  window.__ot_calcDuration = function () {
-    const start = document.getElementById('ot-start')?.value;
-    const end   = document.getElementById('ot-end')?.value;
-    if (!start || !end) return;
-    const [sh, sm] = start.split(':').map(Number);
-    const [eh, em] = end.split(':').map(Number);
-    let diff = (eh * 60 + em) - (sh * 60 + sm);
-    if (diff < 0) diff += 24 * 60; // lewat tengah malam
-    const hours = Math.round(diff / 60 * 10) / 10;
-    const display = document.getElementById('ot-duration-display');
-    const hidden  = document.getElementById('ot-duration');
-    if (display) display.value = hours + ' jam';
-    if (hidden)  hidden.value  = hours;
-    window.__ot_calcPay();
+      const rate = data?.overtime_rate || 0;
+      const rateInput = document.getElementById('ot-rate');
+      if (rateInput) {
+        rateInput.value = rate;
+        window.__ot_calcPay();
+      }
+    } catch (_) {}
   };
 
   window.__ot_calcPay = function () {
     const hours = parseFloat(document.getElementById('ot-duration')?.value) || 0;
     const rate  = parseFloat(document.getElementById('ot-rate')?.value) || 0;
-    const total = hours * rate;
+    const total = Math.round(hours * rate);
     const display = document.getElementById('ot-pay-display');
     const hidden  = document.getElementById('ot-pay');
     if (display) display.value = 'Rp ' + total.toLocaleString('id-ID');

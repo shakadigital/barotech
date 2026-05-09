@@ -25,6 +25,9 @@ export function RekapProyekPage(state) {
       <!-- Header -->
       <div class="mb-16" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <div>
+          <button class="btn btn-ghost btn-sm mb-8" onclick="window.__app.navigateTo('laporan')" style="padding:6px 12px;">
+            <i class="fas fa-arrow-left"></i> Laporan
+          </button>
           <h1 class="fw-bold" style="font-size:1.5rem;margin:0;">
             <i class="fas fa-chart-pie"></i> Rekap Biaya Proyek
           </h1>
@@ -327,74 +330,87 @@ async function loadProjectBreakdown(projectId, contentEl) {
     const month = document.getElementById('rp-month')?.value || '';
     const periodType = document.querySelector('input[name="rp-period-type"]:checked')?.value || 'monthly';
     const isCumulative = periodType === 'cumulative';
-    
-    // Query materials
-    const materialsQuery = supabase
-      .from('materials')
+
+    let startDate = null, endDate = null;
+    if (!isCumulative && month) {
+      const [year, mon] = month.split('-');
+      startDate = `${year}-${mon}-01`;
+      endDate   = new Date(parseInt(year), parseInt(mon), 0).toISOString().slice(0, 10);
+    }
+
+    // Query materials (tabel 'material_orders')
+    let materialsQuery = supabase
+      .from('material_orders')
       .select('item_name, quantity, unit_price, total_price, created_at')
+      .eq('project_id', projectId)
+      .in('status', ['approved', 'completed']);
+    if (startDate) materialsQuery = materialsQuery.gte('created_at', startDate).lte('created_at', endDate + ' 23:59:59');
+
+    // Query expenses (tabel 'project_expenses')
+    let expensesQuery = supabase
+      .from('project_expenses')
+      .select('item_name, amount, description, expense_date')
       .eq('project_id', projectId);
-    
-    if (!isCumulative && month) {
-      const [year, mon] = month.split('-');
-      const startDate = `${year}-${mon}-01`;
-      const endDate = new Date(parseInt(year), parseInt(mon), 0).toISOString().slice(0, 10);
-      materialsQuery.gte('created_at', startDate).lte('created_at', endDate + ' 23:59:59');
-    }
-    
-    const { data: materials } = await materialsQuery;
-    
-    // Query expenses
-    const expensesQuery = supabase
-      .from('expenses')
-      .select('item_name, amount, description, created_at')
-      .eq('project_id', projectId);
-    
-    if (!isCumulative && month) {
-      const [year, mon] = month.split('-');
-      const startDate = `${year}-${mon}-01`;
-      const endDate = new Date(parseInt(year), parseInt(mon), 0).toISOString().slice(0, 10);
-      expensesQuery.gte('created_at', startDate).lte('created_at', endDate + ' 23:59:59');
-    }
-    
-    const { data: expenses } = await expensesQuery;
-    
-    // Query attendance (for salary breakdown)
-    const attendanceQuery = supabase
+    if (startDate) expensesQuery = expensesQuery.gte('expense_date', startDate).lte('expense_date', endDate);
+
+    // Query attendance (status 'hadir' dan 'verified')
+    let attendanceQuery = supabase
       .from('attendance_logs')
-      .select('employee_id, basic_salary, overtime_pay, profiles!inner(full_name)')
+      .select('employee_id, basic_salary, overtime_pay, uang_makan, transport, tunjangan_lain, cash_advance, profiles!inner(full_name)')
       .eq('project_id', projectId)
       .in('status', ['hadir', 'verified']);
-    
-    if (!isCumulative && month) {
-      const [year, mon] = month.split('-');
-      const startDate = `${year}-${mon}-01`;
-      const endDate = new Date(parseInt(year), parseInt(mon), 0).toISOString().slice(0, 10);
-      attendanceQuery.gte('created_at', startDate).lte('created_at', endDate + ' 23:59:59');
-    }
-    
-    const { data: attendance } = await attendanceQuery;
-    
+    if (startDate) attendanceQuery = attendanceQuery.gte('created_at', startDate).lte('created_at', endDate + ' 23:59:59');
+
+    // Query overtime_logs (approved)
+    let overtimeQuery = supabase
+      .from('overtime_logs')
+      .select('employee_id, overtime_pay, duration_hours, overtime_date, profiles!inner(full_name)')
+      .eq('project_id', projectId)
+      .eq('status', 'approved');
+    if (startDate) overtimeQuery = overtimeQuery.gte('overtime_date', startDate).lte('overtime_date', endDate);
+
+    const [{ data: materials }, { data: expenses }, { data: attendance }, { data: overtimes }] =
+      await Promise.all([materialsQuery, expensesQuery, attendanceQuery, overtimeQuery]);
+
     // Group salary by employee
     const salaryByEmployee = {};
     attendance?.forEach(a => {
-      if (!salaryByEmployee[a.employee_id]) {
-        salaryByEmployee[a.employee_id] = {
-          name: a.profiles.full_name,
-          salary: 0,
-          overtime: 0
-        };
+      const eid = a.employee_id;
+      if (!salaryByEmployee[eid]) {
+        salaryByEmployee[eid] = { name: a.profiles.full_name, salary: 0, overtime_att: 0 };
       }
-      salaryByEmployee[a.employee_id].salary += (a.basic_salary || 0);
-      salaryByEmployee[a.employee_id].overtime += (a.overtime_pay || 0);
+      salaryByEmployee[eid].salary      += (a.basic_salary || 0) + (a.uang_makan || 0) + (a.transport || 0) + (a.tunjangan_lain || 0) - (a.cash_advance || 0);
+      salaryByEmployee[eid].overtime_att += (a.overtime_pay || 0);
     });
-    
-    const salaryList = Object.values(salaryByEmployee);
-    
-    // Render breakdown
-    const totalMaterial = materials?.reduce((sum, m) => sum + (m.total_price || 0), 0) || 0;
-    const totalExpense = expenses?.reduce((sum, e) => sum + (e.amount || 0), 0) || 0;
-    const totalSalary = salaryList.reduce((sum, s) => sum + s.salary, 0);
-    const totalOvertime = salaryList.reduce((sum, s) => sum + s.overtime, 0);
+
+    // Group overtime from overtime_logs by employee
+    const overtimeByEmployee = {};
+    overtimes?.forEach(o => {
+      const eid = o.employee_id;
+      if (!overtimeByEmployee[eid]) {
+        overtimeByEmployee[eid] = { name: o.profiles.full_name, overtime_ot: 0 };
+      }
+      overtimeByEmployee[eid].overtime_ot += (o.overtime_pay || 0);
+    });
+
+    // Merge salary + overtime_logs
+    const allEmployeeIds = new Set([
+      ...Object.keys(salaryByEmployee),
+      ...Object.keys(overtimeByEmployee),
+    ]);
+    const salaryList = Array.from(allEmployeeIds).map(eid => ({
+      name:         salaryByEmployee[eid]?.name || overtimeByEmployee[eid]?.name || '-',
+      salary:       salaryByEmployee[eid]?.salary || 0,
+      overtime_att: salaryByEmployee[eid]?.overtime_att || 0,
+      overtime_ot:  overtimeByEmployee[eid]?.overtime_ot || 0,
+    }));
+
+    const totalMaterial  = materials?.reduce((s, m) => s + (m.total_price || 0), 0) || 0;
+    const totalExpense   = expenses?.reduce((s, e) => s + (e.amount || 0), 0) || 0;
+    const totalSalary    = salaryList.reduce((s, e) => s + e.salary, 0);
+    const totalOvertimeAtt = salaryList.reduce((s, e) => s + e.overtime_att, 0);
+    const totalOvertimeOt  = salaryList.reduce((s, e) => s + e.overtime_ot, 0);
+    const totalLembur    = totalOvertimeAtt + totalOvertimeOt;
     
     contentEl.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;">
@@ -436,7 +452,8 @@ async function loadProjectBreakdown(projectId, contentEl) {
         <!-- Gaji Karyawan -->
         <div>
           <div class="fw-bold mb-8" style="color:var(--primary);">
-            <i class="fas fa-users"></i> Gaji Karyawan (${fmtIdr(totalSalary + totalOvertime)})
+            <i class="fas fa-users"></i> Gaji Karyawan (${fmtIdr(totalSalary)})
+            ${totalLembur > 0 ? `<span class="text-xs text-secondary"> + Lembur ${fmtIdr(totalLembur)}</span>` : ''}
           </div>
           ${salaryList.length > 0 ? `
             <div style="max-height:200px;overflow-y:auto;font-size:0.8rem;">
@@ -444,11 +461,13 @@ async function loadProjectBreakdown(projectId, contentEl) {
                 <div style="padding:4px 0;border-bottom:1px solid var(--border);">
                   <div style="display:flex;justify-content:space-between;">
                     <span class="fw-bold">${esc(s.name)}</span>
-                    <span class="fw-bold">${fmtIdr(s.salary + s.overtime)}</span>
+                    <span class="fw-bold">${fmtIdr(s.salary + s.overtime_att + s.overtime_ot)}</span>
                   </div>
-                  ${s.overtime > 0 ? `
+                  ${(s.overtime_att + s.overtime_ot) > 0 ? `
                     <div class="text-xs text-secondary" style="margin-top:2px;">
-                      Gaji: ${fmtIdr(s.salary)} + Lembur: ${fmtIdr(s.overtime)}
+                      Gaji: ${fmtIdr(s.salary)}
+                      ${s.overtime_att > 0 ? ` + Lembur absen: ${fmtIdr(s.overtime_att)}` : ''}
+                      ${s.overtime_ot > 0 ? ` + Lembur OT: ${fmtIdr(s.overtime_ot)}` : ''}
                     </div>
                   ` : ''}
                 </div>

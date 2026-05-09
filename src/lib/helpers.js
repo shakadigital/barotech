@@ -111,6 +111,23 @@ export function fmtGeoNote(geo, prefix = '') {
   return `${prefix}[📍 ${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)} — akurasi ${Math.round(geo.accuracy)}m]`;
 }
 
+const MAX_UPLOAD_SIZE = 2 * 1024 * 1024; // 2MB
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif'];
+
+/**
+ * Validasi file sebelum upload — cek tipe dan ukuran
+ * Throw Error jika tidak valid
+ */
+export function validateImageFile(file) {
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    throw new Error(`File harus berupa foto (JPEG, PNG, WebP, GIF). Tipe "${file.type}" tidak diizinkan.`);
+  }
+  if (file.size > MAX_UPLOAD_SIZE) {
+    const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+    throw new Error(`Ukuran foto terlalu besar (${sizeMB}MB). Maksimal 2MB.`);
+  }
+}
+
 /** Compress image before upload */
 export async function compressImage(file, maxWidth = 1024, quality = 0.7) {
   return new Promise((resolve) => {

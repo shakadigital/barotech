@@ -40,14 +40,14 @@ export function DashboardPage(state) {
     l.created_at?.startsWith(todayStr) && visibleEmpIds.has(l.employee_id)
   );
 
-  // Hadir = hadir/verified ATAU sudah check_in (kepala_lapangan/kepala_proyek absen mandiri = draft)
-  const hadirLogs  = todayLogs.filter(l =>
-    l.status === 'hadir' || l.status === 'verified' ||
-    (l.check_in && ['kepala_lapangan','kepala_proyek','kepala_gudang','admin'].includes(
-      employees.find(e => e.id === l.employee_id)?.role
-    ))
-  );
-  const hadirCount = hadirLogs.length;
+  // Sudah absen = semua yang punya record attendance hari ini
+  // (termasuk semua status: hadir, izin, sakit, libur, draft, dll)
+  // dikurangi owner & superadmin agar konsisten dengan belumAbsen
+  const sudahAbsenLogs = todayLogs.filter(l => {
+    const emp = employees.find(e => e.id === l.employee_id);
+    return emp && emp.role !== 'owner' && emp.role !== 'superadmin';
+  });
+  const sudahAbsenCount = sudahAbsenLogs.length;
 
   // Hitung yang BELUM absen (tidak ada record sama sekali) — dikurangi owner & superadmin
   const sudahAbsenIds = new Set(todayLogs.map(l => l.employee_id));
@@ -75,7 +75,7 @@ export function DashboardPage(state) {
       </div>
       <div class="stat-card" onclick="window.__app.switchDashboardView('hadir')" id="stat-hadir">
         <div class="stat-icon green"><i class="fas fa-user-check"></i></div>
-        <div class="stat-value">${hadirCount}</div>
+        <div class="stat-value">${sudahAbsenCount}</div>
         <div class="stat-label">Hadir</div>
       </div>
       <div class="stat-card" onclick="window.__app.switchDashboardView('absen')" id="stat-absen">
@@ -207,11 +207,10 @@ export function DashboardPage(state) {
         </div>
       </div>`;
   } else if (dashboardView === 'hadir') {
-    detailHtml = attendanceTable(hadirLogs, 'Daftar Hadir Hari Ini', 'Belum ada yang hadir hari ini');
+    detailHtml = attendanceTable(sudahAbsenLogs, 'Daftar Hadir Hari Ini', 'Belum ada yang absen hari ini');
   } else if (dashboardView === 'absen') {
     // Tampilkan semua user yang BELUM absen hari ini (tidak ada record attendance)
     // dikurangi role 'owner' dan 'superadmin'
-    const sudahAbsenIds = new Set(todayLogs.map(l => l.employee_id));
     const belumAbsen = visibleEmps.filter(e =>
       !sudahAbsenIds.has(e.id) &&
       e.role !== 'owner' &&
@@ -280,10 +279,16 @@ export function DashboardPage(state) {
                 const isIzin = l.status === 'izin';
                 const isSakit = l.status === 'sakit';
                 const isTidakHadir = l.status === 'tidak_hadir' || l.status === 'absent';
-                
+                // Absensi mandiri = karyawan check-in sendiri (notes = 'Absensi Mandiri')
+                const isMandiri = l.notes === 'Absensi Mandiri';
+
                 let statusBadge = '';
                 if (isHadir) {
-                  statusBadge = '<span class="badge badge-online">Hadir</span>';
+                  if (isMandiri) {
+                    statusBadge = '<span class="badge badge-online">Hadir</span>';
+                  } else {
+                    statusBadge = '<span class="badge" style="background:rgba(25,210,193,0.2);color:var(--primary);border:1px solid var(--primary);">Hadir <span style="opacity:0.7;font-size:0.7em;">›Admin</span></span>';
+                  }
                 } else if (isTidakHadir) {
                   statusBadge = '<span class="badge badge-offline">Tidak Hadir</span>';
                 } else if (isLibur) {
@@ -295,7 +300,15 @@ export function DashboardPage(state) {
                 } else {
                   statusBadge = '<span class="badge" style="background:rgba(245,158,11,0.2);color:var(--warning);">Pending</span>';
                 }
-                
+
+                // Keterangan: ambil kegiatan dari daily_activities jika ada (via kegiatan field),
+                // fallback ke work_items, lalu notes (kecuali notes sistem)
+                const systemNotes = ['Absensi Mandiri', 'Hadir', 'Tidak Hadir', 'Libur', 'Izin', 'Sakit'];
+                const keterangan = l.kegiatan
+                  || l.work_items
+                  || (l.notes && !systemNotes.includes(l.notes) ? l.notes : null)
+                  || '-';
+
                 return `<tr>
                   <td class="text-xs text-secondary">${idx + 1}</td>
                   <td class="fw-bold">${esc(emp?.full_name || '-')}</td>
@@ -304,7 +317,7 @@ export function DashboardPage(state) {
                   <td>${statusBadge}</td>
                   <td>${l.check_in ? fmtTime(l.check_in) : '-'}</td>
                   <td>${l.check_out ? fmtTime(l.check_out) : '-'}</td>
-                  <td class="text-xs text-secondary">${esc(l.work_items || l.notes || '-')}</td>
+                  <td class="text-xs text-secondary">${esc(keterangan)}</td>
                 </tr>`;
               }).join('')}
             </tbody>

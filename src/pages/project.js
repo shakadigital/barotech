@@ -193,7 +193,7 @@ export async function deleteProject(id, refreshFn) {
 /** Buka modal detail proyek: karyawan, pengeluaran, timeline */
 export async function openProjectDetail(projectId, employees, projects) {
   const project = projects.find(p => p.id === projectId);
-  if (!project) return;
+  if (!project) { showToast('Proyek tidak ditemukan', 'error'); return; }
 
   // Remove existing modal
   document.getElementById('project-detail-modal')?.remove();
@@ -219,32 +219,37 @@ export async function openProjectDetail(projectId, employees, projects) {
   try {
     const lead = employees.find(e => e.id === project.lead_id);
 
-    // Fetch assignments
-    const { data: assignments } = await supabase
-      .from('project_assignments')
-      .select('*, profiles(full_name, role, jabatan)')
-      .eq('project_id', projectId)
-      .eq('status', 'active');
+    // Fetch semua data paralel
+    const [assignRes, expenseRes, updateRes, rekapRes] = await Promise.all([
+      supabase
+        .from('project_assignments')
+        .select('id, status, employee_id, profiles!project_assignments_employee_id_fkey(full_name, role, jabatan)')
+        .eq('project_id', projectId)
+        .eq('status', 'active'),
+      supabase
+        .from('project_expenses')
+        .select('amount')
+        .eq('project_id', projectId),
+      supabase
+        .from('project_updates')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false }),
+      supabase.rpc('get_rekap_biaya_proyek', { p_project_id: projectId, p_bulan: null }),
+    ]);
 
-    // Fetch expenses
-    const { data: expenses } = await supabase
-      .from('project_expenses')
-      .select('amount')
-      .eq('project_id', projectId);
-    const totalExpense = (expenses || []).reduce((s, x) => s + (x.amount || 0), 0);
+    const assignments  = assignRes.data  || [];
+    const expenses     = expenseRes.data || [];
+    const updates      = updateRes.data  || [];
+    const rekapData    = rekapRes.data?.[0] || null;
 
-    // Fetch updates (timeline)
-    const { data: updates } = await supabase
-      .from('project_updates')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: false });
+    const totalExpense = expenses.reduce((s, x) => s + (x.amount || 0), 0);
 
     // Build timeline HTML
-    const timelineHtml = !updates || updates.length === 0
-      ? '<p class="text-xs text-secondary">Belum ada update progress.</p>'
+    const timelineHtml = updates.length === 0
+      ? '<p class="text-xs text-secondary italic">Belum ada update progress.</p>'
       : `<div style="position:relative;padding-left:20px;">
-          <div style="position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:var(--primary);"></div>
+          <div style="position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:var(--primary);opacity:0.3;"></div>
           ${updates.map((u, i) => `
             <div style="position:relative;margin-bottom:16px;">
               <div style="position:absolute;left:-16px;top:6px;width:10px;height:10px;border-radius:50%;background:${i===0?'var(--success)':'var(--primary)'};border:2px solid white;"></div>
@@ -268,30 +273,40 @@ export async function openProjectDetail(projectId, employees, projects) {
         <div class="progress-bar-wrap mb-8"><div class="progress-bar-fill" style="width:${project.progress_pct || 0}%"></div></div>
       </div>
 
+      <!-- Ringkasan Biaya (dari RPC) -->
+      ${rekapData ? `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:16px;">
+        ${[
+          { label: 'Gaji',        val: rekapData.total_gaji,        color: 'var(--primary)' },
+          { label: 'Lembur',      val: rekapData.total_lembur,      color: 'var(--warning)' },
+          { label: 'Material',    val: rekapData.total_material,    color: 'var(--info,#3b82f6)' },
+          { label: 'Pengeluaran', val: rekapData.total_pengeluaran, color: 'var(--danger)' },
+          { label: 'Grand Total', val: rekapData.grand_total,       color: 'var(--success)' },
+        ].map(c => `
+          <div class="card" style="padding:10px 12px;border-left:3px solid ${c.color};">
+            <div class="text-xs text-secondary">${c.label}</div>
+            <div class="fw-bold text-sm" style="color:${c.color};">${fmtIdr(c.val)}</div>
+          </div>
+        `).join('')}
+      </div>` : ''}
+
       <!-- Karyawan Terlibat -->
       <div class="card mb-16" style="padding:12px 14px;">
-        <div class="card-title" style="font-size:0.85rem;margin-bottom:8px;"><i class="fas fa-users"></i> Karyawan Terlibat</div>
-        ${!assignments || assignments.length === 0
-          ? '<p class="text-xs text-secondary">Belum ada penugasan aktif.</p>'
+        <div class="card-title" style="font-size:0.85rem;margin-bottom:8px;"><i class="fas fa-users"></i> Karyawan Terlibat (${assignments.length})</div>
+        ${assignments.length === 0
+          ? '<p class="text-xs text-secondary italic">Belum ada penugasan aktif.</p>'
           : `<div class="flex flex-wrap gap-8">
-              ${assignments.map(a => `<span class="badge badge-role">${esc(a.profiles?.full_name || '-')} <span class="text-secondary">(${esc(a.profiles?.jabatan || a.profiles?.role)})</span></span>`).join('')}
+              ${assignments.map(a => `<span class="badge badge-role">${esc(a.profiles?.full_name || '-')} <span class="text-secondary">(${esc(a.profiles?.jabatan || a.profiles?.role || '-')})</span></span>`).join('')}
             </div>`}
-      </div>
-
-      <!-- Total Pengeluaran -->
-      <div class="card mb-16" style="padding:12px 14px;">
-        <div class="flex justify-between align-center">
-          <span class="text-xs text-secondary"><i class="fas fa-receipt"></i> Total Pengeluaran</span>
-          <strong class="text-primary" style="font-size:1.1rem;">${fmtIdr(totalExpense)}</strong>
-        </div>
       </div>
 
       <!-- Timeline Progress -->
       <div class="card" style="padding:12px 14px;">
-        <div class="card-title" style="font-size:0.85rem;margin-bottom:12px;"><i class="fas fa-stream"></i> Timeline Progress</div>
+        <div class="card-title" style="font-size:0.85rem;margin-bottom:12px;"><i class="fas fa-stream"></i> Timeline Progress (${updates.length} update)</div>
         ${timelineHtml}
       </div>`;
   } catch (err) {
-    content.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Gagal memuat detail: ${esc(err.message)}</p></div>`;
+    content.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle text-danger"></i><p class="text-danger">Gagal memuat detail: ${esc(err.message)}</p></div>`;
+    console.error('openProjectDetail error:', err);
   }
 }

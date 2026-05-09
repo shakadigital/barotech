@@ -212,17 +212,19 @@ export function AttendancePage(state) {
           ${isPindah ? `<div class="text-xs text-warning mb-4"><i class="fas fa-info-circle"></i> ${esc(l.notes)}</div>` : ''}
           ${isOfficeStaff ? `<div class="text-xs text-primary mb-4"><i class="fas fa-building"></i> Office staff</div>` : ''}
           
-          <!-- Input Kegiatan -->
-          <input type="text" class="form-input" id="kegiatan-${l.id}"
-            placeholder="Kegiatan hari ini..."
-            value="${esc(l.kegiatan || '')}"
-            style="font-size:0.78rem;padding:6px 10px;margin-bottom:4px;" />
-          
-          <!-- Input Work Items (untuk backward compatibility) -->
-          <input type="text" class="form-input" id="wi-${l.id}"
-            placeholder="Pekerjaan hari ini..."
-            value="${esc(l.work_items || '')}"
-            style="font-size:0.78rem;padding:6px 10px;" />
+          <!-- Input Kegiatan (disimpan ke daily_activities) -->
+          <div class="flex gap-4 align-center">
+            <input type="text" class="form-input" id="kegiatan-${l.id}"
+              placeholder="Tambah kegiatan hari ini..."
+              style="font-size:0.78rem;padding:6px 10px;flex:1;"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();window.__app.addAdminActivity('${l.id}');}" />
+            <button class="btn btn-ghost btn-sm" title="Tambah Kegiatan"
+              onclick="window.__app.addAdminActivity('${l.id}')">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+          <!-- List kegiatan yang sudah ada -->
+          <div id="admin-activities-${l.id}" class="text-xs text-secondary" style="min-height:16px;"></div>
           
           <!-- Tombol Verifikasi Utama -->
           <div class="flex gap-4" style="flex-wrap:wrap;">
@@ -264,29 +266,19 @@ export function AttendancePage(state) {
             <i class="fas fa-check-double"></i> Sudah Diverifikasi
           </div>
           
-          <!-- Edit Kegiatan -->
-          <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
+          <!-- Tambah Kegiatan (ke daily_activities) -->
+          <div class="flex gap-4 align-center mb-4">
             <input type="text" class="form-input" id="kegiatan-${l.id}"
-              placeholder="Kegiatan..."
-              value="${esc(l.kegiatan || '')}"
-              style="font-size:0.78rem;padding:5px 8px;flex:1;" />
-            <button class="btn btn-ghost btn-sm"
-              onclick="window.__app.saveKegiatan('${l.id}')" title="Simpan Kegiatan">
-              <i class="fas fa-save"></i>
+              placeholder="Tambah kegiatan..."
+              style="font-size:0.78rem;padding:5px 8px;flex:1;"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();window.__app.addAdminActivity('${l.id}');}" />
+            <button class="btn btn-ghost btn-sm" title="Tambah Kegiatan"
+              onclick="window.__app.addAdminActivity('${l.id}')">
+              <i class="fas fa-plus"></i>
             </button>
           </div>
-          
-          <!-- Edit Work Items -->
-          <div style="display:flex;gap:4px;align-items:center;">
-            <input type="text" class="form-input" id="wi-${l.id}"
-              placeholder="Pekerjaan..."
-              value="${esc(l.work_items || '')}"
-              style="font-size:0.78rem;padding:5px 8px;flex:1;" />
-            <button class="btn btn-ghost btn-sm"
-              onclick="window.__app.saveWorkItems('${l.id}')" title="Simpan Pekerjaan">
-              <i class="fas fa-save"></i>
-            </button>
-          </div>
+          <!-- List kegiatan yang sudah ada -->
+          <div id="admin-activities-${l.id}" class="text-xs text-secondary" style="min-height:16px;"></div>
         </div>`;
     } else if (isNonKaryawan && !canVerifyNonKaryawan) {
       // Non-karyawan tapi tidak punya izin verifikasi
@@ -556,14 +548,10 @@ export async function verifyAttendance(id, result, refreshFn) {
     const wiInput = document.getElementById(`wi-${id}`);
     const workItems = wiInput?.value.trim() || null;
 
-    const kegiatanInput = document.getElementById(`kegiatan-${id}`);
-    const kegiatan = kegiatanInput?.value.trim() || null;
-
     const updateData = { 
       status, 
       notes,
       ...(workItems ? { work_items: workItems } : {}),
-      ...(kegiatan ? { kegiatan: kegiatan } : {}),
     };
 
     const { error } = await supabase.from('attendance_logs')
@@ -605,16 +593,61 @@ export async function saveWorkItems(id, refreshFn) {
   }
 }
 
-/** Simpan kegiatan saja (tanpa ubah status) */
+/** Simpan kegiatan saja (tanpa ubah status) — DEPRECATED, gunakan addAdminActivity */
 export async function saveKegiatan(id, refreshFn) {
   const kegiatanInput = document.getElementById(`kegiatan-${id}`);
   if (!kegiatanInput) return;
+  const desc = kegiatanInput.value.trim();
+  if (!desc) return;
   try {
-    const { error } = await supabase.from('attendance_logs')
-      .update({ kegiatan: kegiatanInput.value.trim() || null })
-      .eq('id', id);
+    // Ambil employee_id dari attendance_logs
+    const { data: attData } = await supabase
+      .from('attendance_logs')
+      .select('employee_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    const { error } = await supabase.from('daily_activities').insert({
+      attendance_id: id,
+      description:   desc,
+      status:        'done',
+      created_by:    attData?.employee_id || null,
+    });
     if (error) throw error;
+    kegiatanInput.value = '';
     showToast('Kegiatan disimpan ✓', 'success');
+    await window.__loadAdminActivities(id);
+    await refreshFn?.();
+  } catch (err) {
+    showToast('Gagal: ' + err.message, 'error');
+  }
+}
+
+/** Tambah kegiatan oleh admin ke daily_activities */
+export async function addAdminActivity(attId, refreshFn) {
+  const input = document.getElementById(`kegiatan-${attId}`);
+  const desc  = input?.value.trim();
+  if (!desc) { input?.focus(); return; }
+
+  try {
+    const { data: attData } = await supabase
+      .from('attendance_logs')
+      .select('employee_id')
+      .eq('id', attId)
+      .maybeSingle();
+
+    const { error } = await supabase.from('daily_activities').insert({
+      attendance_id: attId,
+      description:   desc,
+      status:        'done',
+      created_by:    attData?.employee_id || null,
+    });
+    if (error) throw error;
+
+    input.value = '';
+    input.focus();
+    showToast('Kegiatan ditambahkan ✓', 'success');
+    await window.__loadAdminActivities(attId);
     await refreshFn?.();
   } catch (err) {
     showToast('Gagal: ' + err.message, 'error');
@@ -1035,6 +1068,57 @@ if (typeof window !== 'undefined') {
 
       if (error) throw error;
       await window.__loadSelfActivities('self-activities-list', false);
+    } catch (err) {
+      showToast('Gagal hapus kegiatan: ' + err.message, 'error');
+    }
+  };
+
+  // Load kegiatan untuk tampilan admin di kolom tindakan
+  window.__loadAdminActivities = async function (attId) {
+    const list = document.getElementById(`admin-activities-${attId}`);
+    if (!list) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('daily_activities')
+        .select('id, description')
+        .eq('attendance_id', attId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        list.innerHTML = '<span class="text-secondary" style="font-style:italic;">Belum ada kegiatan.</span>';
+        return;
+      }
+
+      list.innerHTML = data.map(a => `
+        <div class="flex align-center gap-4 mb-2"
+          style="padding:3px 6px;background:var(--bg-input);border-radius:var(--radius);">
+          <i class="fas fa-check-circle" style="color:var(--success);font-size:0.7rem;flex-shrink:0;"></i>
+          <span style="flex:1;">${esc(a.description)}</span>
+          <button type="button" class="btn btn-ghost btn-sm"
+            onclick="window.__removeAdminActivity('${a.id}','${attId}')"
+            style="padding:1px 4px;margin-left:auto;">
+            <i class="fas fa-times" style="color:var(--danger);font-size:0.65rem;"></i>
+          </button>
+        </div>
+      `).join('');
+    } catch (err) {
+      list.innerHTML = `<span class="text-secondary">Gagal memuat: ${esc(err.message)}</span>`;
+    }
+  };
+
+  // Hapus kegiatan oleh admin
+  window.__removeAdminActivity = async function (activityId, attId) {
+    try {
+      const { error } = await supabase
+        .from('daily_activities')
+        .delete()
+        .eq('id', activityId);
+
+      if (error) throw error;
+      await window.__loadAdminActivities(attId);
     } catch (err) {
       showToast('Gagal hapus kegiatan: ' + err.message, 'error');
     }

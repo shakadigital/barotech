@@ -26,6 +26,9 @@ export function LaporanGajiPage(state) {
       <!-- Header -->
       <div class="mb-16" style="display:flex;justify-content:space-between;align-items:center;">
         <div>
+          <button class="btn btn-ghost btn-sm mb-8" onclick="window.__app.navigateTo('laporan')" style="padding:6px 12px;">
+            <i class="fas fa-arrow-left"></i> Laporan
+          </button>
           <h1 class="fw-bold" style="font-size:1.5rem;margin:0;"><i class="fas fa-file-invoice-dollar"></i> Laporan Gaji</h1>
           <div class="text-xs text-secondary">Cetak laporan gaji karyawan per periode</div>
         </div>

@@ -137,6 +137,20 @@ export function AssignmentPage(state) {
           <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Memuat...</p></div>
         </div>
       </div>
+
+      <!-- Karyawan Belum Ditugaskan -->
+      <div class="card mt-24">
+        <div class="card-header" style="cursor:pointer;" onclick="window.__toggleUnassignedList()">
+          <div class="card-title"><i class="fas fa-user-slash"></i> Karyawan Belum Ditugaskan</div>
+          <div class="flex gap-8 align-center">
+            <span class="badge badge-offline" id="unassigned-count-badge" style="display:none;"></span>
+            <i class="fas fa-chevron-down" id="unassigned-chevron" style="transition:transform 0.2s;"></i>
+          </div>
+        </div>
+        <div id="unassigned-list" style="display:none;">
+          <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Memuat...</p></div>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -322,9 +336,98 @@ export async function loadAssignments(state) {
           </tbody>
         </table>
       </div>`;
+
+    // Refresh daftar belum ditugaskan jika section sudah ada di DOM
+    if (document.getElementById('unassigned-list')) {
+      loadUnassignedEmployees(state);
+    }
   } catch (err) {
     el.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Gagal: ${esc(err.message)}</p></div>`;
   }
+}
+
+/** Load daftar karyawan yang belum ditugaskan ke proyek manapun */
+export async function loadUnassignedEmployees(state) {
+  const el = document.getElementById('unassigned-list');
+  if (!el) return;
+
+  try {
+    // Ambil semua employee_id yang punya assignment active/paused
+    const { data: activeAssignments, error } = await supabase
+      .from('project_assignments')
+      .select('employee_id')
+      .in('status', ['active', 'paused']);
+
+    if (error) throw error;
+
+    const assignedIds = new Set((activeAssignments || []).map(a => a.employee_id));
+
+    // Filter karyawan role 'karyawan' yang tidak ada di assignedIds
+    const unassigned = state.employees.filter(e =>
+      e.role === 'karyawan' && !assignedIds.has(e.id)
+    );
+
+    // Update badge count
+    const badge = document.getElementById('unassigned-count-badge');
+    if (badge) {
+      badge.textContent = `${unassigned.length} orang`;
+      badge.style.display = unassigned.length > 0 ? '' : 'none';
+    }
+
+    if (unassigned.length === 0) {
+      el.innerHTML = `
+        <div class="empty-state" style="padding:24px;">
+          <i class="fas fa-check-circle" style="color:var(--success);font-size:2rem;"></i>
+          <p style="color:var(--success);">Semua karyawan sudah ditugaskan 🎉</p>
+        </div>`;
+      return;
+    }
+
+    el.innerHTML = `
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:40px;">No.</th>
+              <th>Nama</th>
+              <th>Jabatan</th>
+              <th>WhatsApp</th>
+              <th class="text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${unassigned.map((emp, idx) => `
+              <tr>
+                <td class="text-xs text-secondary">${idx + 1}</td>
+                <td class="fw-bold">${esc(emp.full_name)}</td>
+                <td class="text-xs text-secondary">${esc(emp.jabatan || '-')}</td>
+                <td class="text-xs">${esc(emp.whatsapp_number || '-')}</td>
+                <td class="text-center">
+                  <button class="btn btn-primary btn-sm" title="Tugaskan ke Proyek"
+                    onclick="window.__app.prefillAssignEmployee('${emp.id}')">
+                    <i class="fas fa-user-tag" style="font-size:0.75rem;"></i> Tugaskan
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (err) {
+    el.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Gagal: ${esc(err.message)}</p></div>`;
+  }
+}
+
+/** Toggle section karyawan belum ditugaskan */
+if (typeof window !== 'undefined') {
+  window.__toggleUnassignedList = function () {
+    const el      = document.getElementById('unassigned-list');
+    const chevron = document.getElementById('unassigned-chevron');
+    if (!el) return;
+    const isHidden = el.style.display === 'none';
+    el.style.display = isHidden ? 'block' : 'none';
+    if (chevron) chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+  };
 }
 
 /** Toggle collapsible row */
@@ -731,10 +834,48 @@ export async function endAssignment(id, state, refreshFn) {
 
 /** Aktifkan kembali penugasan yang di-pause */
 export async function resumeAssignment(id, state, refreshFn) {
-  if (!confirm('Aktifkan kembali penugasan ini?')) return;
+  // Ambil data assignment yang akan di-resume
+  const { data: asgn, error: fetchErr } = await supabase
+    .from('project_assignments')
+    .select('*, projects(name)')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (fetchErr || !asgn) { showToast('Gagal memuat data penugasan', 'error'); return; }
+
+  // Cek apakah karyawan sudah punya assignment active lain
+  const { data: activeOther } = await supabase
+    .from('project_assignments')
+    .select('id, projects(name)')
+    .eq('employee_id', asgn.employee_id)
+    .eq('status', 'active')
+    .neq('id', id)
+    .maybeSingle();
+
+  const emp = state.employees.find(e => e.id === asgn.employee_id);
+  const empName = emp?.full_name || 'Karyawan ini';
+
+  if (activeOther) {
+    // Ada assignment active lain — konfirmasi dengan info lengkap
+    const activeProjectName = activeOther.projects?.name || 'proyek lain';
+    const resumeProjectName = asgn.projects?.name || 'proyek ini';
+    const ok = confirm(
+      `⚠️ ${empName} saat ini masih aktif di proyek "${activeProjectName}".\n\n` +
+      `Mengaktifkan kembali penugasan di "${resumeProjectName}" akan mem-pause penugasan di "${activeProjectName}" secara otomatis.\n\n` +
+      `Lanjutkan?`
+    );
+    if (!ok) return;
+  } else {
+    if (!confirm(`Aktifkan kembali penugasan ${empName} di proyek ${asgn.projects?.name || ''}?`)) return;
+  }
+
+  // Resume: set active + hapus end_date
+  // PENTING: paused_by_id TIDAK dihapus agar relasi auto-resume tetap terjaga
+  // jika assignment sementara (yang mem-pause ini) nanti diakhiri
   const { error } = await supabase.from('project_assignments')
-    .update({ status: 'active', end_date: null, paused_by_id: null, updated_at: new Date().toISOString() })
+    .update({ status: 'active', end_date: null, updated_at: new Date().toISOString() })
     .eq('id', id);
+
   if (error) showToast(error.message, 'error');
   else { showToast('Penugasan diaktifkan kembali', 'success'); await loadAssignments(state); }
 }

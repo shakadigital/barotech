@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase.js';
-import { fmtDate, showToast, esc, getGeoLocation, fmtGeoNote, compressImage } from '../lib/helpers.js';
+import { fmtDate, showToast, esc, getGeoLocation, fmtGeoNote, compressImage, validateImageFile } from '../lib/helpers.js';
 
 const MAX_PHOTOS = 4;
 
@@ -13,6 +13,9 @@ export function LaporanPage(state) {
 
   return `
     <div class="fade-in">
+      <button class="btn btn-ghost btn-sm mb-16" onclick="window.__app.navigateTo('laporan')" style="padding:6px 12px;">
+        <i class="fas fa-arrow-left"></i> Laporan
+      </button>
       <div class="card mb-24">
         <div class="card-header" style="justify-content:space-between;cursor:pointer;" onclick="const p=document.getElementById('laporan-form-body'),i=document.getElementById('laporan-form-chevron');p.style.display=p.style.display==='none'?'block':'none';i.style.transform=p.style.display==='none'?'rotate(0deg)':'rotate(180deg)';">
           <div class="card-title"><i class="fas fa-camera"></i> Laporan Progress</div>
@@ -32,10 +35,19 @@ export function LaporanPage(state) {
 
           <div class="form-group mb-16">
             <label class="form-label">Progress: <span id="lap-pct-label">0</span>%</label>
-            <input type="range" class="range-slider" id="lap-pct" min="0" max="100" value="0"
-              oninput="document.getElementById('lap-pct-label').textContent=this.value;document.getElementById('lap-pct-bar').style.width=this.value+'%'" />
-            <div class="progress-bar-wrap mt-16">
-              <div class="progress-bar-fill" id="lap-pct-bar" style="width:0%"></div>
+            <input type="hidden" id="lap-pct" value="0" />
+            <!-- Tombol per 5% -->
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;">
+              ${Array.from({length: 21}, (_, i) => i * 5).map(v => `
+                <button type="button"
+                  id="lap-pct-btn-${v}"
+                  onclick="window.__setProgress(${v})"
+                  style="min-width:44px;padding:5px 4px;font-size:0.72rem;font-weight:600;border-radius:6px;border:1.5px solid var(--border);background:var(--bg-input);color:var(--text-secondary);cursor:pointer;transition:all 0.15s;">
+                  ${v}%
+                </button>`).join('')}
+            </div>
+            <div class="progress-bar-wrap mt-12">
+              <div class="progress-bar-fill" id="lap-pct-bar" style="width:0%;transition:width 0.3s;"></div>
             </div>
           </div>
 
@@ -65,11 +77,13 @@ export function LaporanPage(state) {
       </div>
 
       <!-- Riwayat Laporan per Proyek -->
-      <div class="card" id="lap-history-card" style="display:none;">
+      <div class="card" id="lap-history-card">
         <div class="card-header">
           <div class="card-title"><i class="fas fa-history"></i> Riwayat Laporan</div>
         </div>
-        <div id="lap-history-content"></div>
+        <div id="lap-history-content">
+          <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Memuat...</p></div>
+        </div>
       </div>
     </div>`;
 }
@@ -78,39 +92,73 @@ export function LaporanPage(state) {
 export async function loadProjectUpdates(projectId, state) {
   const card    = document.getElementById('lap-history-card');
   const content = document.getElementById('lap-history-content');
-  if (!card || !content || !projectId) return;
+  if (!card || !content) return;
 
   card.style.display = 'block';
   content.innerHTML  = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Memuat...</p></div>';
 
+  if (projectId) {
+    const prj = state?.projects?.find(p => p.id === projectId);
+    if (prj) {
+      const currentPct = Math.round((prj.progress_pct || 0) / 5) * 5;
+      window.__setProgress?.(currentPct);
+    }
+  }
+
+  const isAdmin = state?.user && ['superadmin','owner','admin'].includes(state.user.role);
+
   try {
-    const [updRes, photoRes] = await Promise.all([
-      supabase.from('project_updates').select('*').eq('project_id', projectId).order('created_at', { ascending: false }),
-      supabase.from('project_photos').select('*').eq('project_id', projectId).order('photo_order'),
-    ]);
+    let updQuery   = supabase.from('project_updates').select('*, projects(name)').order('created_at', { ascending: false }).limit(100);
+    let photoQuery = supabase.from('project_photos').select('*').order('photo_order');
+
+    if (projectId) {
+      updQuery   = updQuery.eq('project_id', projectId);
+      photoQuery = photoQuery.eq('project_id', projectId);
+    } else if (state?.projects?.length) {
+      const ids = state.projects.map(p => p.id);
+      updQuery   = updQuery.in('project_id', ids);
+      photoQuery = photoQuery.in('project_id', ids);
+    }
+
+    const [updRes, photoRes] = await Promise.all([updQuery, photoQuery]);
 
     const updates = updRes.data || [];
     const photos  = photoRes.data || [];
 
     if (updates.length === 0) {
-      content.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>Belum ada laporan untuk proyek ini.</p></div>';
+      content.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>Belum ada laporan progress.</p></div>';
       return;
     }
 
     content.innerHTML = updates.map(u => {
       const updatePhotos = photos.filter(p => p.update_id === u.id);
-      // fallback: foto lama dari kolom photo_url
       const allPhotos = updatePhotos.length > 0
         ? updatePhotos
         : (u.photo_url ? [{ photo_url: u.photo_url, caption: '' }] : []);
+      const proyekLabel = !projectId && u.projects?.name
+        ? `<span class="badge badge-role" style="margin-right:4px;">${esc(u.projects.name)}</span>` : '';
 
       return `
-        <div style="border-bottom:1px solid var(--border,#e5e7eb);padding:16px 0;">
-          <div class="flex gap-8 align-center mb-8" style="flex-wrap:wrap;">
-            <span class="text-xs text-secondary">${fmtDate(u.created_at)}</span>
-            <span class="badge badge-role">${u.percentage}%</span>
+        <div id="update-row-${u.id}" style="border-bottom:1px solid var(--border,#e5e7eb);padding:16px 0;">
+          <div class="flex gap-8 align-center mb-8" style="flex-wrap:wrap;justify-content:space-between;">
+            <div class="flex gap-8 align-center" style="flex-wrap:wrap;">
+              ${proyekLabel}
+              <span class="text-xs text-secondary">${fmtDate(u.created_at)}</span>
+              <span class="badge badge-role">${u.percentage}%</span>
+            </div>
+            ${isAdmin ? `
+            <div class="flex gap-4">
+              <button class="btn btn-ghost btn-sm" title="Edit"
+                onclick="window.__app.editProjectUpdate('${u.id}','${u.project_id}',${u.percentage},${JSON.stringify(esc(u.description||''))})">
+                <i class="fas fa-edit" style="font-size:0.75rem;"></i>
+              </button>
+              <button class="btn btn-ghost btn-sm" title="Hapus"
+                onclick="window.__app.deleteProjectUpdate('${u.id}','${u.project_id}')">
+                <i class="fas fa-trash" style="font-size:0.75rem;color:var(--danger);"></i>
+              </button>
+            </div>` : ''}
           </div>
-          <p class="text-sm mb-8">${esc(u.description || '')}</p>
+          <p class="text-sm mb-8" id="update-desc-${u.id}">${esc(u.description || '')}</p>
           ${allPhotos.length > 0 ? `
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;">
               ${allPhotos.map(ph => `
@@ -125,6 +173,94 @@ export async function loadProjectUpdates(projectId, state) {
     }).join('');
   } catch (err) {
     content.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Gagal: ${esc(err.message)}</p></div>`;
+  }
+}
+
+/** Edit laporan progress — admin/owner/superadmin */
+export async function editProjectUpdate(updateId, projectId, currentPct, currentDesc, state) {
+  // Buat modal edit inline
+  document.getElementById('lap-edit-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'lap-edit-modal';
+  modal.className = 'modal-overlay show';
+  modal.innerHTML = `
+    <div class="modal-card" style="max-width:480px;">
+      <div class="card-header" style="padding:0 0 16px 0;border-bottom:1px solid var(--border);margin-bottom:16px;">
+        <div class="card-title"><i class="fas fa-edit"></i> Edit Laporan Progress</div>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('lap-edit-modal').remove()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="form-group mb-16">
+        <label class="form-label">Progress (%)</label>
+        <input type="number" class="form-input" id="lap-edit-pct"
+          value="${currentPct}" min="0" max="100" step="5" />
+      </div>
+      <div class="form-group mb-24">
+        <label class="form-label">Deskripsi</label>
+        <textarea class="form-textarea" id="lap-edit-desc" rows="4">${currentDesc}</textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="document.getElementById('lap-edit-modal').remove()">Batal</button>
+        <button class="btn btn-primary" onclick="window.__app.saveProjectUpdate('${updateId}','${projectId}')">
+          <i class="fas fa-save"></i> Simpan
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+/** Simpan edit laporan progress */
+export async function saveProjectUpdate(updateId, projectId, state, refreshFn) {
+  const pct  = parseInt(document.getElementById('lap-edit-pct')?.value) || 0;
+  const desc = document.getElementById('lap-edit-desc')?.value.trim() || '';
+  try {
+    const { error } = await supabase.from('project_updates')
+      .update({ percentage: pct, description: desc })
+      .eq('id', updateId);
+    if (error) throw error;
+
+    // Update progress proyek jika ini laporan terbaru
+    await supabase.from('projects').update({ progress_pct: pct }).eq('id', projectId);
+
+    showToast('Laporan diperbarui ✓', 'success');
+    document.getElementById('lap-edit-modal')?.remove();
+    await loadProjectUpdates(projectId, state);
+  } catch (err) {
+    showToast('Gagal: ' + err.message, 'error');
+  }
+}
+
+/** Hapus laporan progress + foto terkait */
+export async function deleteProjectUpdate(updateId, projectId, state, refreshFn) {
+  if (!confirm('Hapus laporan ini? Foto terkait juga akan dihapus.')) return;
+  try {
+    // Hapus foto dari storage
+    const { data: photos } = await supabase
+      .from('project_photos')
+      .select('photo_url')
+      .eq('update_id', updateId);
+
+    if (photos?.length) {
+      const paths = photos.map(p => {
+        const url = new URL(p.photo_url);
+        // Ambil path setelah /object/public/project-photos/
+        return url.pathname.replace(/.*\/object\/public\/project-photos\//, '');
+      });
+      await supabase.storage.from('project-photos').remove(paths);
+    }
+
+    // Hapus foto records
+    await supabase.from('project_photos').delete().eq('update_id', updateId);
+
+    // Hapus update record
+    const { error } = await supabase.from('project_updates').delete().eq('id', updateId);
+    if (error) throw error;
+
+    showToast('Laporan dihapus ✓', 'success');
+    await loadProjectUpdates(projectId, state);
+  } catch (err) {
+    showToast('Gagal: ' + err.message, 'error');
   }
 }
 
@@ -177,8 +313,10 @@ export async function handleLaporanSubmit(e, state, refreshFn) {
     const uploadedPhotos = [];
     for (let i = 0; i < photoFiles.length; i++) {
       const { file, caption } = photoFiles[i];
+      validateImageFile(file); // validasi tipe & ukuran (max 2MB, hanya image)
       const compressedFile = await compressImage(file, 1024, 0.7);
-      const fileName = `progress/${projectId}/${Date.now()}_${i}_${compressedFile.name}`;
+      const safeName = compressedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileName = `progress/${projectId}/${Date.now()}_${i}_${safeName}`;
       const { error: ue } = await supabase.storage.from('project-photos').upload(fileName, compressedFile);
       if (ue) throw ue;
       const { data: ud } = supabase.storage.from('project-photos').getPublicUrl(fileName);
@@ -203,8 +341,7 @@ export async function handleLaporanSubmit(e, state, refreshFn) {
 
     // Reset form
     document.getElementById('laporan-form').reset();
-    document.getElementById('lap-pct-label').textContent = '0';
-    document.getElementById('lap-pct-bar').style.width = '0%';
+    window.__setProgress?.(0);
     window.__lap_resetPhotoSlots();
 
     await refreshFn();
@@ -220,6 +357,31 @@ export async function handleLaporanSubmit(e, state, refreshFn) {
 /** Manajemen slot foto */
 if (typeof window !== 'undefined') {
   let _slotCount = 0;
+
+  // Set progress via tombol — highlight tombol aktif
+  window.__setProgress = function (val) {
+    const hidden = document.getElementById('lap-pct');
+    const label  = document.getElementById('lap-pct-label');
+    const bar    = document.getElementById('lap-pct-bar');
+    if (hidden) hidden.value = val;
+    if (label)  label.textContent = val;
+    if (bar)    bar.style.width = val + '%';
+
+    // Highlight tombol yang dipilih
+    for (let i = 0; i <= 100; i += 5) {
+      const btn = document.getElementById(`lap-pct-btn-${i}`);
+      if (!btn) continue;
+      if (i === val) {
+        btn.style.background = 'var(--primary)';
+        btn.style.color = '#fff';
+        btn.style.borderColor = 'var(--primary)';
+      } else {
+        btn.style.background = 'var(--bg-input)';
+        btn.style.color = 'var(--text-secondary)';
+        btn.style.borderColor = 'var(--border)';
+      }
+    }
+  };
 
   window.__lap_resetPhotoSlots = function () {
     _slotCount = 0;

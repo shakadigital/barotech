@@ -45,7 +45,7 @@ export function MaterialPage(state) {
         </div>
         <div id="material-form-body" style="display:none;">
         ${isGudang ? `<div class="alert alert-info mb-16" style="margin:16px 16px 0;">
-          <i class="fas fa-info-circle"></i> Order yang Anda buat akan diverifikasi oleh Admin, kemudian Kepala Lapangan.
+          <i class="fas fa-info-circle"></i> Anda hanya perlu input <strong>nama material, jumlah, satuan, dan tujuan proyek</strong>. Harga akan diisi oleh Admin saat verifikasi.
         </div>` : ''}
         ${isAdmin ? `<div class="alert alert-info mb-16" style="margin:16px 16px 0;">
           <i class="fas fa-info-circle"></i> Order yang Anda buat akan diverifikasi oleh Kepala Lapangan.
@@ -87,10 +87,10 @@ export function MaterialPage(state) {
               <label class="form-label">Satuan</label>
               <input type="text" class="form-input" id="mat-unit" placeholder="contoh: kg, sak, meter" required />
             </div>
-            <div class="form-group">
+            ${isAdmin ? `<div class="form-group">
               <label class="form-label">Harga Satuan (Rp)</label>
               <input type="number" class="form-input" id="mat-unit-price" min="0" required placeholder="0" />
-            </div>
+            </div>` : ''}
           </div>
           <div class="form-group mb-16">
             <label class="form-label">Keterangan</label>
@@ -162,6 +162,20 @@ export async function loadMaterialList(state, containerId = 'material-list', opt
       q = q.eq('project_id', opts.projectId);
     }
 
+    // Kepala Lapangan hanya lihat order untuk proyeknya sendiri
+    if (state.user.role === 'kepala_lapangan') {
+      const myProjectIds = state.projects
+        .filter(p => p.lead_id === state.user.id)
+        .map(p => p.id);
+      if (myProjectIds.length > 0) {
+        q = q.in('project_id', myProjectIds);
+      } else {
+        // Tidak punya proyek — tampilkan kosong
+        el.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>Belum ada order material untuk proyek Anda.</p></div>';
+        return;
+      }
+    }
+
     const { data, error } = await q;
     if (error) throw error;
     if (!data || data.length === 0) {
@@ -177,6 +191,7 @@ export async function loadMaterialList(state, containerId = 'material-list', opt
     
     // Kepala Gudang hanya bisa lihat, Admin bisa approve/reject, Kepala Lapangan bisa verifikasi tambahan
     const canUpdateStatus = isAdmin || isLapangan;
+    const showPrice = isAdmin || isLapangan; // Kepala Gudang tidak lihat harga
 
     el.innerHTML = `
       <div class="table-wrapper">
@@ -189,7 +204,7 @@ export async function loadMaterialList(state, containerId = 'material-list', opt
               <th>Material</th>
               <th>Jenis</th>
               <th>Jumlah</th>
-              <th>Total</th>
+              ${showPrice ? '<th>Total</th>' : ''}
               <th>Status</th>
               <th>Dibuat Oleh</th>
               ${canUpdateStatus ? '<th class="text-center">Aksi</th>' : ''}
@@ -207,7 +222,7 @@ export async function loadMaterialList(state, containerId = 'material-list', opt
                 <td class="fw-bold">${esc(m.material_name)}</td>
                 <td class="text-xs">${TYPE_LABELS[m.order_type] || m.order_type}</td>
                 <td class="text-xs">${m.quantity} ${esc(m.unit)}</td>
-                <td class="fw-bold">${fmtIdr(m.total_price)}</td>
+                ${showPrice ? `<td class="fw-bold">${fmtIdr(m.total_price)}</td>` : ''}
                 <td><span class="badge ${st.cls}">${st.text}</span></td>
                 <td class="text-xs">${esc(creatorName)}</td>
                 ${canUpdateStatus ? `<td class="text-center">
@@ -243,6 +258,10 @@ export async function handleMaterialSubmit(e, state, refreshFn) {
       throw new Error('User tidak ditemukan. Silakan login kembali.');
     }
     
+    const isAdmin = ['superadmin','owner','admin'].includes(state.user.role);
+    const unitPriceEl = document.getElementById('mat-unit-price');
+    const unitPrice = isAdmin && unitPriceEl ? Number(unitPriceEl.value) : 0;
+    
     const payload = {
       project_id:    document.getElementById('mat-project').value,
       order_type:    document.getElementById('mat-type').value,
@@ -250,7 +269,7 @@ export async function handleMaterialSubmit(e, state, refreshFn) {
       supplier_name: document.getElementById('mat-supplier').value.trim() || null,
       quantity:      Number(document.getElementById('mat-qty').value),
       unit:          document.getElementById('mat-unit').value.trim(),
-      unit_price:    Number(document.getElementById('mat-unit-price').value),
+      unit_price:    unitPrice,
       description:   document.getElementById('mat-desc').value.trim() || null,
       ordered_by:    state.user.id,
     };
