@@ -14,7 +14,7 @@ import { LaporanKegiatanPage, loadLaporanKegiatan, exportLaporanKegiatan } from 
 import { SalaryPaymentPage, loadUnpaidSalaries, openPaymentModal, paySelectedSalaries, processPayment, toggleSelectAllSalary, loadPaymentHistory, printSalarySlip } from './pages/salary-payment.js';
 import { ProjectPage, handleProjectSubmit, deleteProject, updateProjectStatus, openProjectDetail } from './pages/project.js';
 import { UsersPage, handleUserSubmit, deleteUser, openEditUser, saveEditUser } from './pages/users.js';
-import { BonPage, handleBonSubmit, showBonHistory } from './pages/bon.js';
+import { BonPage, handleBonSubmit, showBonHistory, loadSelfBonHistory } from './pages/bon.js';
 import { AssignmentPage, loadAssignments, loadUnassignedEmployees, handleAssignSubmit, toggleAssignRow, openEditAssignment, saveEditAssignment, editAssignmentSalary, endAssignment, resumeAssignment, deleteAssignment, openAdminCheckIn, saveAdminCheckIn } from './pages/assignment.js';
 import { OvertimePage, handleOvertimeSubmit, handleOvertimeRequest, loadOvertimeList, approveOvertime, rejectOvertime, deleteOvertime, editOvertime } from './pages/overtime.js';
 import { MaterialPage, handleMaterialSubmit, loadMaterialList, updateMaterialStatus, deleteMaterial } from './pages/material.js';
@@ -77,7 +77,7 @@ const MENUS = {
   superadmin:    ['home','assignment','absensi','overtime','laporan','project','material','expense','bon','users'],
   owner:         ['home','assignment','absensi','overtime','laporan','project','material','expense','bon','users'],
   admin:         ['home','assignment','absensi','overtime','laporan','project','material','expense','bon','users'],
-  kepala_proyek: ['home','absensi','overtime','lapor','project','material','expense'],
+  kepala_proyek: ['home','absensi','overtime','lapor','project','material','expense','bon'],
   kepala_gudang: ['home','absensi','material'],
   kepala_lapangan: ['home','absensi','overtime','lapor','project','material','expense'],
   karyawan:      ['home','absensi','overtime','riwayat'],
@@ -480,6 +480,13 @@ function render() {
   if (state.currentPage === 'salary-payment') {
     loadPaymentHistory();
   }
+  if (state.currentPage === 'bon') {
+    // Non-admin: auto-load riwayat bon milik sendiri
+    const isAdmin = ['admin', 'owner', 'superadmin'].includes(state.user.role);
+    if (!isAdmin) {
+      setTimeout(() => loadSelfBonHistory(state.user.id), 100);
+    }
+  }
   if (state.currentPage === 'home') {
     loadBonNotifications(state.employees, state.user);
     loadTodayExpenses(state.projects, state.user);
@@ -582,6 +589,7 @@ window.__app = {
     const month = document.getElementById('bon-filter-month')?.value;
     if (empId) showBonHistory(empId, null, month);
   },
+  loadSelfBonHistory() { loadSelfBonHistory(state.user.id); },
   handleOvertimeSubmit(e) { handleOvertimeSubmit(e, state, refreshAndRender); },
   handleOvertimeRequest(e) { handleOvertimeRequest(e, state, refreshAndRender); },
   approveOvertime(id) { approveOvertime(id, state, refreshAndRender); },

@@ -1,21 +1,62 @@
 import { supabase } from '../lib/supabase.js';
 import { fmtIdr, fmtDate, showToast, esc } from '../lib/helpers.js';
+import { ROLE_LABELS } from '../lib/roles.js';
 
 /**
- * Halaman Bon / Kasbon — Admin / Owner / Superadmin
+ * Halaman Bon / Kasbon
+ * - Admin/Owner/Superadmin: kelola bon semua karyawan
+ * - Kepala Proyek/Lapangan/Gudang & Karyawan: lihat bon milik sendiri
  */
 export function BonPage(state) {
   const { employees, user } = state;
   const isAdmin = ['admin', 'owner', 'superadmin'].includes(user.role);
+  const canViewOwnBon = !isAdmin; // semua non-admin bisa lihat bon sendiri
 
-  if (!isAdmin) {
-    return `<div class="fade-in"><div class="empty-state">
-      <i class="fas fa-lock"></i>
-      <p>Halaman ini hanya dapat diakses oleh Admin.</p>
-    </div></div>`;
+  // Tampilan self-service untuk non-admin
+  if (canViewOwnBon) {
+    const self = employees.find(e => e.id === user.id);
+    const bonBalance = self?.bon_balance || 0;
+    return `
+      <div class="fade-in">
+        <div class="card mb-24">
+          <div class="card-header">
+            <div class="card-title"><i class="fas fa-hand-holding-usd"></i> Bon Saya</div>
+          </div>
+          <div style="padding:16px;">
+            <div style="background:var(--surface-2,#f3f4f6);border-radius:var(--radius,8px);padding:16px 20px;margin-bottom:16px;">
+              <div class="text-xs text-secondary mb-4">Saldo Bon Saat Ini</div>
+              <div class="fw-bold" style="font-size:1.4rem;color:${bonBalance > 0 ? 'var(--danger,#ef4444)' : 'var(--success,#22c55e)'};">
+                ${fmtIdr(bonBalance)}
+              </div>
+              ${bonBalance > 0 ? `<div class="text-xs text-secondary mt-4">Hutang bon yang belum lunas</div>` : `<div class="text-xs text-secondary mt-4">Tidak ada hutang bon</div>`}
+            </div>
+            <p class="text-xs text-secondary">
+              <i class="fas fa-info-circle"></i>
+              Untuk mengajukan bon, hubungi Admin. Riwayat transaksi bon Anda ditampilkan di bawah.
+            </p>
+          </div>
+        </div>
+
+        <!-- Riwayat bon milik sendiri -->
+        <div class="card">
+          <div class="card-header" style="justify-content:space-between;">
+            <div class="card-title"><i class="fas fa-history"></i> Riwayat Bon Saya</div>
+            <input type="month" class="form-input" id="bon-self-month"
+              value="${new Date().toISOString().slice(0,7)}"
+              style="width:auto;"
+              onchange="window.__app.loadSelfBonHistory()" />
+          </div>
+          <div id="bon-self-history">
+            <div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Memuat...</p></div>
+          </div>
+        </div>
+      </div>`;
   }
 
-  const karyawanList = employees.filter(e => e.role === 'karyawan');
+  // Tampilan admin: kelola bon semua personil
+  // Semua personil (karyawan + kepala lapangan + kepala proyek + kepala gudang) bisa punya bon
+  const NON_BON_ROLES = ['superadmin', 'owner', 'admin'];
+  const karyawanList = employees.filter(e => !NON_BON_ROLES.includes(e.role));
 
   return `
     <div class="fade-in">
@@ -98,7 +139,7 @@ export function BonPage(state) {
                   <tr>
                     <td class="text-xs text-secondary">${idx + 1}</td>
                     <td class="fw-bold">${esc(e.full_name)}</td>
-                    <td class="text-xs text-secondary">${esc(e.jabatan || 'Karyawan')}</td>
+                    <td class="text-xs text-secondary">${esc(e.jabatan || ROLE_LABELS[e.role] || 'Karyawan')}</td>
                     <td class="text-right">
                       <span class="${(e.bon_balance || 0) > 0 ? 'text-danger fw-bold' : 'text-success'}">
                         ${fmtIdr(e.bon_balance || 0)}
@@ -279,4 +320,74 @@ if (typeof window !== 'undefined') {
     if (saldoEl) saldoEl.textContent = 'Rp ' + bon.toLocaleString('id-ID');
     if (info)    info.style.display  = 'block';
   };
+}
+
+/** Load riwayat bon milik sendiri (untuk non-admin) */
+export async function loadSelfBonHistory(userId) {
+  const content = document.getElementById('bon-self-history');
+  if (!content) return;
+
+  content.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Memuat...</p></div>';
+
+  const monthInput = document.getElementById('bon-self-month');
+  const month = monthInput?.value;
+
+  try {
+    let q = supabase
+      .from('bon_transactions')
+      .select('*')
+      .eq('employee_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (month) {
+      const [y, m] = month.split('-');
+      const start = `${y}-${m}-01`;
+      const end = new Date(Number(y), Number(m), 0).toISOString().slice(0, 10);
+      q = q.gte('created_at', start).lte('created_at', end + 'T23:59:59');
+    }
+
+    const { data, error } = await q;
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      content.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>Belum ada transaksi bon pada periode ini.</p></div>';
+      return;
+    }
+
+    content.innerHTML = `
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:40px;">No.</th>
+              <th>Tanggal</th>
+              <th>Jenis</th>
+              <th class="text-right">Jumlah</th>
+              <th class="text-right">Saldo Setelah</th>
+              <th>Keterangan</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map((t, idx) => `
+              <tr>
+                <td class="text-xs text-secondary">${idx + 1}</td>
+                <td class="text-xs">${fmtDate(t.created_at)}</td>
+                <td>
+                  <span class="badge ${t.type === 'pinjam' ? 'badge-offline' : 'badge-online'}">
+                    ${t.type === 'pinjam' ? 'PINJAM' : 'BAYAR'}
+                  </span>
+                </td>
+                <td class="text-right ${t.type === 'pinjam' ? 'text-danger' : 'text-success'} fw-bold">
+                  ${t.type === 'pinjam' ? '+' : '-'}${fmtIdr(t.amount)}
+                </td>
+                <td class="text-right text-xs">${fmtIdr(t.balance_after)}</td>
+                <td class="text-xs text-secondary">${esc(t.description || '-')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (err) {
+    content.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Gagal memuat: ${esc(err.message)}</p></div>`;
+  }
 }
