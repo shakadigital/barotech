@@ -78,8 +78,8 @@ const MENUS = {
   owner:         ['home','assignment','absensi','overtime','laporan','project','material','expense','bon','users'],
   admin:         ['home','assignment','absensi','overtime','laporan','project','material','expense','bon','users'],
   kepala_proyek: ['home','absensi','overtime','lapor','project','material','expense','bon'],
-  kepala_gudang: ['home','absensi','material'],
-  kepala_lapangan: ['home','absensi','overtime','lapor','project','material','expense'],
+  kepala_gudang: ['home','absensi','overtime','material','bon'],
+  kepala_lapangan: ['home','absensi','overtime','lapor','project','material','expense','bon'],
   karyawan:      ['home','absensi','overtime','riwayat'],
 };
 

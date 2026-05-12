@@ -5,20 +5,22 @@ import { canFinance, FINANCE_ROLES } from '../lib/roles.js';
 /**
  * Halaman Lembur
  * Admin/Owner/Superadmin : input lembur + approve/reject permintaan
- * Karyawan               : ajukan lembur (pending) + lihat riwayat sendiri
- * Kepala Proyek/Lapangan : lihat lembur (read-only keuangan)
+ * Karyawan/Kepala Proyek/Lapangan/Gudang : ajukan lembur (pending) + lihat riwayat sendiri
  */
 export function OvertimePage(state) {
   const { projects, employees, user } = state;
   const isAdmin = ['superadmin','owner','admin'].includes(user.role);
-  const isKaryawan = user.role === 'karyawan';
+  // Semua non-admin bisa ajukan lembur sendiri
+  const canRequest = !isAdmin;
 
   const activeProjects = projects.filter(p => p.status !== 'selesai');
-  const karyawanList   = employees.filter(e => e.role === 'karyawan');
+  // Admin bisa input lembur untuk semua personil (kecuali superadmin/owner/admin)
+  const NON_OVERTIME_ROLES = ['superadmin', 'owner', 'admin'];
+  const karyawanList = employees.filter(e => !NON_OVERTIME_ROLES.includes(e.role));
 
-  // Karyawan: form ajukan lembur (sederhana - hanya tanggal, proyek, keterangan)
+  // Non-admin: form ajukan lembur sendiri
   function karyawanRequestForm() {
-    if (!isKaryawan) return '';
+    if (!canRequest) return '';
     return `
       <div class="card mb-24">
         <div class="card-header" style="justify-content:space-between;cursor:pointer;" onclick="const p=document.getElementById('ot-req-form-body'),i=document.getElementById('ot-req-chevron');p.style.display=p.style.display==='none'?'block':'none';i.style.transform=p.style.display==='none'?'rotate(0deg)':'rotate(180deg)';">
@@ -145,16 +147,9 @@ export function OvertimePage(state) {
       </div>`;
   }
 
-  // Non-admin, non-karyawan: info banner
+  // Non-admin, non-request: tidak ada banner (semua non-admin sudah bisa request)
   function infoBanner() {
-    if (isAdmin || isKaryawan) return '';
-    return `
-      <div class="card mb-16" style="background:var(--surface-2,#f8f9fa);border-left:4px solid var(--primary,#19D2C1);padding:12px 16px;">
-        <div class="flex gap-8 align-center">
-          <i class="fas fa-info-circle text-primary"></i>
-          <span class="text-sm">Data lembur diinput oleh Admin. Anda dapat melihat riwayat lembur di bawah.</span>
-        </div>
-      </div>`;
+    return '';
   }
 
   return `
@@ -190,8 +185,12 @@ export async function loadOvertimeList(state) {
       .order('overtime_date', { ascending: false })
       .limit(50);
 
-    // karyawan hanya lihat milik sendiri
-    if (state.user.role === 'karyawan') {
+    // karyawan & kepala gudang hanya lihat milik sendiri
+    if (['karyawan', 'kepala_gudang'].includes(state.user.role)) {
+      query = query.eq('employee_id', state.user.id);
+    }
+    // kepala_proyek hanya lihat milik sendiri
+    if (state.user.role === 'kepala_proyek') {
       query = query.eq('employee_id', state.user.id);
     }
     // kepala_lapangan hanya lihat proyeknya
