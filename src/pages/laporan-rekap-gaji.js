@@ -49,12 +49,26 @@ export function LaporanRekapGajiPage(state) {
               value="${defaultMonth}" onchange="window.__app.loadRekapGaji()" />
           </div>
           <div>
+            <label class="form-label">Role</label>
+            <select class="form-select" id="rg-role" onchange="window.__app.loadRekapGaji()">
+              <option value="">Semua Role</option>
+              <option value="karyawan">Karyawan</option>
+              <option value="kepala_lapangan">Kepala Lapangan</option>
+              <option value="kepala_proyek">Kepala Proyek</option>
+              <option value="kepala_gudang">Kepala Gudang</option>
+              <option value="admin">Admin</option>
+              <option value="owner">Owner</option>
+            </select>
+          </div>
+          <div>
             <label class="form-label">Karyawan</label>
             <select class="form-select" id="rg-employee" onchange="window.__app.loadRekapGaji()">
               <option value="">Semua Karyawan</option>
-              ${employees.filter(e => e.role === 'karyawan').map(e =>
-                `<option value="${e.id}">${esc(e.full_name)}</option>`
-              ).join('')}
+              ${employees
+                .filter(e => e.role !== 'superadmin')
+                .sort((a, b) => a.full_name.localeCompare(b.full_name))
+                .map(e => `<option value="${e.id}">${esc(e.full_name)} (${esc(e.role)})</option>`)
+                .join('')}
             </select>
           </div>
           <div>
@@ -98,6 +112,7 @@ export async function loadRekapGaji() {
   const month      = document.getElementById('rg-month')?.value || null;
   const employeeId = document.getElementById('rg-employee')?.value || null;
   const projectId  = document.getElementById('rg-project')?.value || null;
+  const role       = document.getElementById('rg-role')?.value || null;
 
   container.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Memuat data...</p></div>';
   if (cardsEl) cardsEl.innerHTML = '';
@@ -107,6 +122,7 @@ export async function loadRekapGaji() {
       p_employee_id: employeeId || null,
       p_project_id:  projectId  || null,
       p_bulan:       month      || null,
+      p_role:        role       || null,
     });
     if (error) throw error;
 
@@ -115,7 +131,7 @@ export async function loadRekapGaji() {
       return;
     }
 
-    window.__rekapGajiData = { data, filters: { month, employeeId, projectId } };
+    window.__rekapGajiData = { data, filters: { month, employeeId, projectId, role } };
 
     // Totals
     const totHari    = data.reduce((s, r) => s + Number(r.hari_kerja), 0);
@@ -151,6 +167,7 @@ export async function loadRekapGaji() {
           <thead>
             <tr>
               <th>Karyawan</th>
+              <th>Role</th>
               <th>Jabatan</th>
               <th class="text-right">Hari</th>
               <th class="text-right">Gaji Pokok</th>
@@ -166,6 +183,7 @@ export async function loadRekapGaji() {
             ${data.map(r => `
               <tr>
                 <td class="fw-bold">${esc(r.full_name)}</td>
+                <td><span class="badge badge-role" style="font-size:0.65rem;">${esc(r.role)}</span></td>
                 <td class="text-xs text-secondary">${esc(r.jabatan || '-')}</td>
                 <td class="text-right">${r.hari_kerja}</td>
                 <td class="text-right">${fmtIdr(r.total_gaji_pokok)}</td>
@@ -182,7 +200,7 @@ export async function loadRekapGaji() {
           </tbody>
           <tfoot>
             <tr style="font-weight:700;background:var(--bg-hover);">
-              <td colspan="2">TOTAL</td>
+              <td colspan="3">TOTAL</td>
               <td class="text-right">${totHari}</td>
               <td class="text-right">${fmtIdr(totGaji)}</td>
               <td class="text-right">${fmtIdr(totMakan)}</td>
