@@ -888,12 +888,24 @@ export async function printSalarySlip(paymentId) {
     // Append to body
     document.body.appendChild(printWindow);
 
+    // Sembunyikan semua konten halaman kecuali slip, lalu print
+    const style = document.createElement('style');
+    style.id = 'print-slip-style';
+    style.innerHTML = `
+      @media print {
+        body > *:not(#salary-slip-print) { display: none !important; }
+        #salary-slip-print { display: block !important; position: static !important; }
+      }
+    `;
+    document.head.appendChild(style);
+
     // Print
     setTimeout(() => {
       window.print();
-      // Remove after print
+      // Cleanup setelah print dialog ditutup
       setTimeout(() => {
         printWindow.remove();
+        document.getElementById('print-slip-style')?.remove();
       }, 1000);
     }, 100);
 
