@@ -21,13 +21,13 @@ export function RiwayatPage(state) {
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   // ── Ringkasan kehadiran ──
-  const totalHadir      = myLogs.filter(l => l.status === 'verified').length;
-  const totalTidakHadir = myLogs.filter(l => l.status === 'absent').length;
-  const totalPending    = myLogs.filter(l => l.status === 'draft' || !l.status).length;
+  const totalHadir      = myLogs.filter(l => l.status === 'hadir' || l.status === 'verified').length;
+  const totalTidakHadir = myLogs.filter(l => l.status === 'absent' || l.status === 'tidak_hadir').length;
+  const totalPending    = myLogs.filter(l => l.status === 'draft' || l.status === 'pending' || !l.status).length;
   const totalOtHours    = myLogs.reduce((s, l) => s + (l.overtime_hours || 0), 0);
 
-  // ── Ringkasan keuangan (hanya dari record verified) ──
-  const verifiedLogs = myLogs.filter(l => l.status === 'verified');
+  // ── Ringkasan keuangan (hanya dari record hadir/verified) ──
+  const verifiedLogs = myLogs.filter(l => l.status === 'hadir' || l.status === 'verified');
   const totalGajiPokok = verifiedLogs.reduce((s, l) => s + (l.basic_salary || 0), 0);
   const totalLembur    = verifiedLogs.reduce((s, l) => s + (l.overtime_pay || 0), 0);
   const totalKasbon    = verifiedLogs.reduce((s, l) => s + (l.cash_advance || 0), 0);
@@ -171,7 +171,7 @@ export function RiwayatPage(state) {
               <tbody>
                 ${logsWithProjectChange.map((l, idx) => {
                   const prj = projects.find(p => p.id === l.project_id);
-                  const isVerified = l.status === 'verified';
+                  const isVerified = l.status === 'hadir' || l.status === 'verified';
                   const totalTerima = calcTotal(l);
                   let statusBadge = '';
                   if (isVerified) statusBadge = '<span class="badge badge-online">HADIR</span>';
@@ -249,8 +249,8 @@ export function RiwayatPage(state) {
           <div class="riwayat-mobile">
             ${logsWithProjectChange.map((l, idx) => {
               const prj = projects.find(p => p.id === l.project_id);
-              const isVerified = l.status === 'verified';
-              const isAbsent   = l.status === 'absent';
+              const isVerified = l.status === 'hadir' || l.status === 'verified';
+              const isAbsent   = l.status === 'absent' || l.status === 'tidak_hadir';
               const totalTerima = calcTotal(l);
               const hasBreakdown = (l.uang_makan||0) > 0 || (l.transport||0) > 0 || (l.tunjangan_lain||0) > 0;
               const acts = dailyActivities.filter(a => a.attendance_id === l.id);

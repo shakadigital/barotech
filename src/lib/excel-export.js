@@ -146,7 +146,7 @@ export function exportLaporanAbsensi(logs, filters = {}) {
     'Tanggal': formatExcelDate(l.created_at),
     'Jam Masuk': formatExcelTime(l.check_in),
     'Jam Keluar': formatExcelTime(l.check_out),
-    'Status': l.status === 'verified' ? 'Hadir' : l.status === 'absent' ? 'Tidak Hadir' : 'Pending',
+    'Status': (l.status === 'verified' || l.status === 'hadir') ? 'Hadir' : (l.status === 'absent' || l.status === 'tidak_hadir') ? 'Tidak Hadir' : 'Pending',
     'Gaji Pokok': l.basic_salary,
     'Lembur': l.overtime_pay,
     'Kasbon': l.cash_advance,
