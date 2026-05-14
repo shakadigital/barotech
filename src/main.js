@@ -9,6 +9,7 @@ import { LaporanIndexPage } from './pages/laporan-index.js';
 import { LaporanGajiPage, filterLaporanGaji, exportLaporanGajiToExcel, printLaporanGaji } from './pages/laporan-gaji.js';
 import { RekapProyekPage, loadRekapProyek, togglePeriodType, toggleProjectBreakdown, exportRekapProyek } from './pages/rekap-proyek.js';
 import { LaporanRekapGajiPage, loadRekapGaji, exportRekapGaji } from './pages/laporan-rekap-gaji.js';
+import { MonthlySalaryPage, loadMonthlySalaries, openMonthlySalaryModal, saveMonthlySalary } from './pages/monthly-salary.js';
 import { LaporanBonPage, loadLaporanBon, loadDetailBon, exportLaporanBon } from './pages/laporan-bon.js';
 import { LaporanKegiatanPage, loadLaporanKegiatan, exportLaporanKegiatan } from './pages/laporan-kegiatan.js';
 import { SalaryPaymentPage, loadUnpaidSalaries, openPaymentModal, paySelectedSalaries, processPayment, toggleSelectAllSalary, loadPaymentHistory, printSalarySlip } from './pages/salary-payment.js';
@@ -85,12 +86,13 @@ const MENUS = {
 
 // Sub-menu di bawah "Laporan" (hanya untuk admin/owner/superadmin)
 const LAPORAN_SUBMENU = [
-  { key: 'lapor',          icon: 'fa-camera',              label: 'Laporan Progress' },
-  { key: 'rekap-gaji',     icon: 'fa-money-bill-wave',     label: 'Rekap Gaji Lengkap' },
-  { key: 'rekap-proyek',   icon: 'fa-chart-pie',           label: 'Rekap Biaya Proyek' },
-  { key: 'laporan-bon',    icon: 'fa-hand-holding-usd',    label: 'Laporan Bon' },
-  { key: 'laporan-kegiatan', icon: 'fa-tasks',             label: 'Kegiatan Harian' },
-  { key: 'salary-payment', icon: 'fa-money-check-alt',     label: 'Pembayaran Gaji' },
+  { key: 'lapor',           icon: 'fa-camera',              label: 'Laporan Progress' },
+  { key: 'rekap-gaji',      icon: 'fa-money-bill-wave',     label: 'Rekap Gaji Lengkap' },
+  { key: 'gaji-bulanan',    icon: 'fa-calendar-check',      label: 'Gaji Bulanan' },
+  { key: 'rekap-proyek',    icon: 'fa-chart-pie',           label: 'Rekap Biaya Proyek' },
+  { key: 'laporan-bon',     icon: 'fa-hand-holding-usd',    label: 'Laporan Bon' },
+  { key: 'laporan-kegiatan', icon: 'fa-tasks',              label: 'Kegiatan Harian' },
+  { key: 'salary-payment',  icon: 'fa-money-check-alt',     label: 'Pembayaran Gaji' },
 ];
 
 const MENU_META = {
@@ -206,7 +208,7 @@ function navigate(page) {
 
 // ========== RENDER ==========
 // Halaman yang termasuk grup "laporan"
-const LAPORAN_PAGES = new Set(['laporan','lapor','laporan-gaji','rekap-gaji','rekap-proyek','laporan-bon','laporan-kegiatan','salary-payment']);
+const LAPORAN_PAGES = new Set(['laporan','lapor','laporan-gaji','rekap-gaji','gaji-bulanan','rekap-proyek','laporan-bon','laporan-kegiatan','salary-payment']);
 
 function renderSidebar() {
   const menus = MENUS[state.user.role] || ['home'];
@@ -268,6 +270,7 @@ function renderPage() {
     case 'laporan':      return LaporanIndexPage(state);
     case 'laporan-gaji': return LaporanGajiPage(state);
     case 'rekap-gaji':   return LaporanRekapGajiPage(state);
+    case 'gaji-bulanan': return MonthlySalaryPage(state);
     case 'rekap-proyek': return RekapProyekPage(state);
     case 'laporan-bon':  return LaporanBonPage(state);
     case 'laporan-kegiatan': return LaporanKegiatanPage(state);
@@ -470,6 +473,9 @@ function render() {
   if (state.currentPage === 'rekap-gaji') {
     loadRekapGaji();
   }
+  if (state.currentPage === 'gaji-bulanan') {
+    loadMonthlySalaries(state);
+  }
   if (state.currentPage === 'laporan-bon') {
     loadLaporanBon();
   }
@@ -520,6 +526,9 @@ window.__app = {
   exportRekapProyek() { exportRekapProyek(); },
   loadRekapGaji() { loadRekapGaji(); },
   exportRekapGaji() { exportRekapGaji(); },
+  loadMonthlySalaries() { loadMonthlySalaries(state); },
+  openMonthlySalaryModal(employeeId, bulan) { openMonthlySalaryModal(employeeId, bulan, state); },
+  saveMonthlySalary(e, employeeId, bulan) { saveMonthlySalary(e, employeeId, bulan, state); },
   loadLaporanBon() { loadLaporanBon(); },
   loadDetailBon(id, name) { loadDetailBon(id, name); },
   exportLaporanBon() { exportLaporanBon(); },

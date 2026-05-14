@@ -26,6 +26,14 @@ export function LaporanIndexPage(state) {
       desc: 'Gaji pokok + tunjangan + lembur − kasbon',
     },
     {
+      key: 'gaji-bulanan',
+      icon: 'fa-calendar-check',
+      color: '#0ea5e9',
+      bg: 'rgba(14,165,233,0.1)',
+      label: 'Gaji Bulanan',
+      desc: 'Input & kelola gaji tetap bulanan Superadmin & Admin',
+    },
+    {
       key: 'rekap-proyek',
       icon: 'fa-chart-pie',
       color: '#3b82f6',

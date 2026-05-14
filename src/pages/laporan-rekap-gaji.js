@@ -169,23 +169,32 @@ export async function loadRekapGaji() {
               <th>Karyawan</th>
               <th>Role</th>
               <th>Jabatan</th>
+              <th class="text-center">Tipe</th>
               <th class="text-right">Hari</th>
               <th class="text-right">Gaji Pokok</th>
               <th class="text-right">Uang Makan</th>
               <th class="text-right">Transport</th>
               <th class="text-right">Tunjangan</th>
               <th class="text-right">Lembur</th>
-              <th class="text-right">Kasbon</th>
+              <th class="text-right">Kasbon/Potongan</th>
               <th class="text-right" style="background:var(--bg-hover);">Total Bersih</th>
             </tr>
           </thead>
           <tbody>
-            ${data.map(r => `
+            ${data.map(r => {
+              const isBulanan = r.tipe_gaji === 'bulanan';
+              return `
               <tr>
                 <td class="fw-bold">${esc(r.full_name)}</td>
                 <td><span class="badge badge-role" style="font-size:0.65rem;">${esc(r.role)}</span></td>
                 <td class="text-xs text-secondary">${esc(r.jabatan || '-')}</td>
-                <td class="text-right">${r.hari_kerja}</td>
+                <td class="text-center">
+                  <span class="badge" style="font-size:0.65rem;background:${isBulanan ? 'var(--info,#3b82f6)' : 'var(--success,#22c55e)'};color:#fff;">
+                    <i class="fas fa-${isBulanan ? 'calendar-check' : 'calendar-day'}"></i>
+                    ${isBulanan ? 'Bulanan' : 'Harian'}
+                  </span>
+                </td>
+                <td class="text-right">${isBulanan ? '-' : r.hari_kerja}</td>
                 <td class="text-right">${fmtIdr(r.total_gaji_pokok)}</td>
                 <td class="text-right">${fmtIdr(r.total_uang_makan)}</td>
                 <td class="text-right">${fmtIdr(r.total_transport)}</td>
@@ -195,12 +204,12 @@ export async function loadRekapGaji() {
                 <td class="text-right fw-bold text-success" style="background:var(--bg-hover);">
                   ${fmtIdr(r.total_bersih)}
                 </td>
-              </tr>
-            `).join('')}
+              </tr>`;
+            }).join('')}
           </tbody>
           <tfoot>
             <tr style="font-weight:700;background:var(--bg-hover);">
-              <td colspan="3">TOTAL</td>
+              <td colspan="4">TOTAL</td>
               <td class="text-right">${totHari}</td>
               <td class="text-right">${fmtIdr(totGaji)}</td>
               <td class="text-right">${fmtIdr(totMakan)}</td>
