@@ -280,13 +280,13 @@ export async function openPaymentModal(employeeId, startDate, endDate) {
             style="margin-left:auto;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:1.2rem;">✕</button>
         </div>
 
-        <div class="mb-16" style="background:var(--bg-hover);border-radius:var(--radius);padding:12px;">
+        <div class="mb-16" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;color:var(--text);">
           <div class="fw-bold">${esc(employee.full_name)}</div>
           <div class="text-xs text-secondary">${esc(employee.jabatan || employee.role)}</div>
           <div class="text-xs text-secondary">Periode: ${fmtDate(startDate)} - ${fmtDate(endDate)}</div>
         </div>
 
-        <div class="mb-16" style="background:var(--bg-secondary,#f9fafb);border-radius:var(--radius);padding:12px;">
+        <div class="mb-16" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;color:var(--text);">
           <div class="text-xs text-secondary mb-8">Rincian Gaji:</div>
           <div class="flex justify-between mb-4">
             <span class="text-sm">Gaji Pokok (${days} hari)</span>
@@ -335,7 +335,7 @@ export async function openPaymentModal(employeeId, startDate, endDate) {
 
         <!-- Potong Bon (Angsuran) -->
         ${bonBalance > 0 ? `
-        <div class="mb-16" style="background:var(--bg-secondary,#fff3cd);border:1px solid var(--warning,#ffc107);border-radius:var(--radius);padding:12px;">
+        <div class="mb-16" style="background:var(--bg-card);border:1px solid var(--warning,#ffc107);border-radius:var(--radius);padding:12px;color:var(--text);">
           <div class="flex align-center gap-8 mb-8">
             <input type="checkbox" id="potong-bon-checkbox" 
               onchange="window.__togglePotongBon(this.checked, ${bonBalance}, ${netSalary})" />
@@ -474,7 +474,7 @@ export function paySelectedSalaries(startDate, endDate) {
 }
 
 /** Process payment untuk 1 karyawan */
-export async function processPayment(employeeId, startDate, endDate) {
+export async function processPayment(employeeId, startDate, endDate, currentUserId) {
   const btn = document.getElementById('btn-confirm-payment');
   if (btn) {
     btn.disabled = true;
@@ -553,9 +553,8 @@ export async function processPayment(employeeId, startDate, endDate) {
       throw new Error('Total gaji tidak mencukupi untuk potongan yang diinput');
     }
 
-    // Get current user ID
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User tidak ditemukan');
+    // Get current user ID - diteruskan dari state.user.id via main.js
+    if (!currentUserId) throw new Error('Sesi login tidak ditemukan, silakan refresh halaman');
 
     // Insert salary_payment record
     const { data: payment, error: payError } = await supabase
@@ -574,7 +573,7 @@ export async function processPayment(employeeId, startDate, endDate) {
         bank_name: bankName,
         account_number: accountNumber,
         notes: notes,
-        paid_by: user.id,
+        paid_by: currentUserId,
         payment_date: new Date().toISOString().slice(0, 10),
       })
       .select()

@@ -171,6 +171,7 @@ async function handleLogin(e) {
       role: profile.role || 'karyawan',
     };
     state.isLoggedIn = true;
+    window.__currentUserId = profile.id; // untuk fungsi yang tidak punya akses state
     state.currentPage = 'home';
 
     await fetchData();
@@ -527,7 +528,7 @@ window.__app = {
   loadUnpaidSalaries() { loadUnpaidSalaries(); },
   openPaymentModal(employeeId, startDate, endDate) { openPaymentModal(employeeId, startDate, endDate); },
   paySelectedSalaries(startDate, endDate) { paySelectedSalaries(startDate, endDate); },
-  processPayment(employeeId, startDate, endDate) { processPayment(employeeId, startDate, endDate); },
+  processPayment(employeeId, startDate, endDate) { processPayment(employeeId, startDate, endDate, state.user.id); },
   toggleSelectAllSalary(checked) { toggleSelectAllSalary(checked); },
   loadPaymentHistory() { loadPaymentHistory(); },
   printSalarySlip(paymentId) { printSalarySlip(paymentId); },
@@ -787,6 +788,7 @@ async function init() {
         role: profile?.role || 'karyawan',
       };
       state.isLoggedIn = true;
+      window.__currentUserId = session.user.id; // untuk fungsi yang tidak punya akses state
       state.currentPage = 'home';
       await fetchData();
     }

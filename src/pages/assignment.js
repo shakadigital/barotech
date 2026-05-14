@@ -75,31 +75,36 @@ export function AssignmentPage(state) {
           </div>
           <div class="form-row mb-8">
             <div class="form-group">
-              <label class="form-label">Uang Makan (Rp)</label>
-              <input type="number" class="form-input" id="asgn-uang-makan"
-                value="50000" min="0" required
-                oninput="window.__asgn_calcTotal()" />
+              <label class="form-label">Gaji Pokok / Hari (Rp) <span style="color:var(--danger)">*</span></label>
+              <input type="number" class="form-input" id="asgn-basic-salary"
+                value="0" min="0" required
+                oninput="window.__asgn_calcTotal()"
+                style="font-weight:700;" />
             </div>
             <div class="form-group">
-              <label class="form-label">Transport (Rp)</label>
-              <input type="number" class="form-input" id="asgn-transport"
-                value="50000" min="0" required
+              <label class="form-label">Uang Makan / Hari (Rp)</label>
+              <input type="number" class="form-input" id="asgn-uang-makan"
+                value="0" min="0"
                 oninput="window.__asgn_calcTotal()" />
             </div>
           </div>
           <div class="form-row mb-8">
             <div class="form-group">
-              <label class="form-label">Tunjangan Lain (Rp)</label>
-              <input type="number" class="form-input" id="asgn-tunjangan"
-                value="50000" min="0" required
+              <label class="form-label">Transport / Hari (Rp) <span class="text-secondary">(opsional)</span></label>
+              <input type="number" class="form-input" id="asgn-transport"
+                value="0" min="0"
                 oninput="window.__asgn_calcTotal()" />
             </div>
             <div class="form-group">
-              <label class="form-label">Total / Hari (Rp)</label>
-              <input type="number" class="form-input" id="asgn-salary"
-                value="150000" min="0" readonly
-                style="background:var(--bg-input);cursor:default;font-weight:700;" />
+              <label class="form-label">Tunjangan Lain / Hari (Rp) <span class="text-secondary">(opsional)</span></label>
+              <input type="number" class="form-input" id="asgn-tunjangan"
+                value="0" min="0"
+                oninput="window.__asgn_calcTotal()" />
             </div>
+          </div>
+          <div class="mb-8" style="background:var(--bg-hover);border-radius:var(--radius);padding:10px 14px;">
+            <div class="text-xs text-secondary mb-4">Estimasi Total / Hari</div>
+            <div class="fw-bold" id="asgn-salary-preview" style="font-size:1rem;color:var(--primary);">Rp 0</div>
           </div>
 
           <div class="form-row mb-16">
@@ -479,30 +484,39 @@ export async function openEditAssignment(id, state) {
         </div>
         <div class="form-row mb-8">
           <div class="form-group">
-            <label class="form-label">Uang Makan (Rp)</label>
-            <input type="number" class="form-input" id="edit-asgn-uang-makan"
-              value="${a.uang_makan||0}" min="0"
-              oninput="window.__asgn_editCalc()" />
+            <label class="form-label">Gaji Pokok / Hari (Rp) <span style="color:var(--danger)">*</span></label>
+            <input type="number" class="form-input" id="edit-asgn-basic-salary"
+              value="${a.basic_salary||0}" min="0" required
+              oninput="window.__asgn_editCalc()"
+              style="font-weight:700;" />
           </div>
           <div class="form-group">
-            <label class="form-label">Transport (Rp)</label>
-            <input type="number" class="form-input" id="edit-asgn-transport"
-              value="${a.transport||0}" min="0"
+            <label class="form-label">Uang Makan / Hari (Rp)</label>
+            <input type="number" class="form-input" id="edit-asgn-uang-makan"
+              value="${a.uang_makan||0}" min="0"
               oninput="window.__asgn_editCalc()" />
           </div>
         </div>
         <div class="form-row mb-8">
           <div class="form-group">
-            <label class="form-label">Tunjangan Lain (Rp)</label>
+            <label class="form-label">Transport / Hari (Rp) <span class="text-secondary">(opsional)</span></label>
+            <input type="number" class="form-input" id="edit-asgn-transport"
+              value="${a.transport||0}" min="0"
+              oninput="window.__asgn_editCalc()" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tunjangan Lain / Hari (Rp) <span class="text-secondary">(opsional)</span></label>
             <input type="number" class="form-input" id="edit-asgn-tunjangan"
               value="${a.tunjangan_lain||0}" min="0"
               oninput="window.__asgn_editCalc()" />
           </div>
-          <div class="form-group">
-            <label class="form-label">Total / Hari (Rp)</label>
-            <input type="number" class="form-input" id="edit-asgn-salary"
-              value="${a.basic_salary||0}" min="0"
-              style="font-weight:700;" />
+        </div>
+        <div class="mb-8" style="background:var(--bg-hover);border-radius:var(--radius);padding:10px 14px;">
+          <div class="text-xs text-secondary mb-4">Estimasi Total / Hari</div>
+          <div class="fw-bold" id="edit-asgn-salary-preview" style="font-size:1rem;color:var(--primary);">
+            ${new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(
+              (a.basic_salary||0) + (a.uang_makan||0) + (a.transport||0) + (a.tunjangan_lain||0)
+            )}
           </div>
         </div>
 
@@ -547,17 +561,23 @@ export async function saveEditAssignment(e, id, state, refreshFn) {
   btn.innerHTML = '<span class="spinner"></span> Menyimpan...';
 
   try {
-    const uangMakan   = parseFloat(document.getElementById('edit-asgn-uang-makan').value) || 0;
-    const transport   = parseFloat(document.getElementById('edit-asgn-transport').value) || 0;
-    const tunjangan   = parseFloat(document.getElementById('edit-asgn-tunjangan').value) || 0;
-    const manualSalary = parseFloat(document.getElementById('edit-asgn-salary').value) || 0;
-    const totalSalary = manualSalary || (uangMakan + transport + tunjangan);
+    const uangMakan    = parseFloat(document.getElementById('edit-asgn-uang-makan').value) || 0;
+    const transport    = parseFloat(document.getElementById('edit-asgn-transport').value) || 0;
+    const tunjangan    = parseFloat(document.getElementById('edit-asgn-tunjangan').value) || 0;
+    const basicSalary  = parseFloat(document.getElementById('edit-asgn-basic-salary').value) || 0;
+
+    if (basicSalary <= 0) {
+      showToast('Gaji pokok per hari harus diisi', 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-save"></i> Simpan Perubahan';
+      return;
+    }
 
     const startVal = document.getElementById('edit-asgn-start').value || null;
     const endVal   = document.getElementById('edit-asgn-end').value || null;
 
     const { error } = await supabase.from('project_assignments').update({
-      basic_salary:   totalSalary,
+      basic_salary:   basicSalary,
       uang_makan:     uangMakan,
       transport:      transport,
       tunjangan_lain: tunjangan,
@@ -769,17 +789,26 @@ export async function handleAssignSubmit(e, state, refreshFn) {
   btn.innerHTML = '<span class="spinner"></span> Menyimpan...';
 
   try {
-    const endVal = document.getElementById('asgn-end').value;
+    const endVal      = document.getElementById('asgn-end').value;
+    const basicSalary = parseFloat(document.getElementById('asgn-basic-salary').value) || 0;
     const uangMakan   = parseFloat(document.getElementById('asgn-uang-makan').value) || 0;
     const transport   = parseFloat(document.getElementById('asgn-transport').value) || 0;
     const tunjangan   = parseFloat(document.getElementById('asgn-tunjangan').value) || 0;
+
+    if (basicSalary <= 0) {
+      showToast('Gaji pokok per hari harus diisi', 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-save"></i> Simpan Penugasan';
+      return;
+    }
+
     const { error } = await supabase.from('project_assignments').insert({
       employee_id:     document.getElementById('asgn-employee').value,
       project_id:      document.getElementById('asgn-project').value,
+      basic_salary:    basicSalary,
       uang_makan:      uangMakan,
       transport:       transport,
       tunjangan_lain:  tunjangan,
-      basic_salary:    uangMakan + transport + tunjangan,
       start_date:      document.getElementById('asgn-start').value,
       end_date:        endVal || null,
       notes:           document.getElementById('asgn-notes').value.trim() || null,
@@ -796,11 +825,13 @@ export async function handleAssignSubmit(e, state, refreshFn) {
     const umEl = document.getElementById('asgn-uang-makan');
     const trEl = document.getElementById('asgn-transport');
     const tjEl = document.getElementById('asgn-tunjangan');
-    const slEl = document.getElementById('asgn-salary');
-    if (umEl) umEl.value = '50000';
-    if (trEl) trEl.value = '50000';
-    if (tjEl) tjEl.value = '50000';
-    if (slEl) slEl.value = '150000';
+    const bsEl = document.getElementById('asgn-basic-salary');
+    if (bsEl) bsEl.value = '0';
+    if (umEl) umEl.value = '0';
+    if (trEl) trEl.value = '0';
+    if (tjEl) tjEl.value = '0';
+    const preview = document.getElementById('asgn-salary-preview');
+    if (preview) preview.textContent = 'Rp 0';
     const infoEl = document.getElementById('asgn-current-info');
     if (infoEl) infoEl.style.display = 'none';
     const empInfoEl = document.getElementById('asgn-emp-info');
@@ -891,11 +922,12 @@ export async function deleteAssignment(id, state, refreshFn) {
 /** Cek penugasan aktif karyawan saat pilih di form */
 if (typeof window !== 'undefined') {
   window.__asgn_calcTotal = function () {
+    const bs  = parseFloat(document.getElementById('asgn-basic-salary')?.value) || 0;
     const um  = parseFloat(document.getElementById('asgn-uang-makan')?.value) || 0;
     const tr  = parseFloat(document.getElementById('asgn-transport')?.value) || 0;
     const tj  = parseFloat(document.getElementById('asgn-tunjangan')?.value) || 0;
-    const el  = document.getElementById('asgn-salary');
-    if (el) el.value = um + tr + tj;
+    const el  = document.getElementById('asgn-salary-preview');
+    if (el) el.textContent = 'Rp ' + (bs + um + tr + tj).toLocaleString('id-ID');
   };
 
   window.__toggleAssignForm = function () {
@@ -908,11 +940,12 @@ if (typeof window !== 'undefined') {
   };
 
   window.__asgn_editCalc = function () {
+    const bs  = parseFloat(document.getElementById('edit-asgn-basic-salary')?.value) || 0;
     const um  = parseFloat(document.getElementById('edit-asgn-uang-makan')?.value) || 0;
     const tr  = parseFloat(document.getElementById('edit-asgn-transport')?.value) || 0;
     const tj  = parseFloat(document.getElementById('edit-asgn-tunjangan')?.value) || 0;
-    const el  = document.getElementById('edit-asgn-salary');
-    if (el) el.value = um + tr + tj;
+    const el  = document.getElementById('edit-asgn-salary-preview');
+    if (el) el.textContent = 'Rp ' + (bs + um + tr + tj).toLocaleString('id-ID');
   };
 
   window.__asgn_onEmployeeChange = async function (empId) {
@@ -941,6 +974,12 @@ if (typeof window !== 'undefined') {
         Ongkos Lembur/jam: <strong>${fmtIdr(emp.overtime_rate || 0)}</strong>
       `;
       empInfoEl.style.display = 'block';
+      // Auto-fill gaji pokok dari profil karyawan
+      const bsEl = document.getElementById('asgn-basic-salary');
+      if (bsEl && (!bsEl.value || bsEl.value === '0')) {
+        bsEl.value = emp.basic_salary || 0;
+        window.__asgn_calcTotal();
+      }
     } else if (empInfoEl) {
       empInfoEl.style.display = 'none';
     }
@@ -956,10 +995,12 @@ if (typeof window !== 'undefined') {
     if (data) {
       detailEl.innerHTML = `Proyek: ${data.projects?.name || '-'} | Mulai: ${fmtDate(data.start_date)} | Gaji: ${fmtIdr(data.basic_salary)}`;
       infoEl.style.display = 'block';
-      // Auto-fill breakdown dari assignment aktif
+      // Auto-fill breakdown dari assignment aktif (termasuk gaji pokok)
+      const bsEl = document.getElementById('asgn-basic-salary');
       const umEl = document.getElementById('asgn-uang-makan');
       const trEl = document.getElementById('asgn-transport');
       const tjEl = document.getElementById('asgn-tunjangan');
+      if (bsEl) bsEl.value = data.basic_salary || 0;
       if (umEl) umEl.value = data.uang_makan || 0;
       if (trEl) trEl.value = data.transport || 0;
       if (tjEl) tjEl.value = data.tunjangan_lain || 0;
