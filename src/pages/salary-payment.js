@@ -744,144 +744,162 @@ export async function printSalarySlip(paymentId) {
     const printWindow = document.createElement('div');
     printWindow.id = 'salary-slip-print';
     printWindow.innerHTML = `
-      <div style="max-width:800px;margin:0 auto;padding:40px;font-family:Arial,sans-serif;background:white;">
-        <!-- Header dengan Logo -->
-        <div style="text-align:center;margin-bottom:30px;border-bottom:3px solid #333;padding-bottom:20px;">
-          <img src="/apple-touch-icon.png" alt="Logo" style="width:80px;height:80px;margin-bottom:10px;" />
-          <h1 style="margin:0;font-size:24px;color:#333;">SLIP GAJI</h1>
-          <h2 style="margin:5px 0 0 0;font-size:18px;color:#666;">PT BAROTECH</h2>
+      <div style="
+        width:210mm;
+        min-height:297mm;
+        max-height:297mm;
+        margin:0 auto;
+        padding:10mm 14mm;
+        font-family:Arial,sans-serif;
+        background:white;
+        box-sizing:border-box;
+        display:flex;
+        flex-direction:column;
+        font-size:11px;
+        overflow:hidden;
+      ">
+
+        <!-- HEADER: compact, logo kecil di kiri, judul di tengah -->
+        <div style="display:flex;align-items:center;border-bottom:2px solid #333;padding-bottom:6px;margin-bottom:8px;">
+          <img src="/apple-touch-icon.png" alt="Logo" style="width:44px;height:44px;margin-right:12px;" />
+          <div style="flex:1;text-align:center;">
+            <div style="font-size:16px;font-weight:bold;color:#333;letter-spacing:1px;">SLIP GAJI KARYAWAN</div>
+            <div style="font-size:12px;color:#555;font-weight:bold;">PT BAROTECH</div>
+          </div>
+          <div style="width:56px;"></div>
         </div>
 
-        <!-- Info Karyawan -->
-        <table style="width:100%;margin-bottom:20px;font-size:14px;">
+        <!-- INFO KARYAWAN: 2 kolom, compact -->
+        <table style="width:100%;margin-bottom:8px;font-size:11px;border-collapse:collapse;">
           <tr>
-            <td style="width:150px;padding:5px 0;"><strong>Nama</strong></td>
-            <td style="padding:5px 0;">: ${esc(employee.full_name)}</td>
+            <td style="width:22%;padding:2px 4px;color:#555;">Nama</td>
+            <td style="width:28%;padding:2px 4px;font-weight:bold;">: ${esc(employee.full_name)}</td>
+            <td style="width:22%;padding:2px 4px;color:#555;">Periode</td>
+            <td style="width:28%;padding:2px 4px;">: ${fmtDate(payment.period_start)} - ${fmtDate(payment.period_end)}</td>
           </tr>
           <tr>
-            <td style="padding:5px 0;"><strong>Jabatan</strong></td>
-            <td style="padding:5px 0;">: ${esc(employee.jabatan || employee.role)}</td>
-          </tr>
-          <tr>
-            <td style="padding:5px 0;"><strong>Periode</strong></td>
-            <td style="padding:5px 0;">: ${fmtDate(payment.period_start)} - ${fmtDate(payment.period_end)}</td>
-          </tr>
-          <tr>
-            <td style="padding:5px 0;"><strong>Tanggal Bayar</strong></td>
-            <td style="padding:5px 0;">: ${fmtDate(payment.payment_date)}</td>
-          </tr>
-        </table>
-
-        <!-- Pendapatan -->
-        <div style="margin-bottom:20px;">
-          <div style="background:#f0f0f0;padding:8px;font-weight:bold;border-bottom:2px solid #333;">PENDAPATAN</div>
-          <table style="width:100%;font-size:14px;">
-            <tr>
-              <td style="padding:8px 0;">Gaji Pokok (${payment.total_days_worked} hari)</td>
-              <td style="text-align:right;padding:8px 0;">${fmtIdr(payment.total_salary)}</td>
-            </tr>
-            ${totalUangMakan > 0 ? `
-            <tr>
-              <td style="padding:8px 0;">Uang Makan</td>
-              <td style="text-align:right;padding:8px 0;">${fmtIdr(totalUangMakan)}</td>
-            </tr>` : ''}
-            ${totalTransport > 0 ? `
-            <tr>
-              <td style="padding:8px 0;">Transport</td>
-              <td style="text-align:right;padding:8px 0;">${fmtIdr(totalTransport)}</td>
-            </tr>` : ''}
-            ${totalTunjangan > 0 ? `
-            <tr>
-              <td style="padding:8px 0;">Tunjangan Lain</td>
-              <td style="text-align:right;padding:8px 0;">${fmtIdr(totalTunjangan)}</td>
-            </tr>` : ''}
-            ${payment.total_overtime > 0 ? `
-            <tr>
-              <td style="padding:8px 0;">Lembur</td>
-              <td style="text-align:right;padding:8px 0;">${fmtIdr(payment.total_overtime)}</td>
-            </tr>` : ''}
-            ${payment.total_bonus > 0 ? `
-            <tr>
-              <td style="padding:8px 0;">Bonus/Tunjangan</td>
-              <td style="text-align:right;padding:8px 0;">${fmtIdr(payment.total_bonus)}</td>
-            </tr>` : ''}
-            ${totalPayout > 0 ? `
-            <tr>
-              <td style="padding:8px 0;">Pinjaman</td>
-              <td style="text-align:right;padding:8px 0;">${fmtIdr(totalPayout)}</td>
-            </tr>` : ''}
-            <tr style="border-top:1px solid #ddd;">
-              <td style="padding:8px 0;font-weight:bold;">Total Pendapatan</td>
-              <td style="text-align:right;padding:8px 0;font-weight:bold;">${fmtIdr(payment.total_salary + totalUangMakan + totalTransport + totalTunjangan + payment.total_overtime + payment.total_bonus + totalPayout)}</td>
-            </tr>
-          </table>
-        </div>
-
-        <!-- Potongan -->
-        <div style="margin-bottom:20px;">
-          <div style="background:#f0f0f0;padding:8px;font-weight:bold;border-bottom:2px solid #333;">POTONGAN</div>
-          <table style="width:100%;font-size:14px;">
-            ${totalKasbon > 0 ? `
-            <tr>
-              <td style="padding:8px 0;">Kasbon</td>
-              <td style="text-align:right;padding:8px 0;">${fmtIdr(totalKasbon)}</td>
-            </tr>` : ''}
-            ${totalPotongBon > 0 ? `
-            <tr>
-              <td style="padding:8px 0;">Angsuran Bon</td>
-              <td style="text-align:right;padding:8px 0;">${fmtIdr(totalPotongBon)}</td>
-            </tr>` : ''}
-            ${payment.total_deductions === 0 ? `
-            <tr>
-              <td style="padding:8px 0;font-style:italic;color:#999;">Tidak ada potongan</td>
-              <td style="text-align:right;padding:8px 0;">Rp 0</td>
-            </tr>` : ''}
-            <tr style="border-top:1px solid #ddd;">
-              <td style="padding:8px 0;font-weight:bold;">Total Potongan</td>
-              <td style="text-align:right;padding:8px 0;font-weight:bold;">${fmtIdr(payment.total_deductions)}</td>
-            </tr>
-          </table>
-        </div>
-
-        <!-- Total Diterima -->
-        <div style="background:#e8f5e9;border:2px solid #4caf50;padding:15px;margin-bottom:30px;">
-          <table style="width:100%;font-size:16px;">
-            <tr>
-              <td style="font-weight:bold;">TOTAL DITERIMA</td>
-              <td style="text-align:right;font-weight:bold;font-size:20px;color:#4caf50;">${fmtIdr(payment.net_salary)}</td>
-            </tr>
-          </table>
-        </div>
-
-        <!-- Metode Pembayaran -->
-        <div style="margin-bottom:30px;font-size:14px;">
-          <strong>Metode Pembayaran:</strong> ${payment.payment_method === 'cash' ? '💵 Cash' : '🏦 Transfer'}
-          ${payment.payment_method === 'transfer' ? `<br/><strong>Bank:</strong> ${esc(payment.bank_name)} - ${esc(payment.account_number)}` : ''}
-          ${payment.notes ? `<br/><strong>Catatan:</strong> ${esc(payment.notes)}` : ''}
-        </div>
-
-        <!-- Tanda Tangan -->
-        <table style="width:100%;margin-top:50px;font-size:14px;">
-          <tr>
-            <td style="width:50%;text-align:center;">
-              <div style="margin-bottom:80px;">Diterima oleh,</div>
-              <div style="border-top:1px solid #333;display:inline-block;padding-top:5px;min-width:200px;">
-                (${esc(employee.full_name)})
-              </div>
-            </td>
-            <td style="width:50%;text-align:center;">
-              <div style="margin-bottom:80px;">Dibayar oleh,</div>
-              <div style="border-top:1px solid #333;display:inline-block;padding-top:5px;min-width:200px;">
-                (Admin)
-              </div>
-            </td>
+            <td style="padding:2px 4px;color:#555;">Jabatan</td>
+            <td style="padding:2px 4px;">: ${esc(employee.jabatan || employee.role)}</td>
+            <td style="padding:2px 4px;color:#555;">Tanggal Bayar</td>
+            <td style="padding:2px 4px;">: ${fmtDate(payment.payment_date)}</td>
           </tr>
         </table>
 
-        <!-- Footer -->
-        <div style="text-align:center;margin-top:30px;padding-top:20px;border-top:1px solid #ddd;font-size:12px;color:#666;">
-          Dicetak: ${new Date().toLocaleString('id-ID')}
+        <!-- AREA RINCIAN: flex-grow agar mengisi sisa ruang -->
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+
+          <!-- PENDAPATAN -->
+          <div style="flex:1;">
+            <div style="background:#2d3748;color:white;padding:5px 8px;font-weight:bold;font-size:11px;letter-spacing:0.5px;">
+              PENDAPATAN
+            </div>
+            <table style="width:100%;font-size:11px;border-collapse:collapse;">
+              <tr style="background:#f7f7f7;">
+                <td style="padding:5px 8px;border-bottom:1px solid #eee;">Gaji Pokok (${payment.total_days_worked} hari)</td>
+                <td style="text-align:right;padding:5px 8px;border-bottom:1px solid #eee;">${fmtIdr(payment.total_salary)}</td>
+              </tr>
+              ${totalUangMakan > 0 ? `
+              <tr>
+                <td style="padding:5px 8px;border-bottom:1px solid #eee;">Uang Makan</td>
+                <td style="text-align:right;padding:5px 8px;border-bottom:1px solid #eee;">${fmtIdr(totalUangMakan)}</td>
+              </tr>` : ''}
+              ${totalTransport > 0 ? `
+              <tr style="background:#f7f7f7;">
+                <td style="padding:5px 8px;border-bottom:1px solid #eee;">Transport</td>
+                <td style="text-align:right;padding:5px 8px;border-bottom:1px solid #eee;">${fmtIdr(totalTransport)}</td>
+              </tr>` : ''}
+              ${totalTunjangan > 0 ? `
+              <tr>
+                <td style="padding:5px 8px;border-bottom:1px solid #eee;">Tunjangan Lain</td>
+                <td style="text-align:right;padding:5px 8px;border-bottom:1px solid #eee;">${fmtIdr(totalTunjangan)}</td>
+              </tr>` : ''}
+              ${payment.total_overtime > 0 ? `
+              <tr style="background:#f7f7f7;">
+                <td style="padding:5px 8px;border-bottom:1px solid #eee;">Lembur</td>
+                <td style="text-align:right;padding:5px 8px;border-bottom:1px solid #eee;">${fmtIdr(payment.total_overtime)}</td>
+              </tr>` : ''}
+              ${payment.total_bonus > 0 ? `
+              <tr>
+                <td style="padding:5px 8px;border-bottom:1px solid #eee;">Bonus / Tunjangan Lain</td>
+                <td style="text-align:right;padding:5px 8px;border-bottom:1px solid #eee;">${fmtIdr(payment.total_bonus)}</td>
+              </tr>` : ''}
+              ${totalPayout > 0 ? `
+              <tr style="background:#f7f7f7;">
+                <td style="padding:5px 8px;border-bottom:1px solid #eee;">Pinjaman</td>
+                <td style="text-align:right;padding:5px 8px;border-bottom:1px solid #eee;">${fmtIdr(totalPayout)}</td>
+              </tr>` : ''}
+              <!-- Baris kosong cadangan untuk rincian tambahan -->
+              <tr><td style="padding:4px 8px;border-bottom:1px solid #eee;color:#ccc;font-style:italic;"></td><td style="border-bottom:1px solid #eee;"></td></tr>
+              <tr><td style="padding:4px 8px;border-bottom:1px solid #eee;color:#ccc;font-style:italic;"></td><td style="border-bottom:1px solid #eee;"></td></tr>
+              <tr style="background:#e8f5e9;">
+                <td style="padding:6px 8px;font-weight:bold;">Total Pendapatan</td>
+                <td style="text-align:right;padding:6px 8px;font-weight:bold;">${fmtIdr(payment.total_salary + totalUangMakan + totalTransport + totalTunjangan + payment.total_overtime + payment.total_bonus + totalPayout)}</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- POTONGAN -->
+          <div>
+            <div style="background:#2d3748;color:white;padding:5px 8px;font-weight:bold;font-size:11px;letter-spacing:0.5px;">
+              POTONGAN
+            </div>
+            <table style="width:100%;font-size:11px;border-collapse:collapse;">
+              ${totalKasbon > 0 ? `
+              <tr style="background:#f7f7f7;">
+                <td style="padding:5px 8px;border-bottom:1px solid #eee;">Kasbon</td>
+                <td style="text-align:right;padding:5px 8px;border-bottom:1px solid #eee;">${fmtIdr(totalKasbon)}</td>
+              </tr>` : ''}
+              ${totalPotongBon > 0 ? `
+              <tr>
+                <td style="padding:5px 8px;border-bottom:1px solid #eee;">Angsuran Bon</td>
+                <td style="text-align:right;padding:5px 8px;border-bottom:1px solid #eee;">${fmtIdr(totalPotongBon)}</td>
+              </tr>` : ''}
+              ${payment.total_deductions === 0 ? `
+              <tr>
+                <td style="padding:5px 8px;border-bottom:1px solid #eee;color:#999;font-style:italic;">Tidak ada potongan</td>
+                <td style="text-align:right;padding:5px 8px;border-bottom:1px solid #eee;">Rp 0</td>
+              </tr>` : ''}
+              <tr style="background:#fce4e4;">
+                <td style="padding:6px 8px;font-weight:bold;">Total Potongan</td>
+                <td style="text-align:right;padding:6px 8px;font-weight:bold;">${fmtIdr(payment.total_deductions)}</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- TOTAL DITERIMA -->
+          <div style="background:#1b5e20;color:white;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;border-radius:3px;">
+            <span style="font-size:13px;font-weight:bold;letter-spacing:0.5px;">TOTAL DITERIMA</span>
+            <span style="font-size:18px;font-weight:bold;">${fmtIdr(payment.net_salary)}</span>
+          </div>
+
+          <!-- METODE PEMBAYARAN -->
+          <div style="font-size:10px;color:#555;padding:4px 0;">
+            <strong>Metode:</strong> ${payment.payment_method === 'cash' ? '💵 Cash' : '🏦 Transfer'}
+            ${payment.payment_method === 'transfer' ? ` &nbsp;|&nbsp; <strong>Bank:</strong> ${esc(payment.bank_name)} - ${esc(payment.account_number)}` : ''}
+            ${payment.notes ? ` &nbsp;|&nbsp; <strong>Catatan:</strong> ${esc(payment.notes)}` : ''}
+          </div>
+
         </div>
+
+        <!-- FOOTER: tanda tangan compact -->
+        <div style="border-top:1px solid #ddd;padding-top:8px;margin-top:6px;">
+          <table style="width:100%;font-size:11px;">
+            <tr>
+              <td style="width:50%;text-align:center;padding:0 10px;">
+                <div style="margin-bottom:40px;">Diterima oleh,</div>
+                <div style="border-top:1px solid #333;padding-top:4px;">(${esc(employee.full_name)})</div>
+              </td>
+              <td style="width:50%;text-align:center;padding:0 10px;">
+                <div style="margin-bottom:40px;">Dibayar oleh,</div>
+                <div style="border-top:1px solid #333;padding-top:4px;">(Admin)</div>
+              </td>
+            </tr>
+          </table>
+          <div style="text-align:center;margin-top:6px;font-size:9px;color:#999;">
+            Dicetak: ${new Date().toLocaleString('id-ID')} &nbsp;|&nbsp; Absensi Barotech
+          </div>
+        </div>
+
       </div>
     `;
 
@@ -893,8 +911,25 @@ export async function printSalarySlip(paymentId) {
     style.id = 'print-slip-style';
     style.innerHTML = `
       @media print {
+        @page {
+          size: A4 portrait;
+          margin: 0;
+        }
         body > *:not(#salary-slip-print) { display: none !important; }
-        #salary-slip-print { display: block !important; position: static !important; }
+        #salary-slip-print {
+          display: block !important;
+          position: static !important;
+        }
+        #salary-slip-print > div {
+          width: 210mm !important;
+          min-height: 297mm !important;
+          max-height: 297mm !important;
+          margin: 0 !important;
+          padding: 10mm 14mm !important;
+          page-break-after: avoid !important;
+          page-break-inside: avoid !important;
+          overflow: hidden !important;
+        }
       }
     `;
     document.head.appendChild(style);
