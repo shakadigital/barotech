@@ -115,7 +115,7 @@ export function UsersPage(state) {
                     <i class="fas fa-pen"></i>
                   </button>
                   ${isDeleter
-                    ? `<button class="btn btn-danger btn-sm" onclick="window.__app.deleteUser('${e.id}')"><i class="fas fa-trash"></i></button>`
+                    ? `<button class="btn btn-danger btn-sm" onclick="window.__app.deleteUser('${e.id}')" title="Nonaktifkan user"><i class="fas fa-user-slash"></i></button>`
                     : ''}
                 </div>
               </td>
@@ -176,11 +176,16 @@ export async function handleUserSubmit(e, refreshFn) {
 }
 
 export async function deleteUser(id, refreshFn) {
-  if (!confirm('Yakin hapus user ini?')) return;
+  if (!confirm('Yakin nonaktifkan user ini? Data historis (absensi, bon, lembur, dll) akan tetap tersimpan.')) return;
   try {
-    const { error } = await supabase.from('profiles').delete().eq('id', id);
+    // Soft delete: tandai is_active = false agar data historis tidak rusak
+    // (hard delete tidak bisa karena ada FK dari attendance_logs, bon_transactions, dll)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_active: false })
+      .eq('id', id);
     if (error) throw error;
-    showToast('User dihapus', 'success');
+    showToast('User dinonaktifkan', 'success');
     await refreshFn();
   } catch (err) { showToast('Gagal: ' + err.message, 'error'); }
 }

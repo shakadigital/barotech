@@ -121,7 +121,7 @@ async function fetchData() {
       : supabase.from('attendance_logs').select('*').order('created_at', { ascending: false });
 
     const [empRes, prjRes, attRes, asgnRes, actRes] = await Promise.all([
-      supabase.from('profiles').select('*').order('full_name'),
+      supabase.from('profiles').select('*').eq('is_active', true).order('full_name'),
       supabase.from('projects').select('*').order('created_at', { ascending: false }),
       attQuery,
       supabase.from('project_assignments').select('id,employee_id,project_id,status').eq('status','active'),
