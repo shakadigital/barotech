@@ -153,7 +153,8 @@ export function RiwayatPage(state) {
             <p>Belum ada data absensi</p>
           </div>
         ` : `
-          <div class="table-wrapper">
+          <!-- Desktop: tabel biasa -->
+          <div class="table-wrapper riwayat-desktop">
             <table class="data-table" id="riwayat-table">
               <thead>
                 <tr>
@@ -172,24 +173,14 @@ export function RiwayatPage(state) {
                   const prj = projects.find(p => p.id === l.project_id);
                   const isVerified = l.status === 'verified';
                   const totalTerima = calcTotal(l);
-
-                  // Status badge
                   let statusBadge = '';
-                  if (isVerified) {
-                    statusBadge = '<span class="badge badge-online">HADIR</span>';
-                  } else if (l.status === 'absent') {
-                    statusBadge = '<span class="badge badge-offline">TIDAK HADIR</span>';
-                  } else {
-                    statusBadge = '<span class="badge" style="background:rgba(245,158,11,0.2);color:var(--warning);">PENDING</span>';
-                  }
-
-                  // Project change indicator
+                  if (isVerified) statusBadge = '<span class="badge badge-online">HADIR</span>';
+                  else if (l.status === 'absent') statusBadge = '<span class="badge badge-offline">TIDAK HADIR</span>';
+                  else statusBadge = '<span class="badge" style="background:rgba(245,158,11,0.2);color:var(--warning);">PENDING</span>';
                   const projectChangeBadge = l.projectChanged ? `
                     <div class="text-xs text-warning" style="margin-top:2px;">
                       <i class="fas fa-exchange-alt"></i> Pindah: ${esc(l.prevPrjName)} → ${esc(l.currPrjName)}
                     </div>` : '';
-
-                  // Breakdown keuangan untuk detail row
                   const hasBreakdown = (l.uang_makan||0) > 0 || (l.transport||0) > 0 || (l.tunjangan_lain||0) > 0;
                   const acts = dailyActivities.filter(a => a.attendance_id === l.id);
                   const detailHtml = `
@@ -230,7 +221,6 @@ export function RiwayatPage(state) {
                         `).join('')}
                       </div>` : ''}
                     </div>`;
-
                   return `
                   <tr class="riwayat-row" data-index="${idx}" style="cursor:pointer;">
                     <td class="text-xs text-secondary">${idx + 1}</td>
@@ -254,8 +244,122 @@ export function RiwayatPage(state) {
               </tbody>
             </table>
           </div>
+
+          <!-- Mobile: card list -->
+          <div class="riwayat-mobile">
+            ${logsWithProjectChange.map((l, idx) => {
+              const prj = projects.find(p => p.id === l.project_id);
+              const isVerified = l.status === 'verified';
+              const isAbsent   = l.status === 'absent';
+              const totalTerima = calcTotal(l);
+              const hasBreakdown = (l.uang_makan||0) > 0 || (l.transport||0) > 0 || (l.tunjangan_lain||0) > 0;
+              const acts = dailyActivities.filter(a => a.attendance_id === l.id);
+
+              let statusColor = 'var(--warning)';
+              let statusLabel = 'Pending';
+              let statusBg    = 'rgba(245,158,11,0.15)';
+              if (isVerified) { statusColor = 'var(--success,#22c55e)'; statusLabel = 'Hadir'; statusBg = 'rgba(34,197,94,0.12)'; }
+              if (isAbsent)   { statusColor = 'var(--danger,#ef4444)';  statusLabel = 'Tidak Hadir'; statusBg = 'rgba(239,68,68,0.12)'; }
+
+              return `
+              <div style="border-bottom:1px solid var(--border);padding:12px 16px;" id="riwayat-mobile-${idx}">
+                <!-- Baris utama: klik untuk expand -->
+                <div style="display:flex;align-items:center;gap:10px;cursor:pointer;"
+                  onclick="window.__app.toggleRiwayatMobile(${idx})">
+                  <!-- Nomor + status dot -->
+                  <div style="width:32px;height:32px;border-radius:50%;background:${statusBg};
+                    display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <span style="font-size:0.7rem;font-weight:700;color:${statusColor};">${idx + 1}</span>
+                  </div>
+                  <!-- Info tengah -->
+                  <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+                      <span class="fw-bold text-sm">${fmtDate(l.created_at)}</span>
+                      <span style="font-size:0.65rem;padding:1px 6px;border-radius:10px;
+                        background:${statusBg};color:${statusColor};font-weight:600;">
+                        ${statusLabel}
+                      </span>
+                    </div>
+                    <div class="text-xs text-secondary" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                      ${esc(prj?.name || 'Tidak ada proyek')}
+                      ${fmtTime(l.check_in) !== '-' ? ` · ${fmtTime(l.check_in)}–${fmtTime(l.check_out)}` : ''}
+                    </div>
+                  </div>
+                  <!-- Pendapatan — selalu terlihat -->
+                  <div style="text-align:right;flex-shrink:0;">
+                    <div class="fw-bold ${isVerified ? 'text-success' : 'text-secondary'}" style="font-size:0.95rem;">
+                      ${isVerified ? fmtIdr(totalTerima) : '—'}
+                    </div>
+                    <div class="text-xs text-secondary">
+                      <i class="fas fa-chevron-right" id="riwayat-mobile-chevron-${idx}"
+                        style="transition:transform 0.2s;font-size:0.65rem;"></i>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Detail (collapsed by default) -->
+                <div id="riwayat-mobile-detail-${idx}" style="display:none;margin-top:10px;
+                  padding:10px;background:var(--bg-hover);border-radius:var(--radius);font-size:0.8rem;">
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;">
+                    <div><span class="text-secondary">Jabatan:</span> ${esc(l.jabatan_snapshot || '-')}</div>
+                    <div><span class="text-secondary">Masuk:</span> ${fmtTime(l.check_in)}</div>
+                    <div><span class="text-secondary">Keluar:</span> ${fmtTime(l.check_out)}</div>
+                    ${(l.overtime_hours||0) > 0 ? `<div><span class="text-secondary">Lembur:</span> ${l.overtime_hours} jam</div>` : ''}
+                  </div>
+                  ${isVerified ? `
+                  <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+                    <div class="text-xs fw-bold text-secondary mb-6">Rincian Pendapatan</div>
+                    <div style="display:flex;flex-direction:column;gap:4px;">
+                      <div style="display:flex;justify-content:space-between;">
+                        <span class="text-secondary">Gaji Pokok</span>
+                        <span class="fw-bold">${fmtIdr(l.basic_salary||0)}</span>
+                      </div>
+                      ${(l.uang_makan||0) > 0 ? `<div style="display:flex;justify-content:space-between;">
+                        <span class="text-secondary">Uang Makan</span><span>${fmtIdr(l.uang_makan)}</span></div>` : ''}
+                      ${(l.transport||0) > 0 ? `<div style="display:flex;justify-content:space-between;">
+                        <span class="text-secondary">Transport</span><span>${fmtIdr(l.transport)}</span></div>` : ''}
+                      ${(l.tunjangan_lain||0) > 0 ? `<div style="display:flex;justify-content:space-between;">
+                        <span class="text-secondary">Tunjangan</span><span>${fmtIdr(l.tunjangan_lain)}</span></div>` : ''}
+                      ${(l.overtime_pay||0) > 0 ? `<div style="display:flex;justify-content:space-between;">
+                        <span class="text-secondary">Lembur</span>
+                        <span class="text-success">${fmtIdr(l.overtime_pay)}</span></div>` : ''}
+                      ${(l.misc_amount||0) > 0 ? `<div style="display:flex;justify-content:space-between;">
+                        <span class="text-secondary">Lain-lain</span><span>${fmtIdr(l.misc_amount)}</span></div>` : ''}
+                      ${(l.cash_advance||0) > 0 ? `<div style="display:flex;justify-content:space-between;">
+                        <span class="text-secondary">Kasbon</span>
+                        <span class="text-danger">-${fmtIdr(l.cash_advance)}</span></div>` : ''}
+                      <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);
+                        padding-top:6px;margin-top:2px;">
+                        <span class="fw-bold">Total Diterima</span>
+                        <span class="fw-bold text-success">${fmtIdr(totalTerima)}</span>
+                      </div>
+                    </div>
+                  </div>` : ''}
+                  ${acts.length > 0 ? `
+                  <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+                    <div class="text-xs fw-bold text-secondary mb-6"><i class="fas fa-tasks"></i> Kegiatan</div>
+                    ${acts.map(a => `<div style="padding:3px 0;font-size:0.78rem;">✓ ${esc(a.description)}</div>`).join('')}
+                  </div>` : ''}
+                  ${l.work_items ? `
+                  <div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);">
+                    <span class="text-secondary text-xs">Item Kerja:</span>
+                    <span class="text-xs">${esc(l.work_items)}</span>
+                  </div>` : ''}
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
         `}
       </div>
+
+      <style>
+        .riwayat-desktop { display: block; }
+        .riwayat-mobile  { display: none; }
+        @media (max-width: 640px) {
+          .riwayat-desktop { display: none; }
+          .riwayat-mobile  { display: block; }
+        }
+      </style>
     </div>`;
 }
 
@@ -272,5 +376,14 @@ if (typeof window !== 'undefined') {
       chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
       chevron.style.transition = 'transform 0.2s';
     }
+  };
+
+  window.__app.toggleRiwayatMobile = function (idx) {
+    const detail  = document.getElementById(`riwayat-mobile-detail-${idx}`);
+    const chevron = document.getElementById(`riwayat-mobile-chevron-${idx}`);
+    if (!detail) return;
+    const isOpen = detail.style.display !== 'none';
+    detail.style.display = isOpen ? 'none' : 'block';
+    if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
   };
 }
